@@ -1,0 +1,5 @@
+.spyproject
+__pycache__
+docs/build
+paper/summary.tex
+paper/draw_neural_net.py
