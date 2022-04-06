@@ -176,7 +176,7 @@ class Ellipsoid():
         Whether sampling starts from the unit hypercube or the ellipsoid.
     """
 
-    def __init__(self, points, enlarge=1.1):
+    def __init__(self, points, enlarge=2.0):
         """Initialize an :math:`n`-dimensional overlap of an ellipsoid and the
         unit hypercube.
 
@@ -186,7 +186,7 @@ class Ellipsoid():
             A 2-D array where each row represents a point.
         enlarge : float, optional
             The volume of the minimum enclosing ellipsoid around the points
-            is increased by this factor. Default is 1.1
+            is increased by this factor. Default is 2.0
         """
 
         self.n_dim = points.shape[1]
@@ -323,7 +323,7 @@ class NeuralBound():
         Emulator used to fit and predict likelihoods.
     """
 
-    def __init__(self, points, log_l, log_l_min, enlarge=1.5):
+    def __init__(self, points, log_l, log_l_min, enlarge=2.0):
         """Initialize a neural network-based bound in :math:`n` dimensions.
 
         Attributes
@@ -337,7 +337,7 @@ class NeuralBound():
         enlarge : float, optional
             The volume of the minimum enclosing ellipsoid around the points
             with likelihood larger than the target likelihood is increased by
-            this factor. Default is 1.5.
+            this factor. Default is 2.0.
         """
 
         self.n_dim = points.shape[1]
@@ -351,11 +351,13 @@ class NeuralBound():
 
         points = self.ellipsoid.transform(points)
         perc = np.argsort(np.argsort(log_l)) / float(len(log_l))
-        self.emulator = NeuralNetworkEmulator(points, perc)
+        perc_min = percentileofscore(log_l, log_l_min) / 100
+        score = np.where(perc < perc_min, perc / perc_min / 2,
+                         0.5 + (perc - perc_min) / (1 - perc_min) / 2)
+        self.emulator = NeuralNetworkEmulator(points, score)
 
-        perc_predict_min = percentileofscore(log_l, log_l_min) / 100
-        self.perc_predict_min = np.polyval(np.polyfit(
-            perc, self.emulator.predict(points), 3), perc_predict_min)
+        self.score_predict_min = np.polyval(np.polyfit(
+            score, self.emulator.predict(points), 3), 0.5)
 
     def contains(self, points):
         """Check whether points are contained in the bound.
@@ -381,7 +383,7 @@ class NeuralBound():
             points_transformed = points_transformed[in_ell]
             if np.any(in_ell):
                 in_emu = (self.emulator.predict(points_transformed) >
-                          self.perc_predict_min)
+                          self.score_predict_min)
 
             in_bound = in_cube
             in_bound[in_bound] = in_ell
@@ -418,7 +420,7 @@ class NeuralBound():
             if len(points) == 0:
                 return points
             mask = (self.emulator.predict(self.ellipsoid.transform(points)) <
-                    self.perc_predict_min)
+                    self.score_predict_min)
             return points[~mask]
         else:
             raise Exception('Cannot sample from zero-volume ellipsoid.')
@@ -458,26 +460,24 @@ def fast_enclosing_ellipsoid(points):
     c = np.mean(points, axis=0)
     A = invert_symmetric_positive_semidefinite_matrix(
         np.cov(points, rowvar=False))
-    A /= np.sqrt(np.amax(np.einsum(
-        '...j, ...j', np.einsum('ij,kj', c - points, A), c - points)))
+    A /= np.amax(np.einsum(
+        '...j, ...j', np.einsum('ij,kj', c - points, A), c - points))
 
     return c, A
 
 
-def split_clusters(points, d_min=10, random_state=np.random):
-    """Split points into multiple, non-overlapping clusters, if possible.
-    Non-overlapping means that the enclosing ellipsoids of the groups do not
-    overlap with each other.
+def split_clusters(points, enlarge=2.0, random_state=np.random):
+    """Split points into multiple, aproximately non-overlapping clusters, if
+    possible. Non-overlapping means that the enclosing ellipsoids of the groups
+    do not overlap with each other.
 
     Attributes
     ----------
     points : numpy.ndarray
         A 2-D array containing a collection of points. Each row represents a
         point.
-    d_min : float, optional
-        The minimum separation between the centers of two enclosing
-        ellipsoids in units of the sum of the radii of the two encluding
-        ellpsoids. Default is 10.
+    enlarge : float, optional
+        The enlargement factor of the ellipsoids. Default is 2.0.
     random_state : numpy.random or numpy.random.RandomState instance
         Determines random number generation.
 
@@ -507,16 +507,22 @@ def split_clusters(points, d_min=10, random_state=np.random):
 
         c = []
         A = []
+        A_inv = []
         for la in range(n_cluster_test):
             c_l, A_l = fast_enclosing_ellipsoid(points[labels_test == la])
             c.append(c_l)
             A.append(A_l)
+            A_inv.append(np.linalg.inv(A_l))
 
         for l_1, l_2 in itertools.combinations(range(n_cluster_test), 2):
-            d = c[l_1] - c[l_2]
-            x_1 = np.sqrt(np.dot(np.dot(d, A[l_1]), d))
-            x_2 = np.sqrt(np.dot(np.dot(d, A[l_2]), d))
-            replace &= 1.0 / x_1 + 1.0 / x_2 <= 1.0 / d_min
+            d = (c[l_1] - c[l_2]) * enlarge**(1.0 / points.shape[1])
+            s = np.linspace(0.01, 0.99, 100)
+            k = np.zeros_like(s)
+            for i, s_i in enumerate(s):
+                k[i] = 1 - np.dot(np.dot(
+                    d, np.linalg.inv(
+                        A_inv[l_1] / (1 - s_i) + A_inv[l_2] / s_i)), d)
+            replace &= np.any(k < 0)
 
         n_cluster_test += 1
 
@@ -541,7 +547,7 @@ class MultiNeuralBound():
         List of the individual neural network-based bounds.
     """
 
-    def __init__(self, points, log_l, log_l_min, enlarge=1.5, d_min=10):
+    def __init__(self, points, log_l, log_l_min, enlarge=2.0):
         """Initialize a union of multiple neural network-based bound in
         :math:`n` dimensions.
 
@@ -556,14 +562,10 @@ class MultiNeuralBound():
         enlarge : float, optional
             The volume of the minimum enclosing ellipsoid around the points
             with likelihood larger than the target likelihood is increased by
-            this factor. Default is 1.5.
-        d_min : float, optional
-            The minimum separation between the centers of two enclosing
-            ellipsoids in units of the sum of the radii of the two encluding
-            ellpsoids. Default is 10.
+            this factor. Default is 2.0.
         """
 
-        labels = split_clusters(points[log_l > log_l_min], d_min=d_min)
+        labels = split_clusters(points[log_l > log_l_min], enlarge=enlarge)
         self.log_v = []
         self.bounds = []
 
@@ -636,8 +638,8 @@ class MultiNeuralBound():
         return points
 
     def volume(self):
-        """Raw volume estimate. This does not account for the internal
-        regression or overlaps between different sub-bounds.
+        """Raw volume estimate. This does not account for additional cuts due
+        to emulation or overlaps between different sub-bounds.
 
         Returns
         -------

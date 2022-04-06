@@ -86,7 +86,7 @@ class Prior():
         i = 0
         for dist in self.dists:
             if type(dist) is rv_frozen:
-                phys_points[..., i] = dist.isf(points[..., i])
+                phys_points[..., i] = dist.ppf(points[..., i])
                 i = i + 1
 
         return phys_points

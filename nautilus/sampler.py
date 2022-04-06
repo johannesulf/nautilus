@@ -45,7 +45,7 @@ class Sampler():
     """
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=3000,
-                 n_update=None, n_like_update=None, enlarge=1.5, n_batch=100,
+                 n_update=None, n_like_update=None, enlarge=None, n_batch=100,
                  vectorized=False, pass_struct=None, likelihood_args=[],
                  likelihood_kwargs={}, prior_args=[], prior_kwargs={},
                  threads=1, pool=None, random_state=None):
@@ -74,7 +74,8 @@ class Sampler():
             created. Default is 10 times `n_live`.
         enlarge : float, optional
             Factor by which the volume of ellipsoidal bounds is increased.
-            Default is 1.5.
+            Default is 1.25 to the power of `n_dim`, i.e. the ellipsoidal
+            bounds are increased by 25% in every dimension.
         n_batch : int, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
@@ -141,15 +142,22 @@ class Sampler():
 
         self.config = {}
         self.config['n_live'] = n_live
+
         if n_update is None:
             self.config['n_update'] = n_live
         else:
             self.config['n_update'] = n_update
+
         if n_like_update is None:
             self.config['n_like_update'] = 10 * n_live
         else:
             self.config['n_like_update'] = n_like_update
-        self.config['enlarge'] = enlarge
+
+        if enlarge is None:
+            self.config['enlarge'] = 1.25**self.n_dim
+        else:
+            self.config['enlarge'] = enlarge
+
         self.config['n_batch'] = n_batch
         self.config['vectorized'] = vectorized
         self.config['pass_struct'] = pass_struct
@@ -178,7 +186,7 @@ class Sampler():
             ('log_l_min_iteration', 'f8'), ('log_z_t', 'f8')])
         self.tessellated = False
 
-    def run(self, f_live=0.05, n_shell=None, n_eff=10000,
+    def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_tesselation=False, fast_sampling=True,
             verbose=False):
         """
@@ -359,16 +367,17 @@ class Sampler():
 
         points = np.zeros((0, self.n_dim), dtype=np.float64)
         n_try = 0
+        batch_size = 10000
 
         while len(points) < n_samples:
             points_new = self.bounds[index].sample(
-                batch_size=1000, random_state=self.random_state)
+                batch_size=batch_size, random_state=self.random_state)
             for bound in self.bounds[index:][1:]:
                 if len(points_new) > 0:
                     points_new = points_new[~bound.contains(points_new)]
 
             if len(points) + len(points_new) <= n_samples:
-                n_try += 1000
+                n_try += batch_size
                 points = np.vstack((points, points_new))
             else:
                 # If receiving too many points, downsample.
@@ -376,7 +385,7 @@ class Sampler():
                 # Simulate how many tries we needed at the current iteration
                 # to get to n_samples.
                 i_hit = np.sort(self.random_state.choice(
-                    1000, n_hit, replace=False))
+                    batch_size, n_hit, replace=False))
                 n_try += i_hit[n_samples - len(points) - 1] + 1
                 # Add only so many points that we get n_samples.
                 points = np.vstack(
@@ -502,12 +511,9 @@ class Sampler():
         log_l_all = np.concatenate(self.log_l)
         points_all = np.vstack(self.points)[np.argsort(log_l_all)]
         log_l_all = np.sort(log_l_all)
-        if self.evidence_live_fraction() < 1 - 1e-5:
-            i_like = self.config['n_live']
-        else:
-            i_like = self.config['n_live'] // 5
         self.shell_info['log_l_min_iteration'][-1] = 0.5 * (
-            log_l_all[-i_like] + log_l_all[-i_like - 1])
+            log_l_all[-self.config['n_live']] +
+            log_l_all[-self.config['n_live'] - 1])
 
         self.bounds.append(MultiNeuralBound(
             points_all, log_l_all, self.shell_info['log_l_min_iteration'][-1],
@@ -759,3 +765,34 @@ class Sampler():
             i_shell[~mask] = i
 
         return i_shell
+
+    def shell_bound_occupation(self, fractional=True):
+        """
+        Determine how many points of each shell are also part of each bound.
+
+        Parameters
+        ----------
+        fractional : bool, optional
+            Whether to return the absolute or fractional dependence. Default
+            is true.
+
+        Returns
+        -------
+        numpy.ndarray
+            Two-dimensional array with occupation numbers. The element at index
+            :math:`(i, j)` corresponds to the occupation of points in shell
+            shell :math:`i` that also belong to bound :math:`j`. If
+            `fractional` is true, this is the fraction of all points in shell
+            :math:`i` and otherwise it is the absolute number.
+        """
+
+        m = np.zeros((len(self.bounds), len(self.bounds)), dtype=np.int)
+
+        for i, points in enumerate(self.points):
+            for k, bound in enumerate(self.bounds):
+                m[i, k] = np.sum(bound.contains(points))
+
+        if fractional:
+            m = m / np.diag(m)[:, np.newaxis]
+
+        return m

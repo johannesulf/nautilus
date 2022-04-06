@@ -5,7 +5,7 @@ with open('README.md', 'r') as fstream:
 
 setup(
     name='nautilus-sampler',
-    version='0.0.1',
+    version='0.0.2',
     description=('Neural Network Boosted Importance Sampling for Bayesian ' +
                  'Evidence and Posterior Estimation'),
     long_description=long_description,
