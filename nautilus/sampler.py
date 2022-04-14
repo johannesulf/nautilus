@@ -75,7 +75,7 @@ class Sampler():
         enlarge : float, optional
             Factor by which the volume of ellipsoidal bounds is increased.
             Default is 1.25 to the power of `n_dim`, i.e. the ellipsoidal
-            bounds are increased by 25% in every dimension.
+            bounds are increased by 10% in every dimension.
         n_batch : int, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
@@ -154,7 +154,7 @@ class Sampler():
             self.config['n_like_update'] = n_like_update
 
         if enlarge is None:
-            self.config['enlarge'] = 1.25**self.n_dim
+            self.config['enlarge'] = 1.1**self.n_dim
         else:
             self.config['enlarge'] = enlarge
 

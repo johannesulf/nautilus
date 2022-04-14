@@ -202,7 +202,7 @@ class Ellipsoid():
         else:
             try:
                 self.c, self.A = minimum_volume_enclosing_ellipsoid(points)
-                self.A /= enlarge**(1.0 / self.n_dim)
+                self.A /= enlarge**(2.0 / self.n_dim)
                 self.B = np.linalg.cholesky(np.linalg.inv(self.A))
                 self.B_inv = np.linalg.inv(self.B)
                 self.log_v = (np.linalg.slogdet(self.B)[1] +
@@ -515,7 +515,7 @@ def split_clusters(points, enlarge=2.0, random_state=np.random):
             A_inv.append(np.linalg.inv(A_l))
 
         for l_1, l_2 in itertools.combinations(range(n_cluster_test), 2):
-            d = (c[l_1] - c[l_2]) * enlarge**(1.0 / points.shape[1])
+            d = (c[l_1] - c[l_2]) / enlarge**(1.0 / points.shape[1])
             s = np.linspace(0.01, 0.99, 100)
             k = np.zeros_like(s)
             for i, s_i in enumerate(s):
