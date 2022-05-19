@@ -1,3 +1,5 @@
+"""Module implementing the prior bounds and convencience functions."""
+
 import numpy as np
 from scipy.stats import uniform
 from scipy.stats.distributions import rv_frozen
@@ -12,19 +14,18 @@ class Prior():
         List of model parameters.
     dists : list
         List of distributions each model parameter follows.
+
     """
 
     def __init__(self):
-        """Initialize a prior without any parameters.
-        """
-
+        """Initialize a prior without any parameters."""
         self.keys = []
         self.dists = []
 
     def add_parameter(self, key=None, dist=(0, 1)):
         """Add a model parameter to the prior.
 
-        Attributes
+        Parameters
         ----------
         key : str
             Name of the model parameter.
@@ -35,12 +36,17 @@ class Prior():
             distribution. If a string, the parameter will always be equal
             to the named model parameter. Finally, if rv_frozen, it will
             follow the specified scipy distribution.
-        """
 
+        Raises
+        ------
+        ValueError
+            If key already exists in the prior key list.
+
+        """
         if key is None:
             self.keys.append('x_{}'.format(len(self.keys)))
         elif str(key) in self.keys:
-            raise Exception("Key '{}' already in key list.".format(key))
+            raise ValueError("Key '{}' already in key list.".format(key))
         else:
             self.keys.append(str(key))
 
@@ -54,7 +60,7 @@ class Prior():
 
         Returns
         -------
-        int
+        n_dim : int
             The number of free model parameters.
         """
         return sum(type(dist) is rv_frozen for dist in self.dists)
@@ -62,7 +68,7 @@ class Prior():
     def unit_to_physical(self, points):
         """Transfer points from the unit hypercube to the prior volume.
 
-        Attributes
+        Parameters
         ----------
         points : numpy.ndarray
             A 1-D or 2-D array containing single point or a collection of
@@ -71,31 +77,34 @@ class Prior():
 
         Returns
         -------
-        numpy.ndarray
+        phys_points : numpy.ndarray
             Points transferred into the prior volume. Has the same shape as
             `points`.
-        """
 
+        Raises
+        ------
+        ValueError
+            If dimensionality of `points` does not match the prior.
+        """
         phys_points = np.zeros_like(points)
 
         try:
             assert self.dimensionality() == points.shape[-1]
         except AssertionError:
-            raise Exception('Dimensionality of points does not match prior.')
+            raise ValueError('Dimensionality of points does not match prior.')
 
         i = 0
         for dist in self.dists:
             if type(dist) is rv_frozen:
-                phys_points[..., i] = dist.ppf(points[..., i])
+                phys_points[..., i] = dist.isf(1 - points[..., i])
                 i = i + 1
 
         return phys_points
 
     def physical_to_structure(self, phys_points):
-        """Express points in the prior volume as a structured data type, i.e.
-        either a dict or a structured array.
+        """Express points in the prior volume as a structured data type.
 
-        Attributes
+        Parameters
         ----------
         phys_points : numpy.ndarray
             Points in the prior volume. If more than one-dimensional, each
@@ -103,13 +112,13 @@ class Prior():
 
         Returns
         -------
-        dict or numpy.ndarray
+        struct_point : dict or numpy.ndarray
             Points as a structured data type. If `phys_points` has one
             dimension, this will be a dictionary. Otherwise, it will be a
             structured numpy array. Each model parameter, including fixed ones,
             can be accessed via their key.
-        """
 
+        """
         if phys_points.ndim == 1:
             struct_points = {}
         else:

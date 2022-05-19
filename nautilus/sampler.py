@@ -1,10 +1,12 @@
+"""Module implementing the Nautilus sampler."""
+
 import numpy as np
 from tqdm import tqdm
 from functools import partial
 from multiprocessing import Pool
 from scipy.special import logsumexp
 
-from .bounds import UnitCube, MultiNeuralBound
+from .bounds import UnitCube, NautilusBound
 
 
 class Sampler():
@@ -67,15 +69,15 @@ class Sampler():
             Number of so-called live points. New bounds are constructed so that
             they encompass the live points. Default is 3000.
         n_update : int, optional
-            The number of additions to the live set before a new bound is
-            created. Default is `n_live`.
+            The maximum number of additions to the live set before a new bound
+            is created. Default is `n_live`.
         n_like_update : int, optional
             The maximum number of likelihood calls before a new bounds is
             created. Default is 10 times `n_live`.
         enlarge : float, optional
             Factor by which the volume of ellipsoidal bounds is increased.
-            Default is 1.25 to the power of `n_dim`, i.e. the ellipsoidal
-            bounds are increased by 10% in every dimension.
+            Default is 1.1 to the power of `n_dim`, i.e. the ellipsoidal bounds
+            are increased by 10% in every dimension.
         n_batch : int, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
@@ -90,12 +92,12 @@ class Sampler():
             and return an array with shape (n_points). Similarly, if the
             likelihood function accepts dictionaries, it should be able to
             process dictionaries where each value is an array with shape
-            (n_points). Default is false.
+            (n_points). Default is False.
         pass_struct : bool, optional
             If true, the likelihood function expects model parameters as
             dictionaries (if not vectorized) or structured numpy arrays. If
             false, it expects regular numpy arrays. Default is to set it to
-            true if prior was a nautilus.Prior instance and false otherwise.
+            True if prior was a nautilus.Prior instance and False otherwise.
         likelihood_args : list, optional
             List of extra positional arguments for `likelihood`.
         likelihood_kwargs : dict, optional
@@ -108,16 +110,21 @@ class Sampler():
             `prior` is a function.
         threads : int, optional
             A positive integer determining the number of processes used. Will
-            be ignored if `pool` is provided.
+            be ignored if `pool` is provided. Default is 1.
         pool : object, optional
             Object with a `map` function used for parallelization, e.g.
-            a multiprocessing.Pool object.
+            a multiprocessing.Pool object. Default is None.
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
 
-        """
+        Raises
+        ------
+        ValueError
+            If `prior` is a function and `n_dim` is not given or `pass_struct`
+            is set to True.
 
+        """
         if callable(prior):
             self.prior = partial(prior, *prior_args, **prior_kwargs)
         else:
@@ -182,15 +189,13 @@ class Sampler():
         self.log_l = []
         self.shell_info = np.array([], dtype=[
             ('log_v', 'f8'), ('log_l', 'f8'), ('log_z', 'f8'), ('n_eff', 'f8'),
-            ('n_points', 'i8'), ('n_hit', 'i8'), ('n_try', 'i8'),
-            ('log_l_min_iteration', 'f8'), ('log_z_t', 'f8')])
+            ('n_shell', 'i8'), ('n_bound', 'i8'),
+            ('log_l_min_iteration', 'f8')])
         self.tessellated = False
 
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
-            discard_tesselation=False, fast_sampling=True,
-            verbose=False):
-        """
-        Run the sampler until convergence.
+            discard_tesselation=False, verbose=False):
+        """Run the sampler until convergence.
 
         Parameters
         ----------
@@ -207,16 +212,10 @@ class Sampler():
         discard_tesselation : bool, optional
             Whether to discard points drawn in the tesselation phase. This is
             required for an unbiased evidence estimate. Default is true.
-        fast_sampling : bool, optional
-            If true, sample shells according to the current evidence per shell
-            estimates. Otherwise, use the evidence estimates obtained during
-            tesselation. Sampling according to the current evidence estimates
-            can lead to subtle biases but might be more efficient. Default is
-            true.
         verbose : bool, optional
             If true, print additional information. Default is false.
-        """
 
+        """
         if not self.tessellated:
 
             if verbose:
@@ -225,7 +224,7 @@ class Sampler():
                 print('#########################')
                 print()
 
-            while (self.evidence_live_fraction() > f_live):
+            while (self.live_evidence_fraction() > f_live):
                 self.add_bound(verbose=verbose)
                 self.fill_bound(verbose=verbose)
 
@@ -239,7 +238,6 @@ class Sampler():
                     self.shell_info = np.delete(self.shell_info, i_shell,
                                                 axis=0)
 
-            self.shell_info['log_z_t'] = self.shell_info['log_z']
             self.tessellated = True
 
             if discard_tesselation:
@@ -248,7 +246,7 @@ class Sampler():
         if n_shell is None:
             n_shell = self.config['n_batch']
 
-        if (np.any(self.shell_info['n_points'] < n_shell) or
+        if (np.any(self.shell_info['n_shell'] < n_shell) or
                 self.effective_sample_size() < n_eff):
 
             if verbose:
@@ -257,12 +255,10 @@ class Sampler():
                 print('#########################')
                 print()
 
-            self.add_points(n_shell=n_shell, n_eff=n_eff,
-                            fast_sampling=fast_sampling, verbose=verbose)
+            self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
 
     def posterior(self, return_struct=False, equal_weight=False):
-        """
-        Return the posterior sample estimate.
+        """Return the posterior sample estimate.
 
         Parameters
         ----------
@@ -276,16 +272,16 @@ class Sampler():
         points : numpy.ndarray
             Coordinates of the posterior.
         log_w : numpy.ndarray
-            Weights of each coordinate of the posterior. It can also be
-            interpreted as the evidence associated with each individual point.
+            Weights of each coordinate of the posterior.
         log_l : numpy.ndarray
             Logarithm of the likelihood at each coordinate of the posterior.
-        """
 
+        """
         points = np.vstack(self.points)
-        log_v = np.repeat(
-            self.shell_info['log_v'] - np.log(self.shell_info['n_points']),
-            self.shell_info['n_points'])
+        select = self.shell_info['n_shell'] > 0
+        log_v = np.repeat(self.shell_info['log_v'][select] -
+                          np.log(self.shell_info['n_shell'])[select],
+                          self.shell_info['n_shell'][select])
         log_l = np.concatenate(self.log_l)
         log_w = log_v + log_l
 
@@ -307,95 +303,88 @@ class Sampler():
             points = self.prior.physical_to_structure(points)
 
         if equal_weight:
-            points = points[
-                self.random_state.random(len(points)) <
-                np.exp(log_w - np.amax(log_w))]
-            log_w = np.zeros(len(points))
+            select = (self.random_state.random(len(points)) <
+                      np.exp(log_w - np.amax(log_w)))
+            points = points[select]
+            log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
+            log_l = log_l[select]
+
+        # Normalize weights.
+        log_w = log_w - logsumexp(log_w)
 
         return points, log_w, log_l
 
     def effective_sample_size(self):
-        r"""
-        Estimate the total effective sample size :math:`N_{\rm eff}`.
+        r"""Estimate the total effective sample size :math:`N_{\rm eff}`.
 
         Returns
         -------
         n_eff : float
             Estimate of the total effective sample size :math:`N_{\rm eff}`.
-        """
 
+        """
+        select = self.shell_info['n_shell'] > 0
         sum_w = np.exp(self.shell_info['log_l'] + self.shell_info['log_v'] -
-                       np.amax(self.shell_info['log_l']) -
-                       np.amax(self.shell_info['log_v']))
-        sum_w_sq = sum_w**2 / self.shell_info['n_eff']
+                       np.nanmax(self.shell_info['log_l']) -
+                       np.nanmax(self.shell_info['log_v']))[select]
+        sum_w_sq = sum_w**2 / self.shell_info['n_eff'][select]
         return np.sum(sum_w)**2 / np.sum(sum_w_sq)
 
     def evidence(self):
-        r"""
-        Estimate the global evidence :math:`\log \mathcal{Z}`.
+        r"""Estimate the global evidence :math:`\log \mathcal{Z}`.
 
         Returns
         -------
         log_z : float
             Estimate the global evidence :math:`\log \mathcal{Z}`.
-        """
 
+        """
         return logsumexp(self.shell_info['log_z'])
 
-    def sample_shell(self, index, n_samples):
-        """
-        Sample points uniformly from a shell. The shell at index :math:`i` is
-        defined as the volume enclosed by the bound of index :math:`i` and not
-        enclosed by any bound of index :math:`k > i`.
+    def sample_shell(self, index, n_shell):
+        """Sample points uniformly from a shell.
+
+        The shell at index :math:`i` is defined as the volume enclosed by the
+        bound of index :math:`i` and enclosed by not other bound of index
+        :math:`k` with :math:`k > i`.
 
         Parameters
         ----------
         index : int
             Index of the shell.
-        n_samples : int
+        n_shell : int
             Total number of samples.
 
         Returns
         -------
         points : numpy.ndarray
-            Points sampled uniformly from the shell.
-        n_try : int
-            Number of tries to get the requested number points. The ratio of
-            `n_samples` to `n_try` is used to infer the ratio of the naive
-            shell volume to the true shell volume.
+            Array of shape (n_shell, n_dim) containing points sampled uniformly
+            from the shell.
+        n_bound : int
+            Number of points drawn within the bound at index :math:`i`. Will
+            be different from `n_shell` if there are bounds with index
+            :math:`k` with :math:`k > i`.
+
         """
+        n_bound = 0
+        points = []
 
-        points = np.zeros((0, self.n_dim), dtype=np.float64)
-        n_try = 0
-        batch_size = 10000
+        while len(points) < n_shell:
+            point = self.bounds[index].sample()
+            n_bound += 1
+            in_shell = True
 
-        while len(points) < n_samples:
-            points_new = self.bounds[index].sample(
-                batch_size=batch_size, random_state=self.random_state)
             for bound in self.bounds[index:][1:]:
-                if len(points_new) > 0:
-                    points_new = points_new[~bound.contains(points_new)]
+                if in_shell and bound.contains(point):
+                    in_shell = False
 
-            if len(points) + len(points_new) <= n_samples:
-                n_try += batch_size
-                points = np.vstack((points, points_new))
-            else:
-                # If receiving too many points, downsample.
-                n_hit = len(points_new)
-                # Simulate how many tries we needed at the current iteration
-                # to get to n_samples.
-                i_hit = np.sort(self.random_state.choice(
-                    batch_size, n_hit, replace=False))
-                n_try += i_hit[n_samples - len(points) - 1] + 1
-                # Add only so many points that we get n_samples.
-                points = np.vstack(
-                    (points, points_new[:n_samples - len(points)]))
+            if in_shell:
+                points.append(point)
 
-        return points, n_try
+        return np.array(points), n_bound
 
     def evaluate_likelihood(self, points):
-        """
-        Evaluate the likelihood for a given set of points.
+        """Evaluate the likelihood for a given set of points.
 
         Parameters
         ----------
@@ -404,10 +393,10 @@ class Sampler():
 
         Returns
         -------
-        numpy.ndarray
+        log_l : numpy.ndarray
             Natural log of the likelihood of each point.
-        """
 
+        """
         if callable(self.prior):
             unit_to_physical = self.prior
         else:
@@ -434,32 +423,26 @@ class Sampler():
         return log_l
 
     def update_shell_info(self, index):
-        """
-        Update the shell information so that certain summary statistics can be
-        evaluated quickly.
+        """Update the shell information for calculation of summary statistics.
 
         Parameters
         ----------
-        int
+        index: int
             Index of the shell.
+
         """
-
-        if (self.shell_info['n_try'][index] > 0 and
-                self.shell_info['n_hit'][index] > 0):
-            self.shell_info['log_v'][index] = (
-                self.bounds[index].volume() +
-                np.log(self.shell_info['n_hit'][index] /
-                       self.shell_info['n_try'][index]))
-        else:
-            self.shell_info['log_v'][index] = -np.inf
-
         if isinstance(self.log_l[index], list):
             log_l = np.concatenate(self.log_l[index])
         else:
             log_l = self.log_l[index]
-        self.shell_info['n_points'][index] = len(log_l)
 
-        if self.shell_info['n_points'][index] > 0:
+        self.shell_info['n_shell'][index] = len(log_l)
+
+        if self.shell_info['n_shell'][index] > 0:
+            self.shell_info['log_v'][index] = (
+                self.bounds[index].volume() +
+                np.log(self.shell_info['n_shell'][index] /
+                       self.shell_info['n_bound'][index]))
             self.shell_info['log_l'][index] = (
                 logsumexp(log_l) - np.log(len(log_l)))
             self.shell_info['log_z'][index] = (
@@ -468,71 +451,70 @@ class Sampler():
             self.shell_info['n_eff'][index] = np.exp(
                 2 * logsumexp(log_l) - logsumexp(2 * log_l))
         else:
+            self.shell_info['log_v'][index] = -np.inf
             self.shell_info['log_l'][index] = np.nan
             self.shell_info['log_z'][index] = -np.inf
             self.shell_info['n_eff'][index] = 0
 
     def print_status(self):
-        """
-        Print current summary statistics.
-        """
-
+        """Print current summary statistics."""
         print('N_like: {:>17}'.format(self.n_like))
         print('N_eff: {:>18.0f}'.format(self.effective_sample_size()))
         print('log Z: {:>18.3f}'.format(self.evidence()))
         if not self.tessellated:
             print('log V: {:>18.3f}'.format(self.shell_info['log_v'][-1]))
-            print('f_live: {:>17.3f}'.format(self.evidence_live_fraction()))
+            print('f_live: {:>17.3f}'.format(self.live_evidence_fraction()))
 
     def add_bound(self, verbose=False):
-        """
-        Build a new bound from existing points.
+        """Build a new bound from existing points.
 
         Parameters
         ----------
         verbose : bool, optional
             If true, print additional information. Default is false.
+
         """
+        # If this is the first bound, use the UnitCube bound.
+        if len(self.bounds) == 0:
+            log_l_min_iteration = -np.inf
+            self.bounds.append(
+                UnitCube(self.n_dim, random_state=self.random_state))
+        else:
+            if verbose:
+                print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
+            log_l_all = np.concatenate(self.log_l)
+            points_all = np.vstack(self.points)[np.argsort(log_l_all)]
+            log_l_all = np.sort(log_l_all)
+            log_l_min_iteration = 0.5 * (
+                log_l_all[-self.config['n_live']] +
+                log_l_all[-self.config['n_live'] - 1])
+            new_bound = NautilusBound(
+                points_all, log_l_all, log_l_min_iteration,
+                self.live_volume(), enlarge=self.config['enlarge'],
+                random_state=self.random_state)
+            if new_bound.volume() > self.bounds[-1].volume():
+                new_bound = self.bounds[-1]
+            self.bounds.append(new_bound)
 
         self.points.append(np.zeros((0, self.n_dim)))
         self.log_l.append(np.zeros(0))
         self.shell_info = np.append(
             self.shell_info, np.array([0], dtype=self.shell_info.dtype))
-
-        # If this is the first bound, use the UnitCube bound.
-        if len(self.bounds) == 0:
-            self.shell_info['log_l_min_iteration'][-1] = -np.inf
-            self.bounds.append(UnitCube(self.n_dim))
-            return
-
-        if verbose:
-            print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
-
-        log_l_all = np.concatenate(self.log_l)
-        points_all = np.vstack(self.points)[np.argsort(log_l_all)]
-        log_l_all = np.sort(log_l_all)
-        self.shell_info['log_l_min_iteration'][-1] = 0.5 * (
-            log_l_all[-self.config['n_live']] +
-            log_l_all[-self.config['n_live'] - 1])
-
-        self.bounds.append(MultiNeuralBound(
-            points_all, log_l_all, self.shell_info['log_l_min_iteration'][-1],
-            enlarge=self.config['enlarge']))
+        self.shell_info['log_l_min_iteration'][-1] = log_l_min_iteration
 
         if verbose:
             print('Adding bound {:<7} done'.format(
                 str(len(self.bounds)) + ':'))
 
     def fill_bound(self, verbose=False):
-        """
-        Fill a new bound with points until a new bound should be created.
+        """Fill a new bound with points until a new bound should be created.
 
         Parameters
         ----------
         verbose : bool, optional
             If true, print additional information. Default is false.
-        """
 
+        """
         n_transfer = np.zeros(len(self.bounds) - 1, dtype=int)
         points_transfer = []
         log_l_transfer = []
@@ -552,7 +534,6 @@ class Sampler():
                     i_previous_shell][~in_bound]
                 self.log_l[i_previous_shell] = self.log_l[
                     i_previous_shell][~in_bound]
-                self.shell_info['n_hit'][i_previous_shell] -= np.sum(in_bound)
                 self.update_shell_info(i_previous_shell)
 
         log_l_min = self.shell_info['log_l_min_iteration'][-1]
@@ -572,7 +553,7 @@ class Sampler():
 
         while i_update < n_update and i_like < n_like:
 
-            points, n_try = self.sample_shell(-1, self.config['n_batch'])
+            points = self.sample_shell(-1, self.config['n_batch'])[0]
 
             # Check if points from previous shells can be transferred.
             if np.any(n_transfer > 0):
@@ -597,8 +578,8 @@ class Sampler():
             log_l = self.evaluate_likelihood(points)
             self.points[-1].append(points)
             self.log_l[-1].append(log_l)
-            self.shell_info['n_try'][-1] += n_try
-            self.shell_info['n_hit'][-1] += self.config['n_batch']
+            self.shell_info['n_shell'][-1] += self.config['n_batch']
+            self.shell_info['n_bound'][-1] += self.config['n_batch']
             i_update += np.sum(log_l >= log_l_min)
             i_like += len(log_l)
 
@@ -616,60 +597,74 @@ class Sampler():
             self.print_status()
             print('')
 
-    def evidence_live_fraction(self):
-        """
-        Estimate the fraction of the evidence that is currently contained in
-        the live set. This estimate can be used as a stopping criterion.
+    def live_evidence_fraction(self):
+        """Estimate the fraction of the evidence contained in the live set.
+
+        This estimate can be used as a stopping criterion.
 
         Returns
         -------
-        f_live : float
+        log_z : float
             Estimate of the fraction of the evidence in the live set.
+
         """
         if len(self.bounds) == 0:
             return 1.0
         else:
-            points, log_z, log_l = self.posterior()
-            log_z_live = log_z[np.argsort(log_l)][-self.config['n_live']:]
-            return np.exp(logsumexp(log_z_live) - logsumexp(log_z))
+            points, log_w, log_l = self.posterior()
+            log_w_live = log_w[np.argsort(log_l)][-self.config['n_live']:]
+            return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
+
+    def live_volume(self):
+        """Estimate the volume that is currently contained in the live set.
+
+        Returns
+        -------
+        log_v : float
+            Estimate of the volume in the live set.
+
+        """
+        if len(self.bounds) == 0:
+            return 1.0
+        else:
+            points, log_w, log_l = self.posterior()
+            log_v = log_w + self.evidence() - log_l
+            log_v_live = log_v[np.argsort(log_l)][-self.config['n_live']:]
+            return logsumexp(log_v_live)
 
     def add_samples_to_shell(self, index):
-        """
-        Add samples to a shell. The number of points added is always equal to
-        the batch size.
+        """Add samples to a shell.
+
+        The number of points added is always equal to the batch size.
 
         Parameters
         ----------
         index : int
             The index of the shell for which to add points.
-        """
 
-        points, n_try = self.sample_shell(index, self.config['n_batch'])
-        self.shell_info['n_points'][index] += len(points)
-        self.shell_info['n_hit'][index] += len(points)
-        self.shell_info['n_try'][index] += n_try
+        """
+        points, n_bound = self.sample_shell(index, self.config['n_batch'])
+        self.shell_info['n_shell'][index] += len(points)
+        self.shell_info['n_bound'][index] += n_bound
         log_l = self.evaluate_likelihood(points)
         self.points[index] = np.vstack([self.points[index], points])
         self.log_l[index] = np.concatenate([self.log_l[index], log_l])
         self.update_shell_info(index)
 
     def discard_points(self):
-        """
-        Discard all points drawn.
-        """
-
+        """Discard all points drawn."""
         for i in range(len(self.bounds)):
-            self.shell_info['n_hit'][i] = 0
-            self.shell_info['n_try'][i] = 0
+            self.shell_info['n_shell'][i] = 0
+            self.shell_info['n_bound'][i] = 0
             self.points[i] = np.zeros((0, self.n_dim))
             self.log_l[i] = np.zeros(0)
             self.update_shell_info(i)
 
-    def add_points(self, n_eff=0, n_shell=0, fast_sampling=False,
-                   verbose=False):
-        """
-        Add samples to shells until a minimum effective sample size is
-        achieved.
+    def add_points(self, n_eff=0, n_shell=0, verbose=False):
+        """Add samples to shells.
+
+        This function add samples to the shell until very shell has a minimum
+        number of points and a minimum effective sample size is achieved.
 
         Parameters
         ----------
@@ -679,32 +674,23 @@ class Sampler():
         n_shell : int, optional
             Minimum number of points in each shell. The algorithm will sample
             from the shells until this is reached. Default is 0.
-        fast_sampling : bool, optional
-            If true, sample shells according to the current evidence per shell
-            estimates. Otherwise, use the evidence estimates obtained when the
-            shells were build. Sampling according to the current evidence
-            estimates can lead to subtle biases but might be more efficient.
-            Default is true.
         verbose : bool, optional
             If true, print additional information. Default is false.
-        """
 
-        n_points = np.sum(np.maximum(
-            0, n_shell - self.shell_info['n_points']))
-        if verbose and n_points > 0:
-            pbar = tqdm(desc='Sampling shells ', total=n_points,
+        """
+        i_shell = np.arange(len(self.bounds))[
+            self.shell_info['n_shell'] < n_shell]
+        if verbose and len(i_shell):
+            pbar = tqdm(desc='Sampling shells ', total=len(i_shell),
                         leave=False)
 
-        for i in range(len(self.bounds)):
-            while self.shell_info['n_points'][i] < n_shell:
-                n_points_old = self.shell_info['n_points'][i]
+        for i in i_shell:
+            while self.shell_info['n_shell'][i] < n_shell:
                 self.add_samples_to_shell(i)
-                n_points_new = self.shell_info['n_points'][i]
-                if verbose:
-                    pbar.update(min(n_points_new, n_shell) -
-                                n_points_old)
+            if verbose:
+                pbar.update(1)
 
-        if verbose and n_points > 0:
+        if verbose and len(i_shell) > 0:
             pbar.close()
             print('Sampling shells:     done')
             self.print_status()
@@ -719,9 +705,8 @@ class Sampler():
                         "[{elapsed}<{remaining}, {rate_fmt}{postfix}]")
 
         while self.effective_sample_size() < n_eff:
-            log_z_key = 'log_z' if fast_sampling else 'log_z_t'
-            index = np.argmax(self.shell_info[log_z_key] -
-                              np.log(self.shell_info['n_points']))
+            index = np.argmax(self.shell_info['log_z'] -
+                              np.log(self.shell_info['n_shell']))
             n_eff_old = self.effective_sample_size()
             self.add_samples_to_shell(index)
             n_eff_new = self.effective_sample_size()
@@ -735,8 +720,7 @@ class Sampler():
             print('')
 
     def shell_association(self, points, n_max=None):
-        """
-        Determine the shells each points belongs to.
+        """Determine the shells each points belongs to.
 
         Parameters
         ----------
@@ -749,10 +733,10 @@ class Sampler():
 
         Returns
         -------
-        numpy.ndarray
+        i_shell: int
             Shell association for each point.
-        """
 
+        """
         if n_max is None:
             n_max = len(self.bounds)
 
@@ -767,8 +751,7 @@ class Sampler():
         return i_shell
 
     def shell_bound_occupation(self, fractional=True):
-        """
-        Determine how many points of each shell are also part of each bound.
+        """Determine how many points of each shell are also part of each bound.
 
         Parameters
         ----------
@@ -778,14 +761,14 @@ class Sampler():
 
         Returns
         -------
-        numpy.ndarray
+        m : numpy.ndarray
             Two-dimensional array with occupation numbers. The element at index
             :math:`(i, j)` corresponds to the occupation of points in shell
             shell :math:`i` that also belong to bound :math:`j`. If
             `fractional` is true, this is the fraction of all points in shell
             :math:`i` and otherwise it is the absolute number.
-        """
 
+        """
         m = np.zeros((len(self.bounds), len(self.bounds)), dtype=np.int)
 
         for i, points in enumerate(self.points):

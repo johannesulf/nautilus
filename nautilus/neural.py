@@ -1,3 +1,5 @@
+"""Module implementing neural network emulators."""
+
 import warnings
 import numpy as np
 from sklearn.neural_network import MLPRegressor
@@ -10,6 +12,7 @@ try:
     TENSORFLOW_INSTALLED = True
 except ImportError:
     TENSORFLOW_INSTALLED = False
+    FALLBACK_WARNED = False
 
 if TENSORFLOW_INSTALLED:
     class EarlyStoppingByLossValue(Callback):
@@ -22,28 +25,27 @@ if TENSORFLOW_INSTALLED:
         """
 
         def __init__(self, value):
-            """Initialize a callback for Keras to stop training at a specified
-            loss value.
+            """Initialize a callback for early termination.
 
-            Attributes
+            Parameters
             ----------
             value : float
                 Value at which to stop training.
-            """
 
+            """
             self.value = value
 
         def on_batch_end(self, batch, logs={}):
-            """Called at the end of each training batch.
+            """Iniate early termination.
 
-            Attributes
+            Parameters
             ----------
             batch : int
                 Index of the training batch within the current training epoch.
             logs: dict
                 Information about training progress.
-            """
 
+            """
             if logs.get('loss') <= self.value:
                 self.model.stop_training = True
 
@@ -57,6 +59,7 @@ class NeuralNetworkEmulator():
         Neural network Python package used for the neural network.
     network : object
         Artifical neural network used for emulation.
+
     """
 
     def __init__(self, x, y, backend='tensorflow', min_epochs=100,
@@ -64,7 +67,7 @@ class NeuralNetworkEmulator():
                  patience=100):
         """Initialize and train the likelihood neural network emulator.
 
-        Attributes
+        Parameters
         ----------
         x : numpy.ndarray
             Normalized coordinates of the training points.
@@ -92,12 +95,15 @@ class NeuralNetworkEmulator():
             not improve by at least `min_delta_mse` in `patience` epochs and
             the number of training epochs is at least `min_epochs`. Default is
             100.
-        """
 
+        """
+        global FALLBACK_WARNED
         if backend == 'tensorflow' and not TENSORFLOW_INSTALLED:
-            warnings.warn("The tensorflow backend was requested but " +
-                          "tensorflow is not installed. Falling back to the " +
-                          "scikit-learn backend.")
+            if not FALLBACK_WARNED:
+                warnings.warn("The tensorflow backend was requested but " +
+                              "tensorflow is not installed. Falling back to " +
+                              "the scikit-learn backend.")
+                FALLBACK_WARNED = True
             backend = 'scikit-learn'
 
         self.backend = backend
@@ -111,8 +117,8 @@ class NeuralNetworkEmulator():
             self.network.add(Dense(units=128, activation='relu'))
             self.network.add(Dense(units=1))
             self.network.compile(loss='mean_squared_error', optimizer='adam')
-            self.network.fit(x, y, epochs=min(50, min_epochs), batch_size=64,
-                             verbose=0)
+            self.network.fit(x, y, epochs=min(50, min_epochs),
+                             batch_size=min(64, len(x)), verbose=0)
             self.network.fit(x, y, epochs=max(0, min_epochs - 50),
                              batch_size=len(x), verbose=0)
             callback_1 = EarlyStopping(
@@ -122,10 +128,20 @@ class NeuralNetworkEmulator():
                 x, y, epochs=max_epochs-min_epochs, batch_size=len(x),
                 callbacks=[callback_1, callback_2], verbose=0)
         elif backend == 'scikit-learn':
-            self.network = MLPRegressor(
-                hidden_layer_sizes=(128, 128, 128), alpha=0,
-                batch_size=len(x), warm_start=True, random_state=0)
+            kwargs = {'hidden_layer_sizes': (128, 128, 128), 'alpha': 0,
+                      'warm_start': True, 'random_state': 0}
+
+            self.network = MLPRegressor(batch_size=min(64, len(x)), **kwargs)
+            for i in range(min(50, min_epochs)):
+                self.network.partial_fit(x, y)
+            coefs_ = self.network.coefs_
+            intercepts_ = self.network.intercepts_
+            self.network = MLPRegressor(batch_size=len(x), **kwargs)
             self.network.partial_fit(x, y)
+            self.network.coefs_ = coefs_
+            self.network.intercepts_ = intercepts_
+            self.network.n_iter_ = 50
+
             while self.network.n_iter_ < max_epochs:
                 self.network.partial_fit(x, y)
                 mse = self.network.loss_curve_
@@ -139,17 +155,17 @@ class NeuralNetworkEmulator():
     def predict(self, x):
         """Calculate the emulator likelihood prediction for a group of points.
 
-        Attributes
+        Parameters
         ----------
         x : numpy.ndarray
             Normalized coordinates of the training points.
 
         Returns
         -------
-        numpy.ndarray
+        y_emu : numpy.ndarray
             Emulated normalized likelihood value of the training points.
-        """
 
+        """
         if self.backend == 'tensorflow':
             return self.network(x).numpy().flatten()
         elif self.backend == 'scikit-learn':
