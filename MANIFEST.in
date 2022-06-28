@@ -1,3 +1,0 @@
-exclude .gitignore
-exclude .readthedocs.yaml
-prune docs

@@ -1,7 +1,8 @@
-![Title](docs/source/nautilus_text_image.png?raw=true "Title")
+![Logo](https://raw.githubusercontent.com/johannesulf/nautilus/main/docs/source/nautilus_text_image.png "Logo")
 
-[![Documentation Status](https://readthedocs.org/projects/nautilus-sampler/badge/?version=latest)](https://nautilus-sampler.readthedocs.io/en/latest/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://raw.githubusercontent.com/johannesulf/nautilus/development/LICENSE)
+[![Documentation Status](https://img.shields.io/readthedocs/nautilus-sampler)](https://nautilus-sampler.readthedocs.io/en/latest/)
+[![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus?color=blue)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
+![Language: Python](https://img.shields.io/github/languages/top/johannesulf/nautilus)
 
 `nautilus` is an MIT-licensed pure-Python package for Bayesian posterior and
 evidence estimation. It is based on importance sampling and efficient space
@@ -19,24 +20,18 @@ import numpy as np
 from nautilus import Prior, Sampler
 from scipy.stats import multivariate_normal
 
-
 prior = Prior()
-prior.add_parameter()
-prior.add_parameter()
-prior.add_parameter()
-
+for key in 'abc':
+    prior.add_parameter(key)
 
 def likelihood(param_dict):
-    x = np.array([param_dict['x_0'], param_dict['x_1'], param_dict['x_2']])
-    return multivariate_normal.logpdf(x, mean=np.ones(3) * 0.5, cov=0.01)
-
+    x = [param_dict[key] for key in 'abc']
+    return multivariate_normal.logpdf(x, mean=[0.4, 0.5, 0.6], cov=0.01)
 
 sampler = Sampler(prior, likelihood)
 sampler.run(verbose=True)
 points, log_w, log_l = sampler.posterior()
-log_z = sampler.evidence()
-corner.corner(points, weights=np.exp(log_w))
-
+corner.corner(points, weights=np.exp(log_w), labels='abc')
 ```
 
 ## Documentation

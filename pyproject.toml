@@ -1,0 +1,21 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "nautilus-sampler"
+authors = [{name = "Johannes U. Lange", email = "julange.astro@pm.me"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dynamic = ["version", "description"]
+dependencies = ["numpy", "scipy", "scikit-learn", "tqdm"]
+
+[project.urls]
+Home = "https://nautilus-sampler.readthedocs.io"
+
+[tool.flit.sdist]
+exclude = ["docs", ".gitignore", ".readthedocs.yaml"]
+
+[tool.flit.module]
+name = "nautilus"
