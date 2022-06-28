@@ -15,15 +15,11 @@ efficiency as well as accuracy of the posterior and evidence estimates.
 Installation
 ------------
 
-``nautilus`` is under active development. You can find the most recent version
-on `GitHub <https://github.com/johannesulf/nautilus>`_. Currently, the easiest
-way to install the package is to use the following command.
+``nautilus`` can be installed via ``pip``.
 
 .. code-block:: bash
 
-    pip install git+https://github.com/johannesulf/nautilus.git
-
-In the future, a `PyPI <https://pypi.org/>`_ installation will be offered.
+    pip install nautilus-sampler
 
 .. toctree::
     :maxdepth: 1
