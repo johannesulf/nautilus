@@ -63,7 +63,7 @@ Python package.
    :width: 70 %
    :align: center
 
-The Bayesian evidence :math:`\log \mathcal{Z}` has also been estimate during
+The Bayesian evidence :math:`\log \mathcal{Z}` has also been estimated during
 the run.
 
 .. code-block:: python

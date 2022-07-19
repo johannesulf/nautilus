@@ -1,4 +1,5 @@
 .spyproject
 __pycache__
 docs/build
+dist
 paper

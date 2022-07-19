@@ -1,6 +1,5 @@
 """Module implementing multi-dimensional bounds."""
 
-import copy
 import itertools
 import numpy as np
 from scipy.special import gammaln
@@ -335,8 +334,10 @@ class MultiEllipsoid():
         Number of dimensions.
     ells : list
         List of ellipsoids.
-    log_v : float
+    log_v : list
         Natural log of the volume of each ellipsoid in the union.
+    split : list
+        Whether each ellipsoid can be split further.
     points : numpy.ndarray
         The points used to create the union. Used to add more ellipsoids.
     points_sample : numpy.ndarray
@@ -374,6 +375,10 @@ class MultiEllipsoid():
         self.ells = [
             Ellipsoid(points, enlarge=enlarge, random_state=random_state)]
         self.log_v = [self.ells[0].volume()]
+        if len(self.points[0]) < 2 * (self.n_dim + 1):
+            self.split = [False]
+        else:
+            self.split = [True]
 
         self.points_sample = np.zeros((0, points.shape[1]))
         self.n_sample = 0
@@ -396,36 +401,38 @@ class MultiEllipsoid():
 
         Returns
         -------
-        bool
+        success : bool
             Whether it was possible to add another ellipsoid.
 
         """
-        n_points = np.array([len(points) for points in self.points])
-
-        if np.all(n_points < 2 * (self.n_dim + 1)):
+        if not np.any(self.split):
             return False
 
-        index = np.argmax(np.where(n_points < 2 * (self.n_dim + 1),
-                                   -np.inf, self.log_v))
+        index = np.argmax(np.where(self.split, self.log_v, -np.inf))
         points = self.points.pop(index)
         points_t = self.ells[index].transform(points)
         ell = self.ells.pop(index)
         log_v = self.log_v.pop(index)
+        split = self.split.pop(index)
 
         d = KMeans(n_clusters=2, random_state=self.random_state).fit_transform(
             points_t)
 
         labels = np.argmin(d, axis=1)
-
         if not np.all(np.bincount(labels) >= self.n_dim + 1):
             index = np.argmin(np.bincount(labels))
-            labels[np.argsort(d[:, index])[:self.n_dim+1]] = index
+            labels[np.argsort(d[:, index] - d[:, index - 1])[
+                :self.n_dim+1]] = index
 
         for index in [0, 1]:
             self.ells.append(Ellipsoid(
                 points[labels == index], enlarge=self.enlarge,
                 random_state=self.random_state))
             self.points.append(points[labels == index])
+            if np.sum(labels == index) >= 2 * (self.n_dim + 1):
+                self.split.append(True)
+            else:
+                self.split.append(False)
 
         self.log_v.append(self.ells[-2].volume())
         self.log_v.append(self.ells[-1].volume())
@@ -435,9 +442,11 @@ class MultiEllipsoid():
                 del self.ells[-1]
                 del self.points[-1]
                 del self.log_v[-1]
+                del self.split[-1]
             self.ells.append(ell)
             self.points.append(points)
             self.log_v.append(log_v)
+            self.split.append(split)
             return False
 
         # Reset the sampling.
@@ -558,15 +567,6 @@ class NeuralBound():
     score_predict_min : float
         Minimum score predicted by the emulator to be considered part of the
         bound.
-    log_v : float
-        Natural log of the volume of the outer bound.
-    n_outer : int
-        Number of points drawn from the outer bound.
-    n_inner : int
-        Number of points that fell into the inner bound, i.e. those that have
-        high predicted likelihood scores.
-    points_sample : numpy.ndarray
-        Points that a call to `sample` will return next.
     """
 
     def __init__(self, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
@@ -626,10 +626,6 @@ class NeuralBound():
         self.score_predict_min = np.polyval(np.polyfit(
             score, self.emulator.predict(points_t), 3), 0.5)
 
-        self.n_outer = 0
-        self.n_inner = 0
-        self.points_sample = np.zeros((0, self.n_dim))
-
     def contains(self, points):
         """Check whether points are contained in the bound.
 
@@ -655,50 +651,6 @@ class NeuralBound():
                                   self.score_predict_min)
 
         return np.squeeze(in_bound)
-
-    def sample(self, n_points=1):
-        """Sample points from the the bound.
-
-        Parameters
-        ----------
-        n_points : int, optional
-            How many points to draw.
-
-        Returns
-        -------
-        points : numpy.ndarray
-            If `n_points` is larger than 1, two-dimensional array of shape
-            (n_points, n_dim). Otherwise, a one-dimensional array of shape
-            (n_dim).
-
-        """
-        while len(self.points_sample) < n_points:
-            n_outer = 10000
-            points = self.ellipsoid.sample(n_outer)
-            select = self.contains(points)
-            self.n_outer += n_outer
-            self.n_inner += np.sum(select)
-            self.points_sample = np.vstack(
-                [self.points_sample, points[select]])
-
-        points = self.points_sample[:n_points]
-        self.points_sample = self.points_sample[n_points:]
-        return np.squeeze(points)
-
-    def volume(self):
-        """Return the natural log of the volume.
-
-        Returns
-        -------
-        lov_v : float
-            An estimate of the natural log of the volume. Will become more
-            accurate as more points are sampled.
-
-        """
-        if self.n_outer == 0:
-            self.sample()
-
-        return self.log_v + np.log(self.n_inner / self.n_outer)
 
 
 class NautilusBound():
@@ -747,6 +699,14 @@ class NautilusBound():
         while mell.add_ellipsoid(allow_overlap=False):
             pass
 
+        self.nbounds = []
+
+        for ell in mell.ells:
+            select = ell.contains(points)
+            self.nbounds.append(NeuralBound(
+                points[select], log_l[select], log_l_min, ellipsoid=ell,
+                enlarge=enlarge, random_state=random_state))
+
         while min(mell.volume(), 0.0) - log_v_target > np.log(100 * enlarge):
             if mell.volume() >= 0:
                 points_test = cube.sample(10000)
@@ -766,14 +726,6 @@ class NautilusBound():
             self.sample_bound = cube
         else:
             self.sample_bound = mell
-
-        self.nbounds = []
-
-        for ell in mell.ells:
-            select = ell.contains(points)
-            self.nbounds.append(NeuralBound(
-                points[select], log_l[select], log_l_min, ellipsoid=ell,
-                enlarge=enlarge, random_state=random_state))
 
         self.log_v = self.sample_bound.volume()
 

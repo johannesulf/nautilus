@@ -38,9 +38,10 @@ Support
 -------
 
 If you are encountering issues with ``nautilus``, please raise an issue on the
-``nautilus`` `GitHub`_ page. If you have suggestions to improve this
-tutorial or would like to request features, you can use the same procedure
-or, alternatively, reach out to the authors.
+``nautilus`` `GitHub <https://github.com/johannesulf/nautilus/issues>`_ page.
+If you have suggestions to improve this tutorial or would like to request
+features, you can use the same procedure or, alternatively, reach out to the
+authors.
 
 License
 -------

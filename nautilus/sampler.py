@@ -122,7 +122,8 @@ class Sampler():
         ------
         ValueError
             If `prior` is a function and `n_dim` is not given or `pass_struct`
-            is set to True.
+            is set to True. Also, if the dimensionality of the problem is less
+            than 2.
 
         """
         if callable(prior):
@@ -146,6 +147,10 @@ class Sampler():
             self.n_dim = prior.dimensionality()
             if pass_struct is None:
                 pass_struct = True
+
+        if self.n_dim <= 1:
+            raise ValueError(
+                'Cannot run Nautilus with less than 2 parameters.')
 
         self.config = {}
         self.config['n_live'] = n_live
@@ -408,7 +413,10 @@ class Sampler():
             args = unit_to_physical(points)
 
         if self.config['pass_struct']:
-            args = self.prior.physical_to_structure(args)
+            if self.config['vectorized']:
+                args = self.prior.physical_to_structure(args)
+            else:
+                args = [self.prior.physical_to_structure(arg) for arg in args]
 
         if self.pool is not None:
             log_l = self.pool.map(self.likelihood, args)
@@ -505,6 +513,18 @@ class Sampler():
         if verbose:
             print('Adding bound {:<7} done'.format(
                 str(len(self.bounds)) + ':'))
+            if isinstance(self.bounds[-1], NautilusBound):
+                n_neu = len(self.bounds[-1].nbounds)
+                if isinstance(self.bounds[-1].sample_bound, UnitCube):
+                    n_ell = 0
+                else:
+                    n_ell = len(self.bounds[-1].sample_bound.ells)
+            else:
+                n_neu = 0
+                n_ell = 0
+            n_ell = max(n_neu, n_ell)
+            print("Neural nets: {:>12}".format(n_neu))
+            print("Ellipsoids: {:>13}".format(n_ell))
 
     def fill_bound(self, verbose=False):
         """Fill a new bound with points until a new bound should be created.
@@ -705,8 +725,10 @@ class Sampler():
                         "[{elapsed}<{remaining}, {rate_fmt}{postfix}]")
 
         while self.effective_sample_size() < n_eff:
-            index = np.argmax(self.shell_info['log_z'] -
-                              np.log(self.shell_info['n_shell']))
+            index = np.argmax(
+                self.shell_info['log_z'] -
+                0.5 * np.log(self.shell_info['n_shell']) -
+                0.5 * np.log(self.shell_info['n_eff']))
             n_eff_old = self.effective_sample_size()
             self.add_samples_to_shell(index)
             n_eff_new = self.effective_sample_size()
