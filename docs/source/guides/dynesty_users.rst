@@ -4,7 +4,7 @@ Dynesty Users
 If you're already familiar with using ``dynesty`` for Baysian posterior and
 evidence estimation, this guide will be helpful. Here, we describe the major
 differences and similarities between ``dynesty`` and ``nautilus`` and how you
-can easily transition your code from ``dynesty`` to ``nautilus``.
+can easily adapt your code from ``dynesty`` to ``nautilus``.
 
 Algorithm Differences
 ---------------------
@@ -40,8 +40,9 @@ API Differences
 ---------------
 
 ``dynesty`` and ``nautilus`` use very similar APIs with the explicit goal to
-make the transition as easy as possible. The following simple example, based
-on the :doc:`crash coure <crash_course>`. First, let us define the problem.
+make the transition as easy as possible. The following is a simple example
+based on the :doc:`crash coure <crash_course>`. First, let us define the
+problem.
 
 .. code-block:: python
 
@@ -49,14 +50,11 @@ on the :doc:`crash coure <crash_course>`. First, let us define the problem.
     from scipy.stats import norm
     from scipy.stats import multivariate_normal
 
-
     n_dim = 3
-
 
     def prior(u):
         return np.array(
             [u[0] * 10 - 5, u[1] * 10 - 5, norm(loc=0, scale=2.0).ppf(u[2])])
-
 
     def likelihood(x):
         return multivariate_normal.logpdf(
@@ -81,7 +79,7 @@ Here's how we apply ``dynesty`` and ``nautilus`` to this problem.
 
     from nautilus import Sampler
 
-    sampler = Sampler(prior, likelihood, n_dim)
+    sampler = Sampler(prior, likelihood, n_dim, n_live=1000)
     sampler.run(verbose=True)
     samples['nautilus'], log_w['nautilus'] = sampler.posterior()[:2]
     log_z['nautilus'] = sampler.evidence()
