@@ -4,15 +4,15 @@ Prior Distribution
 In Bayesian statistics, one  needs to specify a prior probability
 :math:`p(\theta)` of model parameters :math:`\theta` where
 :math:`\theta = (\theta_1, \theta_2, ..., \theta_n)`. However, nested sampling
-algorithms generally assume that model parameters :math:`x` are uniformly
+algorithms generally assume that model parameters :math:`u` are uniformly
 distributed in the unit hypercube. Thus, one first needs to perform a
-variable transformation :math:`x = f(\theta)`. A general recipe for
+variable transformation :math:`\theta = f(u)`. A general recipe for
 separable priors, i.e.
 :math:`p(\theta) = p_1(\theta_1) \times ... \times p_n(\theta_n)` is to use
 
 .. math::
 
-    x_i = \int\limits_{-\infty}^{\theta_i} p(y) dy \, ,
+    u_i = \int\limits_{-\infty}^{\theta_i} p(x) dx \, ,
 
 i.e. the sampler uses cumulative distribution function of :math:`\theta_i` as
 the variable. In the general case, including for non-separable priors, the
@@ -20,9 +20,9 @@ transformation must fulfill
 
 .. math::
 
-    p(\theta) = \left| J \left( f(\theta) \right) \right| \, ,
+    p(\theta) = \left| J^{-1} \left( (\theta) \right) \right| \, ,
 
-where :math:`|J|` is the determinant of the Jacobian of :math:`f`.
+where :math:`|J^{-1}|` is the determinant of the Jacobian of :math:`f^{-1}`.
 
 Standard Priors
 ---------------
