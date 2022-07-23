@@ -20,7 +20,7 @@ transformation must fulfill
 
 .. math::
 
-    p(\theta) = \left| J^{-1} (\theta) \right| \, ,
+    p(\theta) = | J^{-1} (\theta) | \, ,
 
 where :math:`|J^{-1}|` is the determinant of the Jacobian of :math:`f^{-1}`.
 
