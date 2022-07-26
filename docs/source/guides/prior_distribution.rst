@@ -52,11 +52,11 @@ Custom Priors
 -------------
 
 If one wants to use a distribution function not available in ``scipy``, one can
-also specify the inverse transformation :math:`f^{-1}` manually. This will also
-be the case if the prior is not separable. For example, let's assume we have
-two parameters. We want the first model parameter to follow a uniform
-distribution in the range :math:`[0, 1]` and the second parameter to follow a
-uniform distribution in the range :math:`[0, x]`. This can be achieved with the
+also specify the inverse transformation :math:`f` manually. This will also be
+the case if the prior is not separable. For example, let's assume we have two
+parameters. We want the first model parameter to follow a uniform distribution
+in the range :math:`[0, 1]` and the second parameter to follow a uniform
+distribution in the range :math:`[0, x]`. This can be achieved with the
 following code.
 
 .. code-block:: python
