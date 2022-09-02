@@ -1,8 +1,8 @@
 """Module implementing the prior bounds and convencience functions."""
 
+import numbers
 import numpy as np
 from scipy.stats import uniform
-from scipy.stats.distributions import rv_frozen
 
 
 class Prior():
@@ -27,33 +27,47 @@ class Prior():
 
         Parameters
         ----------
-        key : str
-            Name of the model parameter.
-        dist : float, tuple, str or scipy.stats.distributions.rv_frozen
+        key : str or None
+            Name of the model parameter. If None, the key name will be `x_i`,
+            where i is a number.
+        dist : float, tuple, str or object
             Distribution the parameter should follow. If a float, the parameter
             is fixed to this value and will not be fitted in any analysis. If
             a tuple, it gives the lower and upper bound of a uniform
             distribution. If a string, the parameter will always be equal
-            to the named model parameter. Finally, if rv_frozen, it will
-            follow the specified scipy distribution.
+            to the named model parameter. Finally, if an object, it must have
+            a `isf` attribute, i.e. the inverse survival function.
 
         Raises
         ------
+        TypeError
+            If `key` or `dist` is not the correct type.
         ValueError
-            If key already exists in the prior key list.
-
+            If a new key already exists in the key list or if `dist` is a
+            string but does not refer to a previously defined key.
         """
         if key is None:
             self.keys.append('x_{}'.format(len(self.keys)))
-        elif str(key) in self.keys:
+        elif not isinstance(key, str):
+            raise TypeError("Keyword argument 'key' must be a string.")
+        elif key in self.keys:
             raise ValueError("Key '{}' already in key list.".format(key))
         else:
-            self.keys.append(str(key))
+            self.keys.append(key)
 
-        if type(dist) is tuple:
+        if isinstance(dist, tuple):
             self.dists.append(uniform(loc=dist[0], scale=dist[1] - dist[0]))
-        else:
+        elif isinstance(dist, numbers.Number) or hasattr(dist, 'isf'):
             self.dists.append(dist)
+        elif isinstance(dist, str):
+            if dist not in self.keys or dist == str(key):
+                raise ValueError('Key {} not defined previously.'.format(dist))
+            while isinstance(self.dists[self.keys.index(dist)], str):
+                dist = self.dists[self.keys.index(dist)]
+            self.dists.append(dist)
+        else:
+            raise TypeError("Keyword argument 'dist' does not have the " +
+                            "correct type")
 
     def dimensionality(self):
         """Determine the number of free model parameters.
@@ -63,7 +77,8 @@ class Prior():
         n_dim : int
             The number of free model parameters.
         """
-        return sum(type(dist) is rv_frozen for dist in self.dists)
+        return sum(not isinstance(dist, (numbers.Number, str)) for dist in
+                   self.dists)
 
     def unit_to_physical(self, points):
         """Transfer points from the unit hypercube to the prior volume.
@@ -95,7 +110,7 @@ class Prior():
 
         i = 0
         for dist in self.dists:
-            if type(dist) is rv_frozen:
+            if hasattr(dist, 'isf'):
                 phys_points[..., i] = dist.isf(1 - points[..., i])
                 i = i + 1
 
@@ -112,30 +127,40 @@ class Prior():
 
         Returns
         -------
-        struct_point : dict or numpy.ndarray
+        struct_points : dict or numpy.ndarray
             Points as a structured data type. If `phys_points` has one
             dimension, this will be a dictionary. Otherwise, it will be a
             structured numpy array. Each model parameter, including fixed ones,
             can be accessed via their key.
 
+        Raises
+        ------
+        ValueError
+            If dimensionality of `points` does not match the prior.
+
         """
+        try:
+            assert self.dimensionality() == phys_points.shape[-1]
+        except AssertionError:
+            raise ValueError('Dimensionality of points does not match prior.')
+
         if phys_points.ndim == 1:
             struct_points = {}
         else:
             struct_points = np.zeros(
-                phys_points.shape[0], dtype=[(key, np.double) for key in
+                phys_points.shape[0], dtype=[(key, float) for key in
                                              self.keys])
 
         i = 0
         for key, dist in zip(self.keys, self.dists):
-            if type(dist) is rv_frozen:
+            if hasattr(dist, 'isf'):
                 struct_points[key] = phys_points[..., i]
                 i = i + 1
-            elif type(dist) is int or type(dist) is float:
+            elif isinstance(dist, numbers.Number):
                 struct_points[key] = np.ones(phys_points[..., 0].shape) * dist
 
         for key, dist in zip(self.keys, self.dists):
-            if type(dist) is str:
+            if isinstance(dist, str):
                 struct_points[key] = struct_points[dist]
 
         return struct_points
