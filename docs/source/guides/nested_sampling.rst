@@ -1,18 +1,18 @@
-Dynesty Users
-=============
+Nested Sampling
+===============
 
-If you're already familiar with using ``dynesty`` for Baysian posterior and
-evidence estimation, this guide will be helpful. Here, we describe the major
-differences and similarities between ``dynesty`` and ``nautilus`` and how you
-can easily transition your code from ``dynesty`` to ``nautilus``.
+If you're already familiar with nested sampling (NS) codes such as ``dynesty``,
+``pymultinest`` or ``ultranest``, this guide should be helpful. Here, we
+describe the major differences and similarities between NS codes and
+``nautilus`` and how you can easily adapt your existing code to ``nautilus``.
 
 Algorithm Differences
 ---------------------
 
-The primary goals of ``dynesty`` and ``nautilus`` are identical: identify the
-parts of parameter space with the highest likelihood, sample points from the
-parameter posterior, and estimate the Bayesian evidence. Additionally,
-``dynesty`` and ``nautilus`` work in very similar ways during the initial
+The primary goals of nested sampling and ``nautilus`` are identical: identify
+the parts of parameter space with the highest likelihood, sample points from
+the parameter posterior, and estimate the Bayesian evidence. Additionally,
+nested sampling and ``nautilus`` work in very similar ways during the initial
 exploration of the parameter space. Both randomly sample the prior space,
 identify the points with the highest likelihood, the so-called live set, and
 then estimate a boundary around the live set. Afterward, points are sampled
@@ -22,26 +22,29 @@ boundary and identifying a new live set, is repeated until a convergence
 criterion is reached and leads to a live set that rapidly shrinks to the
 maximum likelihood value.
 
-A major difference between ``dynesty`` and ``nautilus`` is the way the live set
-boundary is drawn. In particular, unlike ``dynesty``, ``nautilus`` uses a
-neural network-based algorithm to determine efficient boundaries. Furthermore,
-``dynesty`` and ``nautilus`` differ significantly in how the Bayesian
-posterior and evidence are estimated after this initial exploration phase.
-``dynesty`` is built on the nested sampling algorithm (`Skilling 2006
-<https://doi.org/10.1214%2F06-BA127>`_) whereas ``nautilus`` is an importance
-sampling algorithm. Another big difference is how more posterior samples can be
-added and the evidence refined after the exploration phase. ``dynesty`` uses
-separate nested sampling runs that are later combined for that. On the other
-hand, ``nautilus`` uses the information on the likelihood obtained during the
-exploration phase to more or less directly sample from the posterior to obtain
-more posterior samples or refine the evidence estimate.
+A major difference between ``dynesty``/``pymultinest``/``ultranest`` and
+``nautilus`` is the way the live set boundary is drawn. In particular, unlike
+the aforementioned NS codes, ``nautilus`` uses a neural network-based algorithm
+to determine efficient boundaries. Furthermore, NS codes and ``nautilus`` differ
+significantly in how the Bayesian posterior and evidence are estimated after
+this initial exploration phase. In particular, ``nautilus`` uses an importance
+nested sampling (INS) algorithm, not NS. Another big difference between
+``nautilus`` and dynamic nested sampling such as ``dynesty`` is how additional
+posterior samples can be added and the evidence refined after the exploration
+phase. ``dynesty`` uses separate nested sampling runs that are later combined
+for that. On the other hand, ``nautilus`` uses the information on the
+likelihood obtained during the exploration phase to more or less directly
+sample from the posterior.
 
 API Differences
 ---------------
 
-``dynesty`` and ``nautilus`` use very similar APIs with the explicit goal to
-make the transition as easy as possible. The following simple example, based
-on the :doc:`crash coure <crash_course>`. First, let us define the problem.
+The API of ``nautilus`` is very similar to that of ``dynesty``, ``ultranest``
+and ``pymultinest``. In the following, we'll show how to solve the same problem
+(based on the :doc:`crash coure <crash_course>`) with ``dynesty`` and
+``nautilus``. First, let us define the prior and likelihood. Note that in the
+same way as NS algorithms, the prior is defined via a transformation from the
+unit hypercube.
 
 .. code-block:: python
 
@@ -49,14 +52,11 @@ on the :doc:`crash coure <crash_course>`. First, let us define the problem.
     from scipy.stats import norm
     from scipy.stats import multivariate_normal
 
-
     n_dim = 3
-
 
     def prior(u):
         return np.array(
             [u[0] * 10 - 5, u[1] * 10 - 5, norm(loc=0, scale=2.0).ppf(u[2])])
-
 
     def likelihood(x):
         return multivariate_normal.logpdf(
@@ -81,7 +81,7 @@ Here's how we apply ``dynesty`` and ``nautilus`` to this problem.
 
     from nautilus import Sampler
 
-    sampler = Sampler(prior, likelihood, n_dim)
+    sampler = Sampler(prior, likelihood, n_dim, n_live=1000)
     sampler.run(verbose=True)
     samples['nautilus'], log_w['nautilus'] = sampler.posterior()[:2]
     log_z['nautilus'] = sampler.evidence()
@@ -110,7 +110,7 @@ Output::
 
     Evidence: -6.3 vs. -6.3
 
-.. image:: dynesty_users.png
+.. image:: nested_sampling_users.png
    :width: 70 %
    :align: center
 
@@ -125,5 +125,5 @@ General Advice
 ``nautilus`` with less than 1000 live points. Although the runtime of the
 algorithm is, in principle, proportional to the number of live points, the
 increased sampling efficiency with more points more than makes up for that.
-Often, ``nautilus`` with 3000 live points runs faster than ``dynesty`` with
-500.
+Often, ``nautilus`` with 3000 live points runs faster than ``dynesty``,
+``pymultinest`` and ``ultranest`` with 500.

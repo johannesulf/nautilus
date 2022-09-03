@@ -12,21 +12,14 @@ evidence estimation. It is based on importance sampling and efficient space
 tessellation using neural networks. Its main features are computational
 efficiency as well as accuracy of the posterior and evidence estimates.
 
-Installation
-------------
-
-``nautilus`` can be installed via ``pip``.
-
-.. code-block:: bash
-
-    pip install nautilus-sampler
-
 .. toctree::
     :maxdepth: 1
-    :caption: Tutorials
+    :caption: User Guide
 
-    tutorials/crash_course
-    tutorials/dynesty_users
+    guides/installation
+    guides/crash_course
+    guides/prior_distribution
+    guides/nested_sampling
 
 .. toctree::
     :maxdepth: 1
