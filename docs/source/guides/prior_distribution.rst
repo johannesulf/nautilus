@@ -8,7 +8,7 @@ algorithms generally assume that model parameters :math:`u` are uniformly
 distributed in the unit hypercube. Thus, one first needs to perform a
 variable transformation :math:`\theta = f(u)`. A general recipe for
 separable priors, i.e.
-:math:`p(\theta) = p_1(\theta_1) \times ... \times p_n(\theta_n)` is to use
+:math:`p(\theta) = p_1(\theta_1) \times ... \times p_n(\theta_n)`, is to use
 
 .. math::
 

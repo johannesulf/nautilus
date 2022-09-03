@@ -19,8 +19,7 @@ efficiency as well as accuracy of the posterior and evidence estimates.
     guides/installation
     guides/crash_course
     guides/prior_distribution
-    guides/nested_sampling_users
-    guides/mcmc_users
+    guides/nested_sampling
 
 .. toctree::
     :maxdepth: 1

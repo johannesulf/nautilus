@@ -43,8 +43,8 @@ Now, we are ready to run the sampler.
     sampler = Sampler(prior, likelihood, n_live=1000)
     sampler.run(verbose=True)
 
-At this point, we can for example plot the posterior using the handy ``corner``
-Python package.
+At this point, we can, for example, plot the posterior using the handy
+``corner`` Python package.
 
 .. code-block:: python
 

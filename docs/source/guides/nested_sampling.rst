@@ -1,5 +1,5 @@
-Nested Sampling Users
-=====================
+Nested Sampling
+===============
 
 If you're already familiar with nested sampling (NS) codes such as ``dynesty``,
 ``pymultinest`` or ``ultranest``, this guide should be helpful. Here, we
