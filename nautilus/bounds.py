@@ -841,3 +841,23 @@ class NautilusBound():
 
         return logsumexp(self.log_v) + np.log(
             1.0 - self.n_reject / self.n_sample)
+
+    def number_of_networks_and_ellipsoids(self):
+        """Return the number of neural networks and sample ellipsoids.
+
+        Returns
+        -------
+        n_neural : int
+            The number of neural networks.
+        n_sample : int
+            The number of sample ellipsoids.
+        """
+        n_neural = len(self.nbounds)
+
+        if isinstance(self.sample_bounds[0], UnitCube):
+            i = 1
+        else:
+            i = 0
+        n_sample = len(self.sample_bounds[i].ells)
+
+        return n_neural, n_sample

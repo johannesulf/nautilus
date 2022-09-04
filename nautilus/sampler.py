@@ -514,17 +514,12 @@ class Sampler():
             print('Adding bound {:<7} done'.format(
                 str(len(self.bounds)) + ':'))
             if isinstance(self.bounds[-1], NautilusBound):
-                n_neu = len(self.bounds[-1].nbounds)
-                if isinstance(self.bounds[-1].sample_bound, UnitCube):
-                    n_ell = 0
-                else:
-                    n_ell = len(self.bounds[-1].sample_bound.ells)
+                n_neural, n_sample =\
+                    self.bounds[-1].number_of_networks_and_ellipsoids()
             else:
-                n_neu = 0
-                n_ell = 0
-            n_ell = max(n_neu, n_ell)
-            print("Neural nets: {:>12}".format(n_neu))
-            print("Ellipsoids: {:>13}".format(n_ell))
+                n_neural, n_sample = 0, 0
+            print("Neural nets: {:>12}".format(n_neural))
+            print("Ellipsoids: {:>13}".format(n_sample))
 
     def fill_bound(self, verbose=False):
         """Fill a new bound with points until a new bound should be created.
