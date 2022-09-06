@@ -577,13 +577,15 @@ class NeuralBound():
     ellipsoid : Ellipsoid
         Bounding ellipsoid drawn around the live points.
     emulator : object
-        Emulator used to fit and predict likelihood scores.
+        Emulator based on `sklearn.neural_network.MLPRegressor` used to fit and
+        predict likelihood scores.
     score_predict_min : float
         Minimum score predicted by the emulator to be considered part of the
         bound.
     """
 
     def __init__(self, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
+                 neural_network_kwargs={}, neural_network_thread_limit=1,
                  random_state=None):
         """Initialize a neural network-based bound.
 
@@ -603,6 +605,13 @@ class NeuralBound():
             The volume of the minimum enclosing ellipsoid around the points
             with likelihood larger than the target likelihood is increased by
             this factor. Default is 2.0.
+        neural_network_kwargs : dict, optional
+            Keyword arguments passed to the constructor of
+            `sklearn.neural_network.MLPRegressor`. By default, no keyword
+            arguments are passed to the constructor.
+        neural_network_thread_limit : int or None, optional
+            Maximum number of threads used by `sklearn`. If None, no limits
+            are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -688,7 +697,8 @@ class NautilusBound():
 
     def __init__(self, points, log_l, log_l_min, log_v_target, enlarge=2.0,
                  n_points_min=None, split_threshold=100,
-                 use_neural_networks=True, random_state=None):
+                 use_neural_networks=True, neural_network_kwargs={},
+                 neural_network_thread_limit=1, random_state=None):
         """Initialize a union of multiple neural network-based bounds.
 
         Parameters
@@ -711,14 +721,21 @@ class NautilusBound():
             Effectively, ellipsoids with less than twice that number will not
             be split further. If None, uses `n_points_min = n_dim + 1`. Default
             is None.
-        use_neural_networks : bool, optional
-            Whether to use neural network emulators in the definition of the
-            bound. Default is True.
         split_threshold: float, optional
             Threshold used for splitting the multi-ellipsoidal bound used for
             sampling. If the volume of the bound is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
+        use_neural_networks : bool, optional
+            Whether to use neural network emulators in the construction of the
+            bound. Default is True.
+        neural_network_kwargs : dict, optional
+            Keyword arguments passed to the constructor of
+            `sklearn.neural_network.MLPRegressor`. By default, no keyword
+            arguments are passed to the constructor.
+        neural_network_thread_limit : int or None, optional
+            Maximum number of threads used by `sklearn`. If None, no limits
+            are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -737,7 +754,10 @@ class NautilusBound():
                 select = ell.contains(points)
                 self.nbounds.append(NeuralBound(
                     points[select], log_l[select], log_l_min, ellipsoid=ell,
-                    enlarge=enlarge, random_state=random_state))
+                    enlarge=enlarge,
+                    neural_network_kwargs=neural_network_kwargs,
+                    neural_network_thread_limit=neural_network_thread_limit,
+                    random_state=random_state))
 
         while min(mell.volume(), 0.0) - log_v_target > np.log(
                 split_threshold * enlarge):

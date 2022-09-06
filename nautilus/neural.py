@@ -1,5 +1,6 @@
 """Module implementing neural network emulators."""
 
+from threadpoolctl import threadpool_limits
 from sklearn.neural_network import MLPRegressor
 
 
@@ -8,13 +9,16 @@ class NeuralNetworkEmulator():
 
     Attributes
     ----------
-    network : object
+    network : sklearn.neural_network.MLPRegressor
         Artifical neural network used for emulation.
+    neural_network_thread_limit : int
+        Maximum number of threads used by `sklearn`. If None, no limits
+        are applied.
 
     """
 
-    def __init__(self, x, y, max_epochs=10000, min_delta_mse=1e-4,
-                 patience=20):
+    def __init__(self, x, y, neural_network_kwargs={},
+                 neural_network_thread_limit=1):
         """Initialize and train the likelihood neural network emulator.
 
         Parameters
@@ -23,27 +27,19 @@ class NeuralNetworkEmulator():
             Normalized coordinates of the training points.
         y : numpy.ndarray
             Normalized likelihood value of the training points.
-        max_epochs : int, optional
-            Maximum number of training epochs. Default is 10000.
-        min_delta_mse : float, optional
-            Training stops if the mean squared error of the training set does
-            not improve by at least `min_delta_mse` in `patience` epochs and
-            the number of training epochs is at least `min_epochs`. Default is
-            1e-4.
-        patience : int, optional
-            Training stops if the mean squared error of the training set does
-            not improve by at least `min_delta_mse` in `patience` epochs and
-            the number of training epochs is at least `min_epochs`. Default is
-            20.
+        neural_network_kwargs : dict, optional
+            Keyword arguments passed to the constructor of
+            `sklearn.neural_network.MLPRegressor`. By default, no keyword
+            arguments are passed to the constructor.
+        neural_network_thread_limit : int or None, optional
+            Maximum number of threads used by `sklearn`. If None, no limits
+            are applied. Default is 1.
 
         """
-        kwargs = {'hidden_layer_sizes': (128, 128, 128), 'alpha': 0,
-                  'warm_start': True, 'random_state': 0,
-                  'learning_rate_init': 1e-2, 'max_iter': max_epochs,
-                  'tol': min_delta_mse, 'n_iter_no_change': patience}
-
-        self.network = MLPRegressor(batch_size=min(128, len(x)), **kwargs)
-        self.network.fit(x, y)
+        self.network = MLPRegressor(**neural_network_kwargs)
+        self.neural_network_thread_limit = neural_network_thread_limit
+        with threadpool_limits(limits=self.neural_network_thread_limit):
+            self.network.fit(x, y)
 
     def predict(self, x):
         """Calculate the emulator likelihood prediction for a group of points.
@@ -59,4 +55,5 @@ class NeuralNetworkEmulator():
             Emulated normalized likelihood value of the training points.
 
         """
-        return self.network.predict(x)
+        with threadpool_limits(limits=self.neural_network_thread_limit):
+            return self.network.predict(x)
