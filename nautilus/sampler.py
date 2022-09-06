@@ -52,7 +52,7 @@ class Sampler():
                  neural_network_kwargs={
                      'hidden_layer_sizes': (128, 128, 128), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
-                     'tol': 1e-4, 'n_iter_no_change': 20},
+                     'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, vectorized=False,
                  pass_struct=None, threads=1, pool=None,

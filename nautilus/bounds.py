@@ -644,7 +644,10 @@ class NeuralBound():
         if np.any(select):
             score[select] = 0.5 * (perc[select] / perc_min)
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
-        self.emulator = NeuralNetworkEmulator(points_t, score)
+        self.emulator = NeuralNetworkEmulator(
+            points_t, score, neural_network_kwargs=neural_network_kwargs,
+            neural_network_thread_limit=neural_network_thread_limit)
+
 
         self.score_predict_min = np.polyval(np.polyfit(
             score, self.emulator.predict(points_t), 3), 0.5)
