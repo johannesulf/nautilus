@@ -22,7 +22,7 @@ class UnitCube():
     ----------
     n_dim : int
         Number of dimensions.
-    random_state : numpy.random or numpy.random.RandomState instance
+    random_state : numpy.random.RandomState instance
         Determines random number generation.
 
     """
@@ -34,8 +34,8 @@ class UnitCube():
         ----------
         n_dim : int
             Number of dimensions.
-        random_state : numpy.random or numpy.random.RandomState instance
-            Determines random number generation. Default is `numpy.random`.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
 
         """
         self.n_dim = n_dim
@@ -196,7 +196,7 @@ class Ellipsoid():
         Inverse of B.
     log_v : float
         Natural log of the volume of the ellipsoid.
-    random_state : numpy.random or numpy.random.RandomState instance
+    random_state : numpy.random.RandomState instance
         Determines random number generation.
 
     """
@@ -211,8 +211,8 @@ class Ellipsoid():
         enlarge : float, optional
             The volume of the minimum enclosing ellipsoid around the points
             is increased by this factor. Default is 2.0
-        random_state : numpy.random or numpy.random.RandomState instance
-            Determines random number generation. Default is `numpy.random`.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
 
         Raises
         ------
@@ -255,7 +255,7 @@ class Ellipsoid():
         points : numpy.ndarray
             A 1-D or 2-D array containing single point or a collection of
             points. If more than one-dimensional, each row represents a point.
-        inverse : bool
+        inverse : bool, optional
             By default, the coordinates are transformed from the regular
             coordinates to the coordinates in the ellipsoid. If `inverse` is
             set to true, this function does the inverse operation, i.e.
@@ -325,6 +325,35 @@ class Ellipsoid():
         return self.log_v
 
 
+def ellipsoids_overlap(ells):
+    """Determine if ellipsoids overlap.
+
+    This functions is based on ieeexplore.ieee.org/document/6289830.
+
+    Parameters
+    ----------
+    ells : list
+        List of ellipsoids.
+
+    Returns
+    -------
+    overlapping : bool
+        True, if there is overlap between ellipoids and False otherwise.
+
+    """
+    c = [ell.c for ell in ells]
+    A_inv = [np.linalg.inv(ell.A) for ell in ells]
+
+    for i_1, i_2 in itertools.combinations(range(len(ells)), 2):
+        d = c[i_1] - c[i_2]
+        k = lambda s: (1 - np.dot(np.dot(
+            d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d))
+        if minimize(k, 0.5, bounds=[(1e-9, 1-1e-9)]).fun > 0:
+            return True
+
+    return False
+
+
 class MultiEllipsoid():
     r"""Union of multiple ellipsoids in :math:`n_{\rm dim}` dimensions.
 
@@ -336,8 +365,6 @@ class MultiEllipsoid():
         List of ellipsoids.
     log_v : list
         Natural log of the volume of each ellipsoid in the union.
-    split : list
-        Whether each ellipsoid can be split further.
     points : numpy.ndarray
         The points used to create the union. Used to add more ellipsoids.
     points_sample : numpy.ndarray
@@ -349,11 +376,15 @@ class MultiEllipsoid():
     enlarge : float
         The factor by which the volume of the minimum enclosing ellipsoids is
         increased.
-    random_state : numpy.random or numpy.random.RandomState instance
+    n_points_min : int or None
+        The minimum number of points each ellipsoid should have. Effectively,
+        ellipsoids with less than twice that number will not be split further.
+    random_state : numpy.random.RandomState instance
         Determines random number generation.
     """
 
-    def __init__(self, points, enlarge=2.0, random_state=None):
+    def __init__(self, points, enlarge=2.0, n_points_min=None,
+                 random_state=None):
         r"""Initialize a union of :math:`n_{\rm dim}`-dimensional ellipsoids.
 
         Upon creation, the union consists of a single ellipsoid.
@@ -364,90 +395,97 @@ class MultiEllipsoid():
             A 2-D array where each row represents a point.
         enlarge : float, optional
             The volume of the minimum enclosing ellipsoids around the points
-            is increased by this factor. Default is 2.0
-        random_state : numpy.random or numpy.random.RandomState instance
-            Determines random number generation. Default is `numpy.random`.
+            is increased by this factor. Default is 2.0.
+        n_points_min : int or None, optional
+            The minimum number of points each ellipsoid should have.
+            Effectively, ellipsoids with less than twice that number will not
+            be split further. If None, uses `n_points_min = n_dim + 1`. Default
+            is None.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Raises
+        ------
+        ValueError
+            If `n_points_min` is smaller than the number of dimensions plus
+            one.
 
         """
         self.n_dim = points.shape[1]
 
         self.points = [points]
-        self.ells = [
-            Ellipsoid(points, enlarge=enlarge, random_state=random_state)]
+        self.ells = [Ellipsoid(points, enlarge=enlarge,
+                               random_state=random_state)]
         self.log_v = [self.ells[0].volume()]
-        if len(self.points[0]) < 2 * (self.n_dim + 1):
-            self.split = [False]
-        else:
-            self.split = [True]
 
         self.points_sample = np.zeros((0, points.shape[1]))
         self.n_sample = 0
         self.n_reject = 0
 
         self.enlarge = enlarge
+        if n_points_min is None:
+            n_points_min = self.n_dim + 1
+
+        if n_points_min < self.n_dim + 1:
+            raise ValueError('The number of points per ellipsoid cannot be ' +
+                             'smaller than the number of dimensions plus one.')
+
+        self.n_points_min = n_points_min
 
         if random_state is None:
             self.random_state = np.random
         else:
             self.random_state = random_state
 
-    def add_ellipsoid(self, allow_overlap=True):
-        """Add an additional ellipsoid to the ellipsoid union.
+    def split_ellipsoid(self, allow_overlap=True):
+        """Split the largest ellipsoid to the ellipsoid union.
 
         Parameters
         ----------
-        allow_overlap : bool
-            Whether to allow adding ellipoids if doing so creates overlaps.
+        allow_overlap : bool, optional
+            Whether to allow splitting the largest ellipsoid if doing so
+            creates overlaps between any ellipsoids. Default is True.
 
         Returns
         -------
         success : bool
-            Whether it was possible to add another ellipsoid.
+            Whether it was possible to split any ellipsoid.
 
         """
-        if not np.any(self.split):
+        split_possible = (np.array([len(points) for points in self.points]) >
+                          2 * self.n_points_min)
+
+        if not np.any(split_possible):
             return False
 
-        index = np.argmax(np.where(self.split, self.log_v, -np.inf))
-        points = self.points.pop(index)
-        points_t = self.ells[index].transform(points)
-        ell = self.ells.pop(index)
-        log_v = self.log_v.pop(index)
-        split = self.split.pop(index)
+        index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
+        points = self.ells[index].transform(self.points[index])
 
         d = KMeans(n_clusters=2, random_state=self.random_state).fit_transform(
-            points_t)
+            points)
 
         labels = np.argmin(d, axis=1)
-        if not np.all(np.bincount(labels) >= self.n_dim + 1):
-            index = np.argmin(np.bincount(labels))
-            labels[np.argsort(d[:, index] - d[:, index - 1])[
-                :self.n_dim+1]] = index
+        if not np.all(np.bincount(labels) >= self.n_points_min):
+            label = np.argmin(np.bincount(labels))
+            labels[np.argsort(d[:, label] - d[:, label - 1])[
+                :self.n_points_min]] = label
 
-        for index in [0, 1]:
-            self.ells.append(Ellipsoid(
-                points[labels == index], enlarge=self.enlarge,
+        new_ells = self.ells.copy()
+        new_ells.pop(index)
+        points = self.points[index]
+        for label in [0, 1]:
+            new_ells.append(Ellipsoid(
+                points[labels == label], enlarge=self.enlarge,
                 random_state=self.random_state))
-            self.points.append(points[labels == index])
-            if np.sum(labels == index) >= 2 * (self.n_dim + 1):
-                self.split.append(True)
-            else:
-                self.split.append(False)
 
-        self.log_v.append(self.ells[-2].volume())
-        self.log_v.append(self.ells[-1].volume())
-
-        if not allow_overlap and self.overlap():
-            for i in range(2):
-                del self.ells[-1]
-                del self.points[-1]
-                del self.log_v[-1]
-                del self.split[-1]
-            self.ells.append(ell)
-            self.points.append(points)
-            self.log_v.append(log_v)
-            self.split.append(split)
+        if not allow_overlap and ellipsoids_overlap(new_ells):
             return False
+
+        self.ells = new_ells
+        self.log_v = [ell.volume() for ell in self.ells]
+        self.points.pop(index)
+        self.points.append(points[labels == 0])
+        self.points.append(points[labels == 1])
 
         # Reset the sampling.
         self.points_sample = np.zeros((0, points.shape[1]))
@@ -498,8 +536,7 @@ class MultiEllipsoid():
 
             points = np.vstack([ell.sample(n) for ell, n in
                                 zip(self.ells, n_per_ell)])
-            points = points[self.random_state.choice(
-                len(points), size=len(points), replace=False)]
+            self.random_state.shuffle(points)
             n_ell = np.sum([ell.contains(points) for ell in self.ells], axis=0)
             p = 1 - 1.0 / n_ell
             points = points[self.random_state.random(size=n_sample) > p]
@@ -526,29 +563,6 @@ class MultiEllipsoid():
 
         return logsumexp(self.log_v) + np.log(
             1.0 - self.n_reject / self.n_sample)
-
-    def overlap(self):
-        """Determine if the ellipsoids overlap.
-
-        This functions is based on ieeexplore.ieee.org/document/6289830.
-
-        Returns
-        -------
-        overlapping : bool
-            True, if there is overlap between ellipoids and False otherwise.
-
-        """
-        c = [ell.c for ell in self.ells]
-        A_inv = [np.linalg.inv(ell.A) for ell in self.ells]
-
-        for i_1, i_2 in itertools.combinations(range(len(self.ells)), 2):
-            d = c[i_1] - c[i_2]
-            k = lambda s : (1 - np.dot(np.dot(
-                d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d))
-            if minimize(k, 0.5, bounds=[(1e-9, 1-1e-9)]).fun > 0:
-                return True
-
-        return False
 
 
 class NeuralBound():
@@ -589,8 +603,8 @@ class NeuralBound():
             The volume of the minimum enclosing ellipsoid around the points
             with likelihood larger than the target likelihood is increased by
             this factor. Default is 2.0.
-        random_state : numpy.random or numpy.random.RandomState instance
-            Determines random number generation. Default is `numpy.random`.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
 
         """
         self.n_dim = points.shape[1]
@@ -663,14 +677,18 @@ class NautilusBound():
     ----------
     log_v : list
         List of the natural log of the volumes of each bound.
-    bounds : list
+    nbounds : list
         List of the individual neural network-based bounds.
-    random_state : numpy.random or numpy.random.RandomState instance
+    sample_bounds : tuple
+        Outer bounds used for sampling. The first one is used for sampling
+        while any points must lie in both to be part of the bound.
+    random_state : None or numpy.random.RandomState instance
         Determines random number generation.
     """
 
     def __init__(self, points, log_l, log_l_min, log_v_target, enlarge=2.0,
-                 random_state=None):
+                 n_points_min=None, split_threshold=100,
+                 use_neural_networks=True, random_state=None):
         """Initialize a union of multiple neural network-based bounds.
 
         Parameters
@@ -688,26 +706,41 @@ class NautilusBound():
             The volume of the minimum enclosing ellipsoid around the points
             with likelihood larger than the target likelihood is increased by
             this factor. Default is 2.0.
-        random_state : numpy.random or numpy.random.RandomState instance
-            Determines random number generation. Default is `numpy.random`.
+        n_points_min : int or None, optional
+            The minimum number of points each ellipsoid should have.
+            Effectively, ellipsoids with less than twice that number will not
+            be split further. If None, uses `n_points_min = n_dim + 1`. Default
+            is None.
+        use_neural_networks : bool, optional
+            Whether to use neural network emulators in the definition of the
+            bound. Default is True.
+        split_threshold: float, optional
+            Threshold used for splitting the multi-ellipsoidal bound used for
+            sampling. If the volume of the bound is larger than
+            `split_threshold` times the target volume, the multi-ellipsiodal
+            bound is split further, if possible. Default is 100.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
 
         """
         mell = MultiEllipsoid(points[log_l > log_l_min], enlarge=enlarge,
                               random_state=random_state)
         cube = UnitCube(points.shape[-1])
 
-        while mell.add_ellipsoid(allow_overlap=False):
+        while mell.split_ellipsoid(allow_overlap=False):
             pass
 
         self.nbounds = []
 
-        for ell in mell.ells:
-            select = ell.contains(points)
-            self.nbounds.append(NeuralBound(
-                points[select], log_l[select], log_l_min, ellipsoid=ell,
-                enlarge=enlarge, random_state=random_state))
+        if use_neural_networks:
+            for ell in mell.ells:
+                select = ell.contains(points)
+                self.nbounds.append(NeuralBound(
+                    points[select], log_l[select], log_l_min, ellipsoid=ell,
+                    enlarge=enlarge, random_state=random_state))
 
-        while min(mell.volume(), 0.0) - log_v_target > np.log(100 * enlarge):
+        while min(mell.volume(), 0.0) - log_v_target > np.log(
+                split_threshold * enlarge):
             if mell.volume() >= 0:
                 points_test = cube.sample(10000)
                 log_v = cube.volume() + np.log(
@@ -717,17 +750,17 @@ class NautilusBound():
                 log_v = mell.volume() + np.log(
                     np.mean(cube.contains(points_test)))
             if log_v - log_v_target > np.log(100 * enlarge):
-                if not mell.add_ellipsoid():
+                if not mell.split_ellipsoid():
                     break
             else:
                 break
 
         if mell.volume() >= 0:
-            self.sample_bound = cube
+            self.sample_bounds = (cube, mell)
         else:
-            self.sample_bound = mell
+            self.sample_bounds = (mell, cube)
 
-        self.log_v = self.sample_bound.volume()
+        self.log_v = self.sample_bounds[0].volume()
 
         if random_state is None:
             self.random_state = np.random
@@ -754,9 +787,11 @@ class NautilusBound():
             the bound.
 
         """
-        in_bound = np.all((points >= 0) & (points < 1), axis=-1)
-        in_bound = in_bound & np.any(np.vstack(
-            [bound.contains(points) for bound in self.nbounds]), axis=0)
+        in_bound = (self.sample_bounds[0].contains(points) &
+                    self.sample_bounds[1].contains(points))
+        if len(self.nbounds) > 0:
+            in_bound = in_bound & np.any(np.vstack(
+                [bound.contains(points) for bound in self.nbounds]), axis=0)
         return in_bound
 
     def sample(self, n_points=1):
@@ -777,14 +812,15 @@ class NautilusBound():
         """
         while len(self.points_sample) < n_points:
             n_sample = 10000
-            points = self.sample_bound.sample(n_sample)
+            points = self.sample_bounds[0].sample(n_sample)
+            points = points[self.sample_bounds[1].contains(points)]
             points = points[self.contains(points)]
             self.points_sample = np.vstack([self.points_sample, points])
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)
 
         # Update volumes since they might have gotten more accurate.
-        self.log_v = self.sample_bound.volume()
+        self.log_v = self.sample_bounds[0].volume()
 
         points = self.points_sample[:n_points]
         self.points_sample = self.points_sample[n_points:]
@@ -805,3 +841,23 @@ class NautilusBound():
 
         return logsumexp(self.log_v) + np.log(
             1.0 - self.n_reject / self.n_sample)
+
+    def number_of_networks_and_ellipsoids(self):
+        """Return the number of neural networks and sample ellipsoids.
+
+        Returns
+        -------
+        n_neural : int
+            The number of neural networks.
+        n_sample : int
+            The number of sample ellipsoids.
+        """
+        n_neural = len(self.nbounds)
+
+        if isinstance(self.sample_bounds[0], UnitCube):
+            i = 1
+        else:
+            i = 0
+        n_sample = len(self.sample_bounds[i].ells)
+
+        return n_neural, n_sample
