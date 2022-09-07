@@ -116,7 +116,7 @@ gal_prior.add_parameter('mean_occupation_satellites_assembias_param1',
                         dist=(-1, +1))
 
 
-def galaxy_likelihood(x):
+def cosmology_likelihood(x):
 
     model.param_dict.update(
         gal_prior.physical_to_structure(gal_prior.unit_to_physical(x)))
@@ -232,12 +232,16 @@ def main():
         elif args.likelihood.split('-')[0] == 'funnel':
             likelihood = funnel_likelihood
             n_dim = int(args.likelihood.split('-')[1])
-    elif args.likelihood == 'galaxy':
-        likelihood = galaxy_likelihood
+    elif args.likelihood == 'cosmology':
+        likelihood = cosmology_likelihood
         n_dim = 7
     elif args.likelihood == 'exoplanet':
         likelihood = exoplanet_likelihood
         n_dim = 14
+    elif args.likelihood == 'galaxy':
+        from galaxy_likelihood import galaxy_likelihood
+        likelihood = galaxy_likelihood
+        n_dim = 5
     else:
         raise Exception("Unknown likelihood '{}'.".format(args.likelihood))
 
@@ -305,7 +309,7 @@ def main():
                 logger.disabled = True
 
                 if args.likelihood.split('-')[0] not in [
-                        'rosenbrock', 'galaxy', 'exoplanet']:
+                        'rosenbrock', 'cosmology', 'exoplanet']:
                     continue
 
                 if args.likelihood.split('-')[0] == 'rosenbrock':
