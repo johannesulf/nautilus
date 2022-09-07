@@ -20,4 +20,4 @@ Dependencies
 ------------
 
 ``nautilus`` depends on a small number of fairly standard packages: ``numpy``,
-``scipy``, ``scikit-learn`` and ``tqdm``.
+``scipy``, ``scikit-learn``, ``tqdm`` and ``threadpoolctl``.

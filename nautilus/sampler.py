@@ -31,8 +31,8 @@ class Sampler():
     bounds : list
         List of all the constructed bounds.
     points : list
-        List of arrays where each array at position i list the points belonging
-        to the i-th bound/shell.
+        List of arrays where each array at position i lists the points
+        belonging to the i-th bound/shell.
     n_like : int
         Total number of likelihood evaluations.
     log_l : list
@@ -47,10 +47,16 @@ class Sampler():
     """
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=3000,
-                 n_update=None, n_like_update=None, enlarge=None, n_batch=100,
-                 vectorized=False, pass_struct=None, likelihood_args=[],
-                 likelihood_kwargs={}, prior_args=[], prior_kwargs={},
-                 threads=1, pool=None, random_state=None):
+                 n_update=None, n_like_update=None, enlarge=None,
+                 use_neural_networks=True,
+                 neural_network_kwargs={
+                     'hidden_layer_sizes': (128, 128, 128), 'alpha': 0,
+                     'learning_rate_init': 1e-2, 'max_iter': 10000,
+                     'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
+                 prior_args=[], prior_kwargs={}, likelihood_args=[],
+                 likelihood_kwargs={}, n_batch=100, vectorized=False,
+                 pass_struct=None, threads=1, pool=None,
+                 neural_network_thread_limit=1, random_state=None):
         r"""
         Initialize the sampler.
 
@@ -68,16 +74,33 @@ class Sampler():
         n_live : int, optional
             Number of so-called live points. New bounds are constructed so that
             they encompass the live points. Default is 3000.
-        n_update : int, optional
+        n_update : None or int, optional
             The maximum number of additions to the live set before a new bound
-            is created. Default is `n_live`.
-        n_like_update : int, optional
+            is created. If None, use `n_live`. Default is None.
+        n_like_update : None or int, optional
             The maximum number of likelihood calls before a new bounds is
-            created. Default is 10 times `n_live`.
+            created. If None, use 10 times `n_live`. Default is None.
         enlarge : float, optional
             Factor by which the volume of ellipsoidal bounds is increased.
             Default is 1.1 to the power of `n_dim`, i.e. the ellipsoidal bounds
             are increased by 10% in every dimension.
+        use_neural_networks : bool, optional
+            Whether to use neural network emulators in the construction of the
+            bounds. Default is True.
+        neural_network_kwargs : dict, optional
+            Keyword arguments passed to the constructor of
+            `sklearn.neural_network.MLPRegressor`. By default, no keyword
+            arguments are passed to the constructor.
+        prior_args : list, optional
+            List of extra positional arguments for `prior`. Only used if
+            `prior` is a function.
+        prior_kwargs : dict, optional
+            Dictionary of extra keyword arguments for `prior`. Only used if
+            `prior` is a function.
+        likelihood_args : list, optional
+            List of extra positional arguments for `likelihood`.
+        likelihood_kwargs : dict, optional
+            Dictionary of extra keyword arguments for `likelihood`.
         n_batch : int, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
@@ -98,22 +121,15 @@ class Sampler():
             dictionaries (if not vectorized) or structured numpy arrays. If
             false, it expects regular numpy arrays. Default is to set it to
             True if prior was a nautilus.Prior instance and False otherwise.
-        likelihood_args : list, optional
-            List of extra positional arguments for `likelihood`.
-        likelihood_kwargs : dict, optional
-            Dictionary of extra keyword arguments for `likelihood`.
-        prior_args : list, optional
-            List of extra positional arguments for `prior`. Only used if
-            `prior` is a function.
-        prior_kwargs : dict, optional
-            Dictionary of extra keyword arguments for `prior`. Only used if
-            `prior` is a function.
         threads : int, optional
             A positive integer determining the number of processes used. Will
             be ignored if `pool` is provided. Default is 1.
         pool : object, optional
             Object with a `map` function used for parallelization, e.g.
             a multiprocessing.Pool object. Default is None.
+        neural_network_thread_limit : int or None, optional
+            Maximum number of threads used by `sklearn`. If None, no limits
+            are applied. Default is 1.
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
@@ -170,6 +186,8 @@ class Sampler():
         else:
             self.config['enlarge'] = enlarge
 
+        self.config['use_neural_networks'] = use_neural_networks
+        self.config['neural_network_kwargs'] = neural_network_kwargs
         self.config['n_batch'] = n_batch
         self.config['vectorized'] = vectorized
         self.config['pass_struct'] = pass_struct
@@ -180,6 +198,9 @@ class Sampler():
             self.pool = Pool(threads)
         else:
             self.pool = None
+
+        self.config['neural_network_thread_limit'] =\
+            neural_network_thread_limit
 
         if random_state is None:
             self.random_state = np.random.RandomState()
@@ -499,6 +520,9 @@ class Sampler():
             new_bound = NautilusBound(
                 points_all, log_l_all, log_l_min_iteration,
                 self.live_volume(), enlarge=self.config['enlarge'],
+                use_neural_networks=self.config['use_neural_networks'],
+                neural_network_kwargs=self.config['neural_network_kwargs'],
+                neural_network_thread_limit=self.config['neural_network_thread_limit'],
                 random_state=self.random_state)
             if new_bound.volume() > self.bounds[-1].volume():
                 new_bound = self.bounds[-1]
