@@ -181,7 +181,7 @@ for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
         label = sampler
     plotline, caps, barlinecols = plt.errorbar(
         i, summary['log Z'][k], yerr=summary['log Z error'][k], label=label,
-        color=color, fmt='o', zorder=1)
+        color=color, fmt='o', zorder=1, ms=8, lw=3)
     plt.setp(barlinecols[0], capstyle='round')
 
 plt.legend(loc='upper right', frameon=False, fontsize=10, ncol=3,
@@ -198,6 +198,7 @@ plt.gca().spines['top'].set_visible(False)
 plt.gca().spines['bottom'].set_visible(False)
 plt.xticks([])
 plt.gca().tick_params(axis='y', colors='white')
+plt.gca().yaxis.set_ticks_position('left')
 plt.gca().spines['left'].set_color('white')
 plt.gca().yaxis.label.set_color('white')
 plt.tight_layout(pad=0.3)
