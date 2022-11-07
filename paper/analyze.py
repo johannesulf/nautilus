@@ -30,8 +30,11 @@ for folder in os.listdir('benchmarks'):
             summary_row['log Z error'] = np.nan
         else:
             summary_row['log Z'] = np.mean(results['log Z'][select])
-            summary_row['log Z error'] = np.std(results['log Z'][select],
-                                                ddof=1)
+            if np.sum(select) > 1:
+                summary_row['log Z error'] = np.std(
+                    results['log Z'][select], ddof=1)
+            else:
+                summary_row['log Z error'] = np.nan
         summary_row['N_like'] = np.mean(results['N_like'][select])
         summary_row['efficiency'] = np.mean(
             (results['N_eff'] / results['N_like'])[select])
@@ -115,8 +118,99 @@ for folder in os.listdir('benchmarks'):
 
 summary = Table(summary)
 
+problem_list = ['cosmology', 'galaxy', 'exoplanet']
+sampler_list = ['dynesty-rwalk', 'pocoMC', 'Nautilus']
+color_list = ['orange', 'royalblue', 'purple']
+bar_width = 0.2
+
+for statistic in ['N_like', 'efficiency']:
+    for i, problem in enumerate(problem_list):
+        for k, (sampler, color) in enumerate(zip(sampler_list, color_list)):
+            y = summary[(summary['problem'] == problem) &
+                        (summary['sampler'] == sampler)][statistic][0]
+            if sampler == 'Nautilus':
+                label = 'nautilus'
+            elif sampler == 'dynesty-rwalk':
+                label = 'dynesty'
+            else:
+                label = sampler
+            plt.bar(i + k * bar_width, y, color=color, width=bar_width,
+                    label=label if i == 0 else None, edgecolor='white')
+
+    ymin, ymax = plt.gca().get_ylim()
+    plt.ylim(ymax=ymax*1.2)
+    plt.legend(loc='upper right', frameon=False, fontsize=10, ncol=3,
+               handletextpad=0.4, columnspacing=0.8, borderpad=0,
+               labelcolor='white')
+    plt.xticks([r + bar_width for r in range(len(problem_list))], problem_list)
+    if statistic == 'N_like':
+        plt.ylabel(r'$N_{\rm like} / 10^5$')
+        plt.yticks([0, 1e5, 2e5, 3e5, 4e5, 5e5],
+                   ['0', '1', '2', '3', '4', '5'])
+    else:
+        plt.ylabel(r'$N_{\rm eff} / N_{\rm like}$')
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().xaxis.set_ticks_position('bottom')
+    plt.gca().yaxis.set_ticks_position('left')
+    plt.gca().tick_params(axis='x', colors='white')
+    plt.gca().tick_params(axis='y', colors='white')
+    plt.gca().spines['bottom'].set_color('white')
+    plt.gca().spines['left'].set_color('white')
+    plt.gca().yaxis.label.set_color('white')
+    plt.minorticks_off()
+    plt.tight_layout(pad=0.3)
+    plt.savefig(os.path.join('plots', 'spotlight_{}.png'.format(
+        statistic.lower())), dpi=300, transparent=True)
+    plt.close()
+
+# %%
+
+problem = 'loggamma-30'
+sampler_list = ['pocoMC', 'Nautilus-resample']
+color_list = ['royalblue', 'purple']
+
+for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
+    k = np.arange(len(summary))[
+        (summary['sampler'] == sampler) & (summary['problem'] == problem)][0]
+    if sampler == 'Nautilus-resample':
+        label = 'nautilus'
+    elif sampler == 'dynesty-slice':
+        label = 'dynesty'
+    else:
+        label = sampler
+    plotline, caps, barlinecols = plt.errorbar(
+        i, summary['log Z'][k], yerr=summary['log Z error'][k], label=label,
+        color=color, fmt='o', zorder=1)
+    plt.setp(barlinecols[0], capstyle='round')
+
+plt.legend(loc='upper right', frameon=False, fontsize=10, ncol=3,
+           handletextpad=0, columnspacing=0.8, borderpad=0,
+           labelcolor='white')
+plt.axhline(0, ls='--', color='white', zorder=0)
+plt.yscale('symlog', linthresh=0.01)
+plt.ylabel(r'Evidence $\ln \mathcal{Z}$')
+plt.yticks([1, 0.1, 0.01, 0, -0.01, -0.1, -1],
+           ['+1', '+0.1', '+0.01', '0', '-0.01', '-0.1', '-1'])
+plt.ylim(-4, +4)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+plt.xticks([])
+plt.gca().tick_params(axis='y', colors='white')
+plt.gca().spines['left'].set_color('white')
+plt.gca().yaxis.label.set_color('white')
+plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'spotlight_evidence.png'), dpi=300,
+            transparent=True)
+plt.close()
+
+# %%
+
 for problem in np.unique(summary['problem']):
     select = summary['problem'] == problem
+    if np.all(np.isnan(summary['log Z error'][select])):
+        continue
     log_z_min = np.nanmin(
         (summary['log Z'] - 4 * summary['log Z error'])[select])
     log_z_max = np.nanmax(

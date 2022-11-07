@@ -26,7 +26,8 @@ from halotools.empirical_models import AssembiasZheng07Sats
 
 
 def prior(x):
-    return x
+    # Force parameters to [0, 1] due to bug in pocoMC.
+    return np.minimum(np.maximum(x, 0), 1)
 
 
 def filter_outside_unit(x, log_l):
@@ -362,7 +363,7 @@ def main():
                 sampler = pocomc.Sampler(
                     n_particles, n_dim, log_likelihood=likelihood,
                     log_prior=log_prior, vectorize_likelihood=False,
-                    bounds=(0.0, 1.0))
+                    bounds=(0.0, 1.0), infer_vectorization=False)
                 prior_samples = np.random.uniform(
                     low=0.0, high=1.0, size=(n_particles, n_dim))
                 sampler.run(prior_samples, progress=args.verbose)
