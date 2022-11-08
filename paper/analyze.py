@@ -140,16 +140,16 @@ for statistic in ['N_like', 'efficiency']:
 
     ymin, ymax = plt.gca().get_ylim()
     plt.ylim(ymax=ymax*1.2)
-    plt.legend(loc='upper right', frameon=False, fontsize=10, ncol=3,
+    plt.legend(loc='upper right', frameon=False, fontsize=12, ncol=2,
                handletextpad=0.4, columnspacing=0.8, borderpad=0,
                labelcolor='white')
     plt.xticks([r + bar_width for r in range(len(problem_list))], problem_list)
     if statistic == 'N_like':
-        plt.ylabel(r'$N_{\rm like} / 10^5$')
+        plt.ylabel(r'$N_{\rm like} / 10^5$', fontsize=14)
         plt.yticks([0, 1e5, 2e5, 3e5, 4e5, 5e5],
                    ['0', '1', '2', '3', '4', '5'])
     else:
-        plt.ylabel(r'$N_{\rm eff} / N_{\rm like}$')
+        plt.ylabel(r'$N_{\rm eff} / N_{\rm like}$', fontsize=14)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
     plt.gca().xaxis.set_ticks_position('bottom')
@@ -185,25 +185,22 @@ for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
         color=color, fmt='o', zorder=1, ms=8, lw=3)
     plt.setp(barlinecols[0], capstyle='round')
 
-plt.legend(loc='upper right', frameon=False, fontsize=10, ncol=3,
-           handletextpad=0, columnspacing=0.8, borderpad=0,
+plt.legend(loc='upper right', frameon=False, fontsize=12, ncol=3,
+           handletextpad=-0.2, columnspacing=0.2, borderpad=0,
            labelcolor='white')
 plt.axhline(0, ls='--', color='white', zorder=0)
-plt.yscale('symlog', linthresh=0.01)
-plt.ylabel(r'Evidence $\ln \mathcal{Z}$')
-plt.yticks([1, 0.1, 0.01, 0, -0.01, -0.1, -1],
-           ['+1', '+0.1', '+0.01', '0', '-0.01', '-0.1', '-1'])
+plt.ylabel(r'Evidence $\ln \mathcal{Z} / \mathcal{Z}_{\rm true}$', fontsize=14)
+plt.yticks([-1.5, -1.0, -0.5, 0.0, +0.5])
 plt.xlim(-1, len(sampler_list))
-plt.ylim(-4, +4)
 plt.gca().spines['right'].set_visible(False)
 plt.gca().spines['top'].set_visible(False)
 plt.gca().spines['bottom'].set_visible(False)
 plt.xticks([])
-plt.gca().tick_params(axis='y', colors='white')
+plt.gca().tick_params(axis='y', colors='white', which='both')
 plt.gca().yaxis.set_ticks_position('left')
 plt.gca().spines['left'].set_color('white')
 plt.gca().yaxis.label.set_color('white')
-plt.tight_layout(pad=0.3)
+plt.tight_layout(pad=0.0)
 plt.savefig(os.path.join('plots', 'spotlight_evidence.png'), dpi=300,
             transparent=True)
 plt.close()
