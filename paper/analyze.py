@@ -29,9 +29,9 @@ for folder in os.listdir('benchmarks'):
             summary_row['log Z'] = np.nan
             summary_row['log Z error'] = np.nan
         else:
-            summary_row['log Z'] = np.mean(results['log Z'][select])
+            summary_row['log Z'] = np.nanmean(results['log Z'][select])
             if np.sum(select) > 1:
-                summary_row['log Z error'] = np.std(
+                summary_row['log Z error'] = np.nanstd(
                     results['log Z'][select], ddof=1)
             else:
                 summary_row['log Z error'] = np.nan
@@ -117,6 +117,7 @@ for folder in os.listdir('benchmarks'):
 # %%
 
 summary = Table(summary)
+print(summary)
 
 problem_list = ['cosmology', 'galaxy', 'exoplanet']
 sampler_list = ['dynesty-rwalk', 'pocoMC', 'Nautilus']
