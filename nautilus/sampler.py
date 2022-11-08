@@ -55,7 +55,7 @@ class Sampler():
                      'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, vectorized=False,
-                 pass_struct=None, threads=1, pool=None,
+                 pass_struct=None, processes=1, pool=None,
                  neural_network_thread_limit=1, random_state=None):
         r"""
         Initialize the sampler.
@@ -121,7 +121,7 @@ class Sampler():
             dictionaries (if not vectorized) or structured numpy arrays. If
             false, it expects regular numpy arrays. Default is to set it to
             True if prior was a nautilus.Prior instance and False otherwise.
-        threads : int, optional
+        processes : int, optional
             A positive integer determining the number of processes used. Will
             be ignored if `pool` is provided. Default is 1.
         pool : object, optional
@@ -194,8 +194,8 @@ class Sampler():
 
         if pool is not None:
             self.pool = pool
-        elif threads > 1:
-            self.pool = Pool(threads)
+        elif processes > 1:
+            self.pool = Pool(processes)
         else:
             self.pool = None
 
