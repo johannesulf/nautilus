@@ -26,7 +26,7 @@ def likelihood(param_dict):
     x = [param_dict[key] for key in 'abc']
     return multivariate_normal.logpdf(x, mean=[0.4, 0.5, 0.6], cov=0.01)
 
-sampler = Sampler(prior, likelihood, n_live=500)
+sampler = Sampler(prior, likelihood)
 sampler.run(verbose=True)
 points, log_w, log_l = sampler.posterior()
 corner.corner(points, weights=np.exp(log_w), labels='abc')
