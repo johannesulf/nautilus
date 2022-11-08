@@ -84,7 +84,7 @@ for folder in os.listdir('benchmarks'):
         axarr[i].set_xlim(np.amin(x[pdf_all > np.amax(pdf_all) * 1e-3]),
                           np.amax(x[pdf_all > np.amax(pdf_all) * 1e-3]))
         axarr[i].set_ylim(ymin=0)
-        if folder == 'galaxy':
+        if folder == 'cosmology':
             text = [r'$\log M_{\rm min}$', r'$\sigma_{\log M}$', r'$\log M_0$',
                     r'$\log M_1$', r'$\alpha$', r'$A_{\rm cen}$',
                     r'$A_{\rm sat}$'][i]
@@ -167,8 +167,8 @@ for statistic in ['N_like', 'efficiency']:
 # %%
 
 problem = 'loggamma-30'
-sampler_list = ['pocoMC', 'Nautilus-resample']
-color_list = ['royalblue', 'purple']
+sampler_list = ['dynesty-slice', 'pocoMC', 'Nautilus-resample']
+color_list = ['orange', 'royalblue', 'purple']
 
 for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
     k = np.arange(len(summary))[
@@ -192,6 +192,7 @@ plt.yscale('symlog', linthresh=0.01)
 plt.ylabel(r'Evidence $\ln \mathcal{Z}$')
 plt.yticks([1, 0.1, 0.01, 0, -0.01, -0.1, -1],
            ['+1', '+0.1', '+0.01', '0', '-0.01', '-0.1', '-1'])
+plt.xlim(-1, len(sampler_list))
 plt.ylim(-4, +4)
 plt.gca().spines['right'].set_visible(False)
 plt.gca().spines['top'].set_visible(False)
@@ -241,10 +242,10 @@ ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
 ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
 ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
 
-problem_list = ['rosenbrock-10', 'funnel-20', 'loggamma-30', 'galaxy',
-                'exoplanet']
+problem_list = ['rosenbrock-10', 'funnel-20', 'loggamma-30', 'cosmology',
+                'galaxy', 'exoplanet']
 label_list = [r'Rosen$_{10}$', r'Funnel$_{20}$', r'Log$\Gamma_{30}$',
-              'Galaxy', 'Exoplanet']
+              'Cosmology', 'Galaxy', 'Exoplanet']
 sampler_list = ['Nautilus', 'UltraNest', 'dynesty-unif',
                 'dynesty-rwalk', 'dynesty-slice', 'pocoMC']
 color_list = ['purple', 'darkblue', 'orange', 'orange', 'orange',
