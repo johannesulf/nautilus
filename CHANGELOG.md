@@ -4,7 +4,17 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2022-11-08
+### Added
+- Made several parameters such as those of the neural networks available to the user.
+### Changed
+- Changed the default number of live points and neural network structure.
+- Now using `threadpoolctl` to limit the number of cores used by the neural network.
+- The keyword argument `threads` passed to the `Sampler` class has been removed and absorbed into the `pool` keyword argument.
+
+## [0.2.1] - 2022-09-02
+### Fixed
+- Fixed crash in `Prior` class.
 
 ## [0.2.0] - 2022-07-19
 ### Changed
