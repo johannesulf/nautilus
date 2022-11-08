@@ -7,10 +7,7 @@
 Overview
 --------
 
-``nautilus`` is an MIT-licensed pure-Python package for Bayesian posterior and
-evidence estimation. It is based on importance sampling and efficient space
-tessellation using neural networks. Its main features are computational
-efficiency as well as accuracy of the posterior and evidence estimates.
+``nautilus`` is an MIT-licensed pure-Python package for Bayesian posterior and evidence estimation. It utilizes importance sampling and efficient space tessellation using neural networks. Compared to traditional MCMC and Nested Sampling codes, it needs fewer likelihood calls and produces much larger posterior samples. Additionally, ``nautilus`` is very accurate and produces accurate Bayesian evidence estimates with percent accuracy.
 
 .. toctree::
     :maxdepth: 1
@@ -30,14 +27,9 @@ efficiency as well as accuracy of the posterior and evidence estimates.
 Support
 -------
 
-If you are encountering issues with ``nautilus``, please raise an issue on the
-``nautilus`` `GitHub <https://github.com/johannesulf/nautilus/issues>`_ page.
-If you have suggestions to improve this tutorial or would like to request
-features, you can use the same procedure or, alternatively, reach out to the
-authors.
+If you are encountering issues with ``nautilus``, please raise an issue on the ``nautilus`` `GitHub <https://github.com/johannesulf/nautilus/issues>`_ page. If you have suggestions to improve this tutorial or would like to request features, you can use the same procedure or reach out to the authors.
 
 License
 -------
 
-The project is licensed under the MIT license. The logo uses an image from the
-Illustris Collaboration.
+The project is licensed under the MIT license. The logo uses an image from the Illustris Collaboration.
