@@ -1,8 +1,7 @@
 Installation
 ============
 
-The most recent stable version of ``nautilus`` listed in the Python Package
-Index (PyPI) and be installed via `pip`.
+The most recent stable version of ``nautilus`` is listed in the Python Package Index (PyPI) and be installed via `pip`.
 
 .. code-block:: bash
 
@@ -19,5 +18,4 @@ Alternatively, you can install the latest development version from GitHub.
 Dependencies
 ------------
 
-``nautilus`` depends on a small number of fairly standard packages: ``numpy``,
-``scipy``, ``scikit-learn``, ``tqdm`` and ``threadpoolctl``.
+``nautilus`` depends on a small number of fairly standard packages: ``numpy``, ``scipy``, ``scikit-learn``, ``tqdm`` and ``threadpoolctl``.

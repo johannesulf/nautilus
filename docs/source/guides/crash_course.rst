@@ -1,14 +1,7 @@
 Crash Course
 ============
 
-The best way to get started with ``nautilus`` is to apply it to a problem.
-Here, we give a minimal example of how to use the code to estimate parameter
-posteriors as well as the Bayesian evidence :math:`\mathcal{Z}`.
-
-In this simple example, our "model" has three parameters: :math:`a`, :math:`b`
-and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and
-:math:`b` in the range :math:`[-5, +5]` and a Gaussian prior for :math:`c` with
-:math:`0` mean and :math:`2` scatter. The priors can be specified as follows.
+The best way to get started with ``nautilus`` is to apply it to a problem. Here, we give a minimal example of using the code to estimate parameter posteriors and the Bayesian evidence :math:`\mathcal{Z}`. In this example, our "model" has three parameters: :math:`a`, :math:`b` and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and :math:`b` in the range :math:`[-5, +5]` and a Gaussian prior for :math:`c` with :math:`0` mean and :math:`2` scatter. The priors can be specified as follows.
 
 .. code-block:: python
 
@@ -20,9 +13,7 @@ and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and
     prior.add_parameter('b', dist=(-5, +5))
     prior.add_parameter('c', dist=norm(loc=0, scale=2.0))
 
-The next step is to define the likelihood. For simplicity, let's assume that
-all three parameters have zero mean and unit variance but that :math:`a` and
-:math:`c` have a correlation coefficient of :math:`0.9`.
+The next step is to define the likelihood. For simplicity, let's assume that all three parameters have zero mean and unit variance but that :math:`a` and :math:`c` have a correlation coefficient of :math:`0.9`.
 
 .. code-block:: python
 
@@ -43,8 +34,7 @@ Now, we are ready to run the sampler.
     sampler = Sampler(prior, likelihood, n_live=1000)
     sampler.run(verbose=True)
 
-At this point, we can, for example, plot the posterior using the handy
-``corner`` Python package.
+At this point, we can plot the posterior using the handy ``corner`` Python package.
 
 .. code-block:: python
 
@@ -63,8 +53,7 @@ At this point, we can, for example, plot the posterior using the handy
    :width: 70 %
    :align: center
 
-The Bayesian evidence :math:`\log \mathcal{Z}` has also been estimated during
-the run.
+The Bayesian evidence :math:`\log \mathcal{Z}` was also estimated during the run.
 
 .. code-block:: python
 

@@ -6,15 +6,11 @@
 [![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus?color=blue)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
 ![Language: Python](https://img.shields.io/github/languages/top/johannesulf/nautilus)
 
-`nautilus` is an MIT-licensed pure-Python package for Bayesian posterior and
-evidence estimation. It is based on importance sampling and efficient space
-tessellation using neural networks. Its main features are computational
-efficiency as well as accuracy of the posterior and evidence estimates.
+`nautilus` is an MIT-licensed pure-Python package for Bayesian posterior and evidence estimation. It utilizes importance sampling and efficient space tessellation using neural networks. Compared to traditional MCMC and Nested Sampling codes, it needs fewer likelihood calls and produces much larger posterior samples. Additionally, `nautilus` is highly accurate and produces Bayesian evidence estimates with percent precision.
 
 ## Example
 
-This simple example, sampling a 3-dimensional Gaussian, illustrates how
-`nautilus` is used.
+This example, sampling a 3-dimensional Gaussian, illustrates how to use `nautilus`.
 
 ```python
 import corner
@@ -30,7 +26,7 @@ def likelihood(param_dict):
     x = [param_dict[key] for key in 'abc']
     return multivariate_normal.logpdf(x, mean=[0.4, 0.5, 0.6], cov=0.01)
 
-sampler = Sampler(prior, likelihood, n_live=500)
+sampler = Sampler(prior, likelihood)
 sampler.run(verbose=True)
 points, log_w, log_l = sampler.posterior()
 corner.corner(points, weights=np.exp(log_w), labels='abc')
@@ -42,5 +38,4 @@ You can find the documentation at [nautilus-sampler.readthedocs.io](https://naut
 
 ## License
 
-`nautilus` is licensed under the MIT License. The logo uses an image from the
-Illustris Collaboration.
+`nautilus` is licensed under the MIT License. The logo uses an image from the Illustris Collaboration.
