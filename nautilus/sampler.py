@@ -55,8 +55,8 @@ class Sampler():
                      'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, vectorized=False,
-                 pass_struct=None, processes=1, pool=None,
-                 neural_network_thread_limit=1, random_state=None):
+                 pass_struct=None, pool=None, neural_network_thread_limit=1,
+                 random_state=None):
         r"""
         Initialize the sampler.
 
@@ -121,12 +121,11 @@ class Sampler():
             dictionaries (if not vectorized) or structured numpy arrays. If
             false, it expects regular numpy arrays. Default is to set it to
             True if prior was a nautilus.Prior instance and False otherwise.
-        processes : int, optional
-            A positive integer determining the number of processes used. Will
-            be ignored if `pool` is provided. Default is 1.
-        pool : object, optional
-            Object with a `map` function used for parallelization, e.g.
-            a multiprocessing.Pool object. Default is None.
+        pool : object or int, optional
+            Object with a `map` function used for parallelization of likelihood
+            calls, e.g. a multiprocessing.Pool object, or a positive integer.
+            If it is an integer, it determines the number of workers in the
+            Pool. Default is None.
         neural_network_thread_limit : int or None, optional
             Maximum number of threads used by `sklearn`. If None, no limits
             are applied. Default is 1.
@@ -192,10 +191,10 @@ class Sampler():
         self.config['vectorized'] = vectorized
         self.config['pass_struct'] = pass_struct
 
-        if pool is not None:
+        if isinstance(pool, int):
+            self.pool = Pool(pool)
+        elif pool is not None:
             self.pool = pool
-        elif processes > 1:
-            self.pool = Pool(processes)
         else:
             self.pool = None
 
