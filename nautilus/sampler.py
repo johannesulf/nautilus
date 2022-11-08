@@ -46,11 +46,11 @@ class Sampler():
 
     """
 
-    def __init__(self, prior, likelihood, n_dim=None, n_live=3000,
+    def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
                  n_update=None, n_like_update=None, enlarge=None,
                  use_neural_networks=True,
                  neural_network_kwargs={
-                     'hidden_layer_sizes': (128, 128, 128), 'alpha': 0,
+                     'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
                      'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
