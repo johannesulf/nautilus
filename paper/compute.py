@@ -83,13 +83,13 @@ def rosenbrock_likelihood(x):
 
 def funnel_likelihood(x):
     gamma = 0.95
-    log_l_1 = -0.5 * np.log(2 * np.pi) - ((x[..., 0] - 0.5) * 10)**2 / 2.0
-    sigma = np.exp((x[0] - 0.5) * 10)
+    log_l_1 = -0.5 * np.log(2 * np.pi) - ((x[..., 0] - 0.5) * 20)**2 / 2.0
+    sigma = np.exp((x[0] - 0.5) * 20)
     cov = (np.ones((len(x) - 1, len(x) - 1)) * gamma * sigma +
            np.eye(len(x) - 1) * (1 - gamma) * sigma)
-    log_l_2 = multivariate_normal.logpdf((x[1:] - 0.5) * 10, cov=cov)
+    log_l_2 = multivariate_normal.logpdf((x[1:] - 0.5) * 20, cov=cov)
 
-    log_l = log_l_1 + log_l_2 + len(x) * np.log(10)
+    log_l = log_l_1 + log_l_2 + len(x) * np.log(20)
 
     return filter_outside_unit(x, log_l)
 
@@ -247,22 +247,29 @@ def main():
         raise Exception("Unknown likelihood '{}'.".format(args.likelihood))
 
     for iteration in range(args.n_run):
-        for sampling_algorithm in ['Nautilus', 'Nautilus-resample', 'emcee',
-                                   'dynesty-unif', 'dynesty-rwalk',
-                                   'dynesty-slice', 'UltraNest', 'pocoMC']:
+        for sampling_algorithm in ['nautilus', 'nautilus-r', 'emcee',
+                                   'dynesty-u', 'dynesty-r', 'dynesty-s',
+                                   'UltraNest', 'pocoMC']:
 
             if sampling_algorithm[0].lower() not in args.sampler:
                 continue
 
             if sampling_algorithm[:7] == 'dynesty':
 
-                if sampling_algorithm == 'dynesty-unif' and n_dim > 20:
+                if sampling_algorithm == 'dynesty-u' and n_dim > 20:
                     continue
 
                 sample = sampling_algorithm.split('-')[1]
 
-                if sample[0].lower() not in args.dynesty:
+                if sample.lower() not in args.dynesty:
                     continue
+
+                if sample == 'u':
+                    sample = 'unif'
+                elif sample == 'r':
+                    sample = 'rwalk'
+                else:
+                    sample = 'slice'
 
                 sampler = dynesty.NestedSampler(
                     likelihood, prior, n_dim, sample=sample)
@@ -288,9 +295,9 @@ def main():
                 weights = result['weighted_samples']['weights']
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
 
-            elif sampling_algorithm in ['Nautilus', 'Nautilus-resample']:
+            elif sampling_algorithm in ['nautilus', 'nautilus-r']:
 
-                if sampling_algorithm == 'Nautilus':
+                if sampling_algorithm == 'nautilus':
                     sampler = nautilus.Sampler(
                         prior, likelihood, n_dim, pass_struct=False)
                     sampler.run(verbose=args.verbose)

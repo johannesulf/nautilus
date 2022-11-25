@@ -1,11 +1,13 @@
 import os
 import numpy as np
+from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table, vstack
 
 # %%
 
 summary = []
+posterior = {}
 
 
 for folder in os.listdir('benchmarks'):
@@ -17,14 +19,15 @@ for folder in os.listdir('benchmarks'):
 
     results = vstack([Table.read(os.path.join(directory, fname)) for fname in
                       os.listdir(directory)])
+    posterior[folder] = {}
 
     for i, sampler in enumerate(np.unique(results['sampler'])):
         print(folder, sampler, np.sum(results['sampler'] == sampler))
 
         select = results['sampler'] == sampler
         summary_row = {}
-        summary_row['sampler'] = sampler
         summary_row['problem'] = folder
+        summary_row['sampler'] = sampler
         if sampler == 'emcee':
             summary_row['log Z'] = np.nan
             summary_row['log Z error'] = np.nan
@@ -42,6 +45,7 @@ for folder in os.listdir('benchmarks'):
             summary_row['N_like'] = 50 * 100 / summary_row['efficiency']
 
         summary.append(summary_row)
+        posterior[folder][sampler] = []
 
     n_dim = np.sum([name[:2] == 'x_' for name in results.colnames])
     ncols = int(np.ceil(np.sqrt(n_dim + 1)))
@@ -78,6 +82,7 @@ for folder in os.listdir('benchmarks'):
 
             lines.append(axarr[i].plot(x, pdf, alpha=0.5)[0])
             labels.append(sampler)
+            posterior[folder][sampler].append((x, pdf))
 
         x_bins = np.linspace(0, 1, 1001)
         x = 0.5 * (x_bins[1:] + x_bins[:-1])
@@ -117,10 +122,9 @@ for folder in os.listdir('benchmarks'):
 # %%
 
 summary = Table(summary)
-print(summary)
 
 problem_list = ['cosmology', 'galaxy', 'exoplanet']
-sampler_list = ['dynesty-rwalk', 'pocoMC', 'Nautilus']
+sampler_list = ['dynesty-r', 'pocoMC', 'nautilus']
 color_list = ['orange', 'royalblue', 'purple']
 bar_width = 0.2
 
@@ -129,9 +133,7 @@ for statistic in ['N_like', 'efficiency']:
         for k, (sampler, color) in enumerate(zip(sampler_list, color_list)):
             y = summary[(summary['problem'] == problem) &
                         (summary['sampler'] == sampler)][statistic][0]
-            if sampler == 'Nautilus':
-                label = 'nautilus'
-            elif sampler == 'dynesty-rwalk':
+            if sampler == 'dynesty-r':
                 label = 'dynesty'
             else:
                 label = sampler
@@ -168,15 +170,15 @@ for statistic in ['N_like', 'efficiency']:
 # %%
 
 problem = 'loggamma-30'
-sampler_list = ['dynesty-slice', 'pocoMC', 'Nautilus-resample']
+sampler_list = ['dynesty-s', 'pocoMC', 'nautilus-r']
 color_list = ['orange', 'royalblue', 'purple']
 
 for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
     k = np.arange(len(summary))[
         (summary['sampler'] == sampler) & (summary['problem'] == problem)][0]
-    if sampler == 'Nautilus-resample':
+    if sampler == 'nautilus-r':
         label = 'nautilus'
-    elif sampler == 'dynesty-slice':
+    elif sampler == 'dynesty-s':
         label = 'dynesty'
     else:
         label = sampler
@@ -215,7 +217,7 @@ for problem in np.unique(summary['problem']):
         (summary['log Z'] - 4 * summary['log Z error'])[select])
     log_z_max = np.nanmax(
         (summary['log Z'] + 4 * summary['log Z error'])[select])
-    log_z = np.linspace(log_z_min, log_z_max, 10000)
+    log_z = np.linspace(log_z_min, log_z_max, 100000)
     for row in summary[select]:
         if row['sampler'] == 'emcee':
             continue
@@ -244,8 +246,8 @@ problem_list = ['rosenbrock-10', 'funnel-20', 'loggamma-30', 'cosmology',
                 'galaxy', 'exoplanet']
 label_list = [r'Rosen$_{10}$', r'Funnel$_{20}$', r'Log$\Gamma_{30}$',
               'Cosmology', 'Galaxy', 'Exoplanet']
-sampler_list = ['Nautilus', 'UltraNest', 'dynesty-unif',
-                'dynesty-rwalk', 'dynesty-slice', 'pocoMC']
+sampler_list = ['nautilus', 'UltraNest', 'dynesty-u', 'dynesty-r', 'dynesty-s',
+                'pocoMC']
 color_list = ['purple', 'darkblue', 'orange', 'orange', 'orange',
               'royalblue']
 label_set = np.zeros(len(sampler_list), dtype=bool)
@@ -284,3 +286,87 @@ plt.subplots_adjust(hspace=0)
 plt.savefig(os.path.join('plots', 'performance.pdf'))
 plt.savefig(os.path.join('plots', 'performance.png'), dpi=300)
 plt.close()
+
+# %%
+
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
+color_list = ['purple', 'orange', 'royalblue']
+for sampler, color in zip(sampler_list, color_list):
+    plt.plot((posterior['funnel-20'][sampler][0][0] - 0.5) * 20,
+             posterior['funnel-20'][sampler][0][1] / 20, color=color,
+             label=sampler)
+x = np.linspace(-5, +5, 10000)
+plt.plot(x, norm.pdf(x), color='black', ls='--', label='analytic')
+plt.xlim(-3.5, +3.5)
+plt.ylim(ymin=0)
+plt.xlabel(r'$x_1$')
+plt.ylabel(r'$p(x_1)$')
+plt.legend(loc='best', frameon=False)
+plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.png'), dpi=300)
+plt.close()
+
+# %%
+
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'emcee']
+color_list = ['purple', 'orange', 'royalblue', 'black']
+for sampler, color in zip(sampler_list, color_list):
+    plt.plot((posterior['rosenbrock-10'][sampler][7][0] - 0.5) * 10,
+             posterior['rosenbrock-10'][sampler][7][1] / 10, color=color,
+             label=sampler)
+plt.xlim(-0.5, +1.75)
+plt.ylim(ymin=0)
+plt.xlabel(r'$x_8$')
+plt.ylabel(r'$p(x_8)$')
+plt.legend(loc='best', frameon=False)
+plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.png'), dpi=300)
+plt.close()
+
+# %%
+
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
+color_list = ['purple', 'orange', 'royalblue']
+for sampler, color in zip(sampler_list, color_list):
+    plt.plot((posterior['funnel-20'][sampler][0][0] - 0.5) * 20,
+             posterior['funnel-20'][sampler][0][1] / 20, color=color,
+             label=sampler)
+x = np.linspace(-5, +5, 10000)
+plt.plot(x, norm.pdf(x), color='black', ls='--', label='analytic')
+plt.xlim(-3.5, +3.5)
+plt.ylim(ymin=0)
+plt.xlabel(r'$x_1$')
+plt.ylabel(r'$p(x_1)$')
+plt.legend(loc='best', frameon=False)
+plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.png'), dpi=300)
+plt.close()
+
+# %%
+
+table_tex = []
+problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
+                'galaxy', 'exoplanet']
+template = r'${med:+.{p}f} \pm {err:.{p}f}$'
+sampler_list = ['nautilus', 'nautilus-r', 'dynesty-u', 'dynesty-r',
+                'dynesty-s', 'pocoMC', 'UltraNest']
+for sampler in sampler_list:
+    table_tex_row = dict(sampler=sampler)
+    for problem in problem_list:
+        select = ((summary['problem'] == problem) &
+                  (summary['sampler'] == sampler))
+        if np.sum(select) == 1:
+            log_z = summary[select]['log Z'][0]
+            log_z_error = summary[select]['log Z error'][0]
+            table_tex_row[problem] = template.format(
+                med=log_z, err=log_z_error, p=3)
+        else:
+            table_tex_row[problem] = r'--'
+
+    table_tex.append(table_tex_row)
+
+table_tex = Table(table_tex)
+table_tex.write('evidence.tex', overwrite=True)
