@@ -216,6 +216,12 @@ def main():
                         help='which samplers to use')
     parser.add_argument('--dynesty', default='urs',
                         help='which dynesty sampling modes to use')
+    parser.add_argument('--nautilus', default=1500, type=int,
+                        help='how many live points to use')
+    parser.add_argument('--emcee', default=50, type=float,
+                        help='how many autocorrelation times')
+    parser.add_argument('--full', action='store_true',
+                        help='whether to store the full posterior')
     parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
@@ -299,7 +305,8 @@ def main():
 
                 if sampling_algorithm == 'nautilus':
                     sampler = nautilus.Sampler(
-                        prior, likelihood, n_dim, pass_struct=False)
+                        prior, likelihood, n_dim, pass_struct=False,
+                        n_live=args.nautilus)
                     sampler.run(verbose=args.verbose)
                 else:
                     sampler.discard_points()
@@ -310,6 +317,8 @@ def main():
                 n_eff = sampler.effective_sample_size()
                 points, log_w, log_l = sampler.posterior()
                 weights = np.exp(log_w - np.amax(log_w))
+                if args.nautilus != 1500:
+                    sampling_algorithm += '-{}'.format(args.nautilus)
 
             elif sampling_algorithm == 'emcee':
 
@@ -328,9 +337,9 @@ def main():
                 n_walkers = 100
 
                 if args.likelihood.split('-')[0] == 'rosenbrock':
-                    thin_by = 10
+                    thin_by = 100
                 else:
-                    thin_by = 1
+                    thin_by = 10
 
                 sampler = emcee.EnsembleSampler(
                     n_walkers, n_dim, likelihood, vectorize=vectorize)
@@ -348,8 +357,11 @@ def main():
                     discard = n_steps // 5
                     tau = emcee.autocorr.integrated_time(
                         chain[discard:], quiet=True)
+                    if args.verbose:
+                        print('steps: {}, tau: {:.1f}'.format(
+                            n_steps, np.amax(tau)))
 
-                    if n_steps >= 1000 and np.all(n_steps > 50 * tau):
+                    if n_steps >= 1000 and np.all(n_steps > args.emcee * tau):
                         break
 
                 log_z = np.nan
@@ -413,6 +425,15 @@ def main():
                 table = Table(result)
 
             table.write(path, overwrite=True, path='data')
+
+            if args.full and iteration == 0:
+                table = Table()
+                table['points'] = points
+                table['weights'] = weights
+                path = os.path.join(
+                    'benchmarks', args.likelihood + '_' +
+                    sampling_algorithm + '_posterior.hdf5')
+                table.write(path, overwrite=True, path='data')
 
 
 if __name__ == '__main__':
