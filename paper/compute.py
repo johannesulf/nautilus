@@ -334,7 +334,7 @@ def main():
                 else:
                     vectorize = False
 
-                n_walkers = 100
+                n_walkers = 300
 
                 if args.likelihood.split('-')[0] == 'rosenbrock':
                     thin_by = 100

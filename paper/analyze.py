@@ -1,4 +1,5 @@
 import os
+import corner
 import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
@@ -310,7 +311,7 @@ plt.close()
 # %%
 
 sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'emcee']
-color_list = ['purple', 'orange', 'royalblue', 'black']
+color_list = ['purple', 'orange', 'royalblue', 'grey']
 for sampler, color in zip(sampler_list, color_list):
     plt.plot((posterior['rosenbrock-10'][sampler][7][0] - 0.5) * 10,
              posterior['rosenbrock-10'][sampler][7][1] / 10, color=color,
@@ -370,3 +371,37 @@ for sampler in sampler_list:
 
 table_tex = Table(table_tex)
 table_tex.write('evidence.tex', overwrite=True)
+
+# %%
+
+fig, axes = plt.subplots(5, 5, figsize=(7, 7))
+table = Table.read(os.path.join(
+    'benchmarks', 'rosenbrock-10_emcee_posterior.hdf5'))
+table['weights'] /= np.sum(table['weights'])
+corner.corner(
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
+    plot_datapoints=False, plot_density=False, no_fill_contours=True,
+    levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='grey',
+    contour_kwargs=dict(linewidths=1), fig=fig)
+table = Table.read(os.path.join(
+    'benchmarks', 'rosenbrock-10_nautilus-10000_posterior.hdf5'))
+table['weights'] /= np.sum(table['weights'])
+corner.corner(
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
+    labels=np.array([r'$x_{{{}}}$'.format(i) for i in range(1, 11)])[1::2],
+    plot_datapoints=False, plot_density=False, fill_contours=True,
+    levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='purple',
+    contour_kwargs=dict(linewidths=0), fig=fig)
+axes[0, -1].text(0.0, 0.5, 'emcee', ha='left', va='bottom',
+                 transform=axes[0, -1].transAxes, color='grey', fontsize=14)
+axes[0, -1].text(0.0, 0.5, 'nautilus', ha='left', va='top',
+                 transform=axes[0, -1].transAxes, color='purple', fontsize=14)
+# fix ranges not lining up between 1d and 2d histograms, corner bug?
+for i in range(4):
+    axes[i, i].set_xlim(axes[i + 1, i].get_xlim())
+axes[4, 4].set_xlim(axes[4, 0].get_ylim())
+plt.tight_layout(pad=0.3)
+plt.subplots_adjust(wspace=0.1, hspace=0.1)
+plt.savefig(os.path.join('plots', 'rosenbrock-10_full_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'rosenbrock-10_full_posterior.png'), dpi=300)
+plt.close()
