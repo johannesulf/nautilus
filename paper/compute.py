@@ -163,8 +163,8 @@ def solve_offset(ecc, w):
     t = np.linspace(0, 2 * np.pi, 100)
     ecc_anom = kepler.solve(t, ecc)
     f = (2 * np.arctan2(
-            np.sqrt(1 + ecc) * np.sin(ecc_anom / 2.0),
-            np.sqrt(1 - ecc) * np.cos(ecc_anom / 2.0)))
+        np.sqrt(1 + ecc) * np.sin(ecc_anom / 2.0),
+        np.sqrt(1 - ecc) * np.cos(ecc_anom / 2.0)))
     f[-1] = 2 * np.pi
     t = interp1d(f, t)
     if np.pi / 2 - w < 0:
@@ -201,7 +201,6 @@ def exoplanet_likelihood(x):
              np.dot(np.vander(exo_t - exo_t_ref, 3), trend))
     v_err = np.sqrt(exo_v_err**2 + np.exp(2 * param_dict['logs']))
     return np.sum(norm.logpdf(exo_v, loc=v_mod, scale=v_err))
-
 
 
 def main():
@@ -334,10 +333,10 @@ def main():
                 else:
                     vectorize = False
 
-                n_walkers = 300
+                n_walkers = 1000
 
                 if args.likelihood.split('-')[0] == 'rosenbrock':
-                    thin_by = 100
+                    thin_by = 1000
                 else:
                     thin_by = 10
 
@@ -346,10 +345,10 @@ def main():
                 coords = (np.ones((n_walkers, n_dim)) * 0.5 +
                           np.random.normal(size=(n_walkers, n_dim)) * 0.01)
 
-                for sample in sampler.sample(coords, iterations=100000,
+                for sample in sampler.sample(coords, iterations=50000,
                                              thin_by=thin_by):
 
-                    if sampler.iteration % 100:
+                    if sampler.iteration % 1000:
                         continue
 
                     chain = sampler.get_chain()

@@ -42,8 +42,6 @@ for folder in os.listdir('benchmarks'):
         summary_row['N_like'] = np.mean(results['N_like'][select])
         summary_row['efficiency'] = np.mean(
             (results['N_eff'] / results['N_like'])[select])
-        if sampler == 'emcee':
-            summary_row['N_like'] = 50 * 100 / summary_row['efficiency']
 
         summary.append(summary_row)
         posterior[folder][sampler] = []
@@ -310,12 +308,13 @@ plt.close()
 
 # %%
 
-sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'emcee']
-color_list = ['purple', 'orange', 'royalblue', 'grey']
-for sampler, color in zip(sampler_list, color_list):
+sampler_list = ['nautilus', 'dynesty-r', 'dynesty-s', 'pocoMC', 'emcee']
+color_list = ['purple', 'orange', 'orange', 'royalblue', 'grey']
+ls_list = ['-', '-', '--', '-', '-', '-']
+for sampler, color, ls in zip(sampler_list, color_list, ls_list):
     plt.plot((posterior['rosenbrock-10'][sampler][7][0] - 0.5) * 10,
              posterior['rosenbrock-10'][sampler][7][1] / 10, color=color,
-             label=sampler)
+             label=sampler, ls=ls)
 plt.xlim(-0.5, +1.75)
 plt.ylim(ymin=0)
 plt.xlabel(r'$x_8$')
