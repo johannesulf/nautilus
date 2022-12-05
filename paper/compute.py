@@ -276,7 +276,7 @@ def main():
                 else:
                     sample = 'slice'
 
-                sampler = dynesty.NestedSampler(
+                sampler = dynesty.DynamicNestedSampler(
                     likelihood, prior, n_dim, sample=sample)
                 sampler.run_nested(print_progress=args.verbose)
 
@@ -290,7 +290,7 @@ def main():
 
             elif sampling_algorithm == 'UltraNest':
 
-                sampler = ultranest.integrator.NestedSampler(
+                sampler = ultranest.integrator.ReactiveNestedSampler(
                     [str(i) for i in range(n_dim)], likelihood, prior)
 
                 result = sampler.run()
