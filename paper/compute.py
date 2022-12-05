@@ -211,7 +211,7 @@ def main():
     parser.add_argument('likelihood', help='the likehood function to use')
     parser.add_argument('--n_run', type=int, default=1,
                         help='number likelihood runs for each sampler')
-    parser.add_argument('--sampler', default='ndu',
+    parser.add_argument('--sampler', default='ndup',
                         help='which samplers to use')
     parser.add_argument('--dynesty', default='urs',
                         help='which dynesty sampling modes to use')
@@ -289,6 +289,10 @@ def main():
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
 
             elif sampling_algorithm == 'UltraNest':
+
+                if (args.likelihood.split('-')[0] == 'rosenbrock' or
+                        args.likelihood.split('-')[0] == 'loggamma'):
+                    continue
 
                 sampler = ultranest.integrator.ReactiveNestedSampler(
                     [str(i) for i in range(n_dim)], likelihood, prior)
