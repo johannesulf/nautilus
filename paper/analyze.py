@@ -241,9 +241,9 @@ ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
 ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
 ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
 
-problem_list = ['rosenbrock-10', 'funnel-20', 'loggamma-30', 'cosmology',
+problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
                 'galaxy', 'exoplanet']
-label_list = [r'Rosen$_{10}$', r'Funnel$_{20}$', r'Log$\Gamma_{30}$',
+label_list = [r'LogGamma$_{30}$', r'Funnel$_{20}$', r'Rosenbrock$_{10}$',
               'Cosmology', 'Galaxy', 'Exoplanet']
 sampler_list = ['nautilus', 'UltraNest', 'dynesty-u', 'dynesty-r', 'dynesty-s',
                 'pocoMC']
@@ -258,11 +258,11 @@ for i, problem in enumerate(problem_list):
         select = ((summary['problem'] == problem) &
                   (summary['sampler'] == sampler))
         if np.any(select):
-            label = sampler if not label_set[k] else None
+            label = sampler if (not label_set[k] and i > 0) else None
             ax1.scatter(
                 [i], summary['N_like'][select], color=color,
                 marker=marker, label=label, alpha=0.7, lw=0, s=100)
-            label_set[k] = True
+            label_set[k] = i > 0
             ax2.scatter([i], summary['efficiency'][select], color=color,
                         marker=marker, alpha=0.7, lw=0, s=100)
 

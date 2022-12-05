@@ -261,8 +261,10 @@ def main():
 
             if sampling_algorithm[:7] == 'dynesty':
 
-                if sampling_algorithm == 'dynesty-u' and n_dim > 20:
-                    continue
+                if sampling_algorithm == 'dynesty-u':
+                    if (n_dim > 20 or args.likelihood.split('-')[0] ==
+                            'rosenbrock'):
+                        continue
 
                 sample = sampling_algorithm.split('-')[1]
 
