@@ -26,8 +26,7 @@ from halotools.empirical_models import AssembiasZheng07Sats
 
 
 def prior(x):
-    # Force parameters to (0, 1) due to bug in pocoMC.
-    return np.minimum(np.maximum(x, 0 + 1e-10), 1 - 1e-10)
+    return x
 
 
 def filter_outside_unit(x, log_l):
@@ -386,7 +385,7 @@ def main():
                 n_particles = 1000
 
                 def log_prior(x):
-                    if np.any(x < 0) or np.any(x > 1.0):
+                    if np.any(x <= 0) or np.any(x >= 1.0):
                         return -np.inf
                     else:
                         return 0.0
