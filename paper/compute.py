@@ -262,8 +262,12 @@ def main():
             if sampling_algorithm[:7] == 'dynesty':
 
                 if sampling_algorithm == 'dynesty-u':
-                    if (n_dim > 20 or args.likelihood.split('-')[0] ==
-                            'rosenbrock'):
+                    if args.likelihood.split('-')[0] not in [
+                            'cosmology', 'funnel']:
+                        continue
+
+                if sampling_algorithm == 'dynesty-s':
+                    if args.likelihood.split('-')[0] == 'galaxy':
                         continue
 
                 sample = sampling_algorithm.split('-')[1]
