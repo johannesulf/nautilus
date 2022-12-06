@@ -286,6 +286,7 @@ def main():
                 log_z = results.logz[-1]
                 n_like = np.sum(results.ncall)
                 points = results.samples
+                log_l = results.logl
                 weights = np.exp(results.logwt) / np.amax(
                     np.exp(results.logwt))
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
@@ -303,6 +304,7 @@ def main():
                 log_z = result['logz']
                 n_like = result['ncall']
                 points = result['weighted_samples']['points']
+                log_l = result['weighted_samples']['logl']
                 weights = result['weighted_samples']['weights']
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
 
@@ -373,6 +375,7 @@ def main():
                 n_like = n_walkers * n_steps * thin_by
                 n_eff = n_like / np.amax(tau) / thin_by
                 points = sampler.get_chain(discard=n_steps // 5, flat=True)
+                log_l = sampler.get_log_prob(discard=n_steps // 5, flat=True)
                 weights = np.ones(len(points))
 
             elif sampling_algorithm == 'pocoMC':
@@ -397,6 +400,7 @@ def main():
                 log_z = sampler.bridge_sampling()[0]
                 n_like = result['ncall'][-1]
                 points = result['samples']
+                log_l = result['loglikelihood']
                 weights = np.ones(len(points))
                 n_eff = len(points)
 
@@ -405,6 +409,8 @@ def main():
             result['log Z'] = log_z
             result['N_like'] = n_like
             result['N_eff'] = n_eff
+            result['bmd'] = 2 * (np.average(log_l**2, weights=weights) -
+                                 np.average(log_l, weights=weights)**2)
             for i in range(n_dim):
                 result['x_{}'.format(i)] = np.histogram(
                     points[:, i], np.linspace(0, 1, 1001), density=True,
