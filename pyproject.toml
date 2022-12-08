@@ -9,13 +9,13 @@ readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
-dependencies = ["numpy", "scipy", "scikit-learn", "tqdm", "threadpoolctl"]
+dependencies = ["numpy", "scipy", "scikit-learn<1.2", "tqdm", "threadpoolctl"]
 
 [project.urls]
 Home = "https://nautilus-sampler.readthedocs.io"
 
 [tool.flit.sdist]
-exclude = ["docs", ".gitignore", ".readthedocs.yaml"]
+exclude = ["docs", ".gitignore", ".github", ".readthedocs.yaml"]
 
 [tool.flit.module]
 name = "nautilus"
