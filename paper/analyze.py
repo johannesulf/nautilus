@@ -39,6 +39,16 @@ for folder in os.listdir('benchmarks'):
                     results['log Z'][select], ddof=1)
             else:
                 summary_row['log Z error'] = np.nan
+        if 'bmd' in results.colnames:
+            summary_row['bmd'] = np.mean(results['bmd'][select])
+            if np.sum(select) > 1:
+                summary_row['bmd error'] = np.nanstd(
+                    results['bmd'][select], ddof=1)
+            else:
+                summary_row['bmd error'] = np.nan
+        else:
+            summary_row['bmd'] = np.nan
+            summary_row['bmd error'] = np.nan
         summary_row['N_like'] = np.mean(results['N_like'][select])
         summary_row['efficiency'] = np.mean(
             (results['N_eff'] / results['N_like'])[select])
@@ -122,117 +132,38 @@ for folder in os.listdir('benchmarks'):
 
 summary = Table(summary)
 
-problem_list = ['cosmology', 'galaxy', 'exoplanet']
-sampler_list = ['dynesty-r', 'pocoMC', 'nautilus']
-color_list = ['orange', 'royalblue', 'purple']
-bar_width = 0.2
+key_list = ['log Z', 'bmd']
+label_list = [r'Evidence $\log \mathcal{Z}$',
+              r'Bayesian Model Dimensionality $d$']
+name_list = ['evidence', 'bmd']
 
-for statistic in ['N_like', 'efficiency']:
-    for i, problem in enumerate(problem_list):
-        for k, (sampler, color) in enumerate(zip(sampler_list, color_list)):
-            y = summary[(summary['problem'] == problem) &
-                        (summary['sampler'] == sampler)][statistic][0]
-            if sampler == 'dynesty-r':
-                label = 'dynesty'
-            else:
-                label = sampler
-            plt.bar(i + k * bar_width, y, color=color, width=bar_width,
-                    label=label if i == 0 else None, edgecolor='white')
-
-    ymin, ymax = plt.gca().get_ylim()
-    plt.ylim(ymax=ymax*1.2)
-    plt.legend(loc='upper right', frameon=False, fontsize=12, ncol=2,
-               handletextpad=0.4, columnspacing=0.8, borderpad=0,
-               labelcolor='white')
-    plt.xticks([r + bar_width for r in range(len(problem_list))], problem_list)
-    if statistic == 'N_like':
-        plt.ylabel(r'$N_{\rm like} / 10^5$', fontsize=14)
-        plt.yticks([0, 1e5, 2e5, 3e5, 4e5, 5e5],
-                   ['0', '1', '2', '3', '4', '5'])
-    else:
-        plt.ylabel(r'$N_{\rm eff} / N_{\rm like}$', fontsize=14)
-    plt.gca().spines['right'].set_visible(False)
-    plt.gca().spines['top'].set_visible(False)
-    plt.gca().xaxis.set_ticks_position('bottom')
-    plt.gca().yaxis.set_ticks_position('left')
-    plt.gca().tick_params(axis='x', colors='white')
-    plt.gca().tick_params(axis='y', colors='white')
-    plt.gca().spines['bottom'].set_color('white')
-    plt.gca().spines['left'].set_color('white')
-    plt.gca().yaxis.label.set_color('white')
-    plt.minorticks_off()
-    plt.tight_layout(pad=0.3)
-    plt.savefig(os.path.join('plots', 'spotlight_{}.png'.format(
-        statistic.lower())), dpi=300, transparent=True)
-    plt.close()
-
-# %%
-
-problem = 'loggamma-30'
-sampler_list = ['dynesty-s', 'pocoMC', 'nautilus-r']
-color_list = ['orange', 'royalblue', 'purple']
-
-for i, (sampler, color) in enumerate(zip(sampler_list, color_list)):
-    k = np.arange(len(summary))[
-        (summary['sampler'] == sampler) & (summary['problem'] == problem)][0]
-    if sampler == 'nautilus-r':
-        label = 'nautilus'
-    elif sampler == 'dynesty-s':
-        label = 'dynesty'
-    else:
-        label = sampler
-    plotline, caps, barlinecols = plt.errorbar(
-        i, summary['log Z'][k], yerr=summary['log Z error'][k], label=label,
-        color=color, fmt='o', zorder=1, ms=8, lw=3)
-    plt.setp(barlinecols[0], capstyle='round')
-
-plt.legend(loc='upper right', frameon=False, fontsize=12, ncol=3,
-           handletextpad=-0.2, columnspacing=0.2, borderpad=0,
-           labelcolor='white')
-plt.axhline(0, ls='--', color='white', zorder=0)
-plt.ylabel(r'Evidence $\ln \mathcal{Z} / \mathcal{Z}_{\rm true}$', fontsize=14)
-plt.yticks([-1.5, -1.0, -0.5, 0.0, +0.5])
-plt.xlim(-1, len(sampler_list))
-plt.gca().spines['right'].set_visible(False)
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['bottom'].set_visible(False)
-plt.xticks([])
-plt.gca().tick_params(axis='y', colors='white', which='both')
-plt.gca().yaxis.set_ticks_position('left')
-plt.gca().spines['left'].set_color('white')
-plt.gca().yaxis.label.set_color('white')
-plt.tight_layout(pad=0.0)
-plt.savefig(os.path.join('plots', 'spotlight_evidence.png'), dpi=300,
-            transparent=True)
-plt.close()
-
-# %%
-
-for problem in np.unique(summary['problem']):
-    select = summary['problem'] == problem
-    if np.all(np.isnan(summary['log Z error'][select])):
-        continue
-    log_z_min = np.nanmin(
-        (summary['log Z'] - 4 * summary['log Z error'])[select])
-    log_z_max = np.nanmax(
-        (summary['log Z'] + 4 * summary['log Z error'])[select])
-    log_z = np.linspace(log_z_min, log_z_max, 100000)
-    for row in summary[select]:
-        if row['sampler'] == 'emcee':
+for key, label, name in zip(key_list, label_list, name_list):
+    for problem in np.unique(summary['problem']):
+        select = summary['problem'] == problem
+        if np.all(np.isnan(summary['{} error'.format(key)][select])):
             continue
-        plt.plot(log_z, np.exp(
-            -0.5 * ((log_z - row['log Z']) / row['log Z error'])**2),
-            label=row['sampler'])
-    plt.legend(loc='upper center', frameon=False, prop={'size': 9}, ncol=2)
-    plt.xlabel(r'Evidence $\log \mathcal{Z}$')
-    plt.xlim(log_z_min, log_z_max)
-    plt.ylim(0, 1.5)
-    plt.gca().set_yticks([])
-    plt.gca().set_yticks([], minor=True)
-    plt.tight_layout(pad=0.3)
-    plt.savefig(os.path.join('plots', problem + '_evidence.pdf'))
-    plt.savefig(os.path.join('plots', problem + '_evidence.png'), dpi=300)
-    plt.close()
+        x_min = np.nanmin(
+            (summary[key] - 4 * summary['{} error'.format(key)])[select])
+        x_max = np.nanmax(
+            (summary[key] + 4 * summary['{} error'.format(key)])[select])
+        x = np.linspace(x_min, x_max, 100000)
+        for row in summary[select]:
+            if np.isnan(row['{} error'.format(key)]):
+                continue
+            plt.plot(x, np.exp(
+                -0.5 * ((x - row[key]) / row['{} error'.format(key)])**2),
+                label=row['sampler'])
+        plt.legend(loc='upper center', frameon=False, prop={'size': 9}, ncol=2)
+        plt.xlabel(label)
+        plt.xlim(x_min, x_max)
+        plt.ylim(0, 1.5)
+        plt.gca().set_yticks([])
+        plt.gca().set_yticks([], minor=True)
+        plt.tight_layout(pad=0.3)
+        plt.savefig(os.path.join('plots', '{}_{}.pdf'.format(problem, name)))
+        plt.savefig(os.path.join('plots', '{}_{}.png'.format(problem, name)),
+                    dpi=300)
+        plt.close()
 
 # %%
 
@@ -286,6 +217,34 @@ plt.subplots_adjust(hspace=0)
 plt.savefig(os.path.join('plots', 'performance.pdf'))
 plt.savefig(os.path.join('plots', 'performance.png'), dpi=300)
 plt.close()
+
+# %%
+
+sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
+                'dynesty-r', 'dynesty-s', 'pocoMC']
+
+for problem in problem_list:
+    std = {}
+    for sampler in sampler_list:
+        try:
+            p = posterior[problem][sampler]
+            n_dim = len(p)
+            std[sampler] = np.zeros(n_dim)
+            for i in range(n_dim):
+                std[sampler][i] = np.sqrt(
+                    np.average(p[i][0]**2, weights=p[i][1]) -
+                    np.average(p[i][0], weights=p[i][1])**2)
+        except:
+            pass
+    for sampler in std.keys():
+        plt.plot(std[sampler] / std['nautilus-r'], label=sampler)
+    plt.xlabel('Parameter')
+    plt.ylabel('Relative Uncertainty')
+    plt.legend(loc='best', frameon=False)
+    plt.tight_layout(pad=0.3)
+    plt.savefig(os.path.join('plots', '{}_std.pdf'.format(problem)))
+    plt.savefig(os.path.join('plots', '{}_std.png'.format(problem)), dpi=300)
+    plt.close()
 
 # %%
 
@@ -348,29 +307,33 @@ plt.close()
 
 # %%
 
-table_tex = []
 problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
                 'galaxy', 'exoplanet']
-template = r'${med:+.{p}f} \pm {err:.{p}f}$'
 sampler_list = ['nautilus', 'nautilus-r', 'dynesty-u', 'dynesty-r',
                 'dynesty-s', 'pocoMC', 'UltraNest']
-for sampler in sampler_list:
-    table_tex_row = dict(sampler=sampler)
-    for problem in problem_list:
-        select = ((summary['problem'] == problem) &
-                  (summary['sampler'] == sampler))
-        if np.sum(select) == 1:
-            log_z = summary[select]['log Z'][0]
-            log_z_error = summary[select]['log Z error'][0]
-            table_tex_row[problem] = template.format(
-                med=log_z, err=log_z_error, p=3)
-        else:
-            table_tex_row[problem] = r'--'
 
-    table_tex.append(table_tex_row)
+key_list = ['log Z', 'bmd']
+name_list = ['evidence', 'bmd']
+template_list = [r'${mean:+.3f} \pm {err:.3f}$', r'${mean:.2f} \pm {err:.2f}$']
 
-table_tex = Table(table_tex)
-table_tex.write('evidence.tex', overwrite=True)
+for key, name, template in zip(key_list, name_list, template_list):
+    table_tex = []
+    for sampler in sampler_list:
+        table_tex_row = dict(sampler=sampler)
+        for problem in problem_list:
+            select = ((summary['problem'] == problem) &
+                      (summary['sampler'] == sampler))
+            if np.sum(select) == 1:
+                y = summary[select][key][0]
+                y_error = summary[select]['{} error'.format(key)][0]
+                table_tex_row[problem] = template.format(mean=y, err=y_error)
+            else:
+                table_tex_row[problem] = r'--'
+
+        table_tex.append(table_tex_row)
+
+    table_tex = Table(table_tex)
+    table_tex.write('{}.tex'.format(name), overwrite=True)
 
 # %%
 
