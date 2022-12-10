@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table, vstack
+from compute import loggamma_logpdf
 
 # %%
 
@@ -128,9 +129,9 @@ for folder in os.listdir('benchmarks'):
     plt.savefig(os.path.join('plots', folder + '_posterior.png'), dpi=300)
     plt.close()
 
-# %%
-
 summary = Table(summary)
+
+# %%
 
 key_list = ['log Z', 'bmd']
 label_list = [r'Evidence $\log \mathcal{Z}$',
@@ -176,12 +177,12 @@ problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
                 'galaxy', 'exoplanet']
 label_list = [r'LogGamma$_{30}$', r'Funnel$_{20}$', r'Rosenbrock$_{10}$',
               'Cosmology', 'Galaxy', 'Exoplanet']
-sampler_list = ['nautilus', 'UltraNest', 'dynesty-u', 'dynesty-r', 'dynesty-s',
-                'pocoMC']
-color_list = ['purple', 'darkblue', 'orange', 'orange', 'orange',
+sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
+                'dynesty-r', 'dynesty-s', 'pocoMC']
+color_list = ['purple', 'purple', 'darkblue', 'orange', 'orange', 'orange',
               'royalblue']
 label_set = np.zeros(len(sampler_list), dtype=bool)
-marker_list = ['o', 'p', 'd', 's', 'v', 'h']
+marker_list = ['o', '*', 'p', 'd', 's', 'v', 'h']
 
 for i, problem in enumerate(problem_list):
     for k, (sampler, color, marker) in enumerate(
@@ -199,8 +200,8 @@ for i, problem in enumerate(problem_list):
 
 handles, labels = ax1.get_legend_handles_labels()
 ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
-           ncol=6, frameon=False, handletextpad=0, columnspacing=0.8,
-           borderpad=0)
+           ncol=len(sampler_list), frameon=False, handletextpad=0,
+           columnspacing=0.8, borderpad=0)
 ax3.axis('off')
 ax1.set_yscale('log')
 ax2.set_yscale('log')
@@ -268,6 +269,59 @@ plt.close()
 
 # %%
 
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
+f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]},
+                             sharex=True)
+
+for sampler, color in zip(sampler_list, color_list):
+    x = posterior['loggamma-30'][sampler][9][0]
+    y = posterior['loggamma-30'][sampler][9][1]
+    ax1.plot(x, y, color=color, label=sampler)
+    x_bins = x - np.diff(x)[0] / 2
+    x_bins = np.append(x_bins, 1.0)
+    y_true = np.zeros_like(y)
+    for i in range(len(y_true)):
+        x_min = x_bins[i]
+        x_max = x_bins[i + 1]
+        y_true[i] = np.mean(np.exp(loggamma_logpdf(
+            np.linspace(x_min, x_max, 100), 1.0, 2.0 / 3.0, 1.0 / 30.0)))
+    ax2.plot(x, y / y_true, color=color)
+x = np.linspace(0, 1, 10000)
+ax1.plot(x, np.exp(loggamma_logpdf(x, 1.0, 2.0 / 3.0, 1.0 / 30.0)),
+         color='black', ls='--', label='analytic')
+ax2.plot(x, np.ones_like(x), color='black', ls='--')
+plt.xlim(0.4, 0.75)
+ax1.set_ylim(ymin=0)
+ax2.set_ylim(0, 1.3)
+plt.xlabel(r'$x_{10}$')
+ax1.set_ylabel(r'$p(x_{10})$')
+ax2.set_ylabel(r'Ratio')
+ax1.legend(loc='best', frameon=False)
+plt.tight_layout(pad=0.8)
+plt.savefig(os.path.join('plots', 'loggamma-30_x10_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'loggamma-30_x10_posterior.png'), dpi=300)
+plt.close()
+
+# %%
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'UltraNest']
+color_list = ['purple', 'orange', 'royalblue', 'darkblue']
+for sampler, color in zip(sampler_list, color_list):
+    plt.plot(posterior['exoplanet'][sampler][6][0],
+             posterior['exoplanet'][sampler][6][1], color=color,
+             label=sampler)
+plt.xlim(0, 1)
+plt.ylim(ymin=0)
+plt.xlabel(r'$\varepsilon_{A}$')
+plt.ylabel(r'$p(\varepsilon)$')
+plt.legend(loc='best', frameon=False)
+plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'exoplanet_x7_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'exoplanet_x7_posterior.png'), dpi=300)
+plt.close()
+
+
+# %%
+
 sampler_list = ['nautilus', 'dynesty-r', 'dynesty-s', 'pocoMC', 'emcee']
 color_list = ['purple', 'orange', 'orange', 'royalblue', 'grey']
 ls_list = ['-', '-', '--', '-', '-', '-']
@@ -283,26 +337,6 @@ plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
 plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.pdf'))
 plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.png'), dpi=300)
-plt.close()
-
-# %%
-
-sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
-color_list = ['purple', 'orange', 'royalblue']
-for sampler, color in zip(sampler_list, color_list):
-    plt.plot((posterior['funnel-20'][sampler][0][0] - 0.5) * 20,
-             posterior['funnel-20'][sampler][0][1] / 20, color=color,
-             label=sampler)
-x = np.linspace(-5, +5, 10000)
-plt.plot(x, norm.pdf(x), color='black', ls='--', label='analytic')
-plt.xlim(-3.5, +3.5)
-plt.ylim(ymin=0)
-plt.xlabel(r'$x_1$')
-plt.ylabel(r'$p(x_1)$')
-plt.legend(loc='best', frameon=False)
-plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.png'), dpi=300)
 plt.close()
 
 # %%
