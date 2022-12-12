@@ -303,20 +303,27 @@ plt.savefig(os.path.join('plots', 'loggamma-30_x10_posterior.png'), dpi=300)
 plt.close()
 
 # %%
+
 sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'UltraNest']
 color_list = ['purple', 'orange', 'royalblue', 'darkblue']
 for sampler, color in zip(sampler_list, color_list):
-    plt.plot(posterior['exoplanet'][sampler][6][0],
-             posterior['exoplanet'][sampler][6][1], color=color,
-             label=sampler)
-plt.xlim(0, 1)
+    x_bins = np.linspace(1e-6, 1 - 1e-6,
+                         len(posterior['exoplanet'][sampler][4][0]) + 1)
+    x_bins = norm(loc=np.log(5.05069163), scale=2).isf(1 - x_bins)
+    dx = np.diff(x_bins)
+    x = 0.5 * (x_bins[1:] + x_bins[:-1])
+    y = posterior['exoplanet'][sampler][4][1] / dx
+    y /= np.sum(y * dx)
+
+    plt.plot(x, y, color=color, label=sampler)
+plt.xlim(0.2, 2.2)
 plt.ylim(ymin=0)
-plt.xlabel(r'$\varepsilon_{A}$')
-plt.ylabel(r'$p(\varepsilon)$')
+plt.xlabel(r'K2-24b Semi-Amplitude $\ln K [\mathrm{m} \, \mathrm{s}^{-1}]$')
+plt.ylabel(r'$p(\ln K)$')
 plt.legend(loc='best', frameon=False)
-plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('plots', 'exoplanet_x7_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'exoplanet_x7_posterior.png'), dpi=300)
+_ = plt.tight_layout(pad=0.3)
+plt.savefig(os.path.join('plots', 'exoplanet_x5_posterior.pdf'))
+plt.savefig(os.path.join('plots', 'exoplanet_x5_posterior.png'), dpi=300)
 plt.close()
 
 
