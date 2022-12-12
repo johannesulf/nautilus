@@ -14,6 +14,8 @@ import emcee
 import pocomc
 
 import kepler
+from scipy.special import erf
+from scipy.stats import rv_continuous
 from scipy.special import gamma
 from scipy.optimize import rosen
 from scipy.interpolate import interp1d
@@ -130,6 +132,48 @@ def cosmology_likelihood(x):
     return filter_outside_unit(x, log_l)
 
 
+def half_gauss_pdf(x, sigma):
+    return 2 * (sigma * np.sqrt(2 * np.pi))**-1 * np.exp(
+        - x**2 / (2 * sigma**2))
+
+
+def half_gauss_cdf(x, sigma):
+    return erf(x / (np.sqrt(2) * sigma))
+
+
+def rayleigh_pdf(x, sigma):
+    return x / sigma**2 * np.exp(- x**2 / (2 * sigma**2))
+
+
+def rayleigh_cdf(x, sigma):
+    return 1 - np.exp(- x**2 / (2 * sigma**2))
+
+
+class eccentricity_distribution(rv_continuous):
+
+    sigma_gauss = 0.049
+    sigma_rayleigh = 0.26
+    f = 0.08
+
+    def norm(self):
+        return (self.f * rayleigh_cdf(1.0, self.sigma_gauss) + (1 - self.f) *
+                half_gauss_cdf(1.0, self.sigma_rayleigh))**-1
+
+    def _pdf(self, x):
+        if x < 0 or x >= 1:
+            return 0
+        return (self.f * rayleigh_pdf(x, self.sigma_rayleigh) + (1 - self.f) *
+                half_gauss_pdf(x, self.sigma_gauss)) * self.norm()
+
+    def _cdf(self, x):
+        if x < 0:
+            return 0
+        if x >= 1:
+            return 1
+        return (self.f * rayleigh_cdf(x, self.sigma_rayleigh) + (1 - self.f) *
+                half_gauss_cdf(x, self.sigma_gauss)) * self.norm()
+
+
 data = np.genfromtxt('benchmarks/california-planet-search.csv')
 
 exo_v_err = np.array(data[:, 0])
@@ -147,8 +191,8 @@ exo_prior.add_parameter('P_b', dist=norm(loc=p[1], scale=0.0006))
 k = np.array([5.05069163, 5.50983542])
 exo_prior.add_parameter('log_K_a', dist=norm(loc=np.log(k[0]), scale=2))
 exo_prior.add_parameter('log_K_b', dist=norm(loc=np.log(k[1]), scale=2))
-exo_prior.add_parameter('ecc_a')
-exo_prior.add_parameter('ecc_b')
+exo_prior.add_parameter('ecc_a', dist=eccentricity_distribution())
+exo_prior.add_parameter('ecc_b', dist=eccentricity_distribution())
 exo_prior.add_parameter('w_a', dist=(-np.pi, np.pi))
 exo_prior.add_parameter('w_b', dist=(-np.pi, np.pi))
 exo_prior.add_parameter('logs', dist=norm(loc=np.log(np.median(exo_v_err)),
