@@ -1,0 +1,15 @@
+filters/VIMOS_U
+filters/f435w
+filters/f606w
+filters/f775w
+filters/f850lp
+filters/f098m
+filters/f105w
+filters/f125w
+filters/f160w
+filters/ISAAC_Ks
+filters/HAWKI_K
+filters/IRAC1
+filters/IRAC2
+filters/IRAC3
+filters/IRAC4

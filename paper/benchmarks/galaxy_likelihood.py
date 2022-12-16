@@ -12,8 +12,8 @@ def load_goodss(ID):
 
     # load up the relevant columns from the catalogue.
     cat = np.loadtxt(
-        "benchmarks/hlsp_candels_hst_wfc3_goodss-tot-multiband_f160w_v1-1" +
-        "photom_cat.txt",
+        "benchmarks/hlsp_candels_hst_wfc3_goodss-tot-multiband_f160w_v1" +
+        "-1photom_cat.txt",
         usecols=(10, 13, 16, 19, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55,
                  11, 14, 17, 20, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56))
 
@@ -47,9 +47,9 @@ def load_goodss(ID):
 
 
 goodss_filt_list = np.loadtxt(
-    "benchmarks/filters/goodss_filt_list.txt", dtype="str")
+    "filters/goodss_filt_list.txt", dtype="str")
 
-galaxy = pipes.galaxy("17433", load_goodss,
+galaxy = pipes.galaxy("2", load_goodss,
                       spectrum_exists=False, filt_list=goodss_filt_list)
 
 dblplaw = {}

@@ -288,7 +288,7 @@ def main():
         likelihood = exoplanet_likelihood
         n_dim = 14
     elif args.likelihood == 'galaxy':
-        from galaxy_likelihood import galaxy_likelihood
+        from benchmarks.galaxy_likelihood import galaxy_likelihood
         likelihood = galaxy_likelihood
         n_dim = 7
     else:
