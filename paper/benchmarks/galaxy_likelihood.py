@@ -83,5 +83,5 @@ fit = pipes.fit(galaxy, fit_info, run="dblplaw_sfh")
 def galaxy_likelihood(x):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return fit.fitted_model.lnlike(
-            fit.fitted_model.prior.transform(np.copy(x)))
+        return max(fit.fitted_model.lnlike(
+            fit.fitted_model.prior.transform(np.copy(x))), -100)

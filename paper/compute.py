@@ -437,9 +437,9 @@ def main():
                 sampler = pocomc.Sampler(
                     n_particles, n_dim, log_likelihood=likelihood,
                     log_prior=log_prior, vectorize_likelihood=False,
-                    bounds=(0.0, 1.0), infer_vectorization=False)
+                    bounds=(1e-9, 1.0 - 1e-9), infer_vectorization=False)
                 prior_samples = np.random.uniform(
-                    low=0.0, high=1.0, size=(n_particles, n_dim))
+                    low=1e-9, high=1.0 - 1e-9, size=(n_particles, n_dim))
                 sampler.run(prior_samples, progress=args.verbose)
                 sampler.add_samples(9000, progress=args.verbose)
 
