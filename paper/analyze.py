@@ -374,7 +374,8 @@ for key, name, template in zip(key_list, name_list, template_list):
         table_tex.append(table_tex_row)
 
     table_tex = Table(table_tex)
-    table_tex.write('{}.tex'.format(name), overwrite=True)
+    table_tex.write(os.path.join(
+        'draft', '{}.tex'.format(name)), overwrite=True)
 
 # %%
 
