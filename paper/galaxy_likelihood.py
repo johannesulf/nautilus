@@ -1,47 +1,87 @@
+# The following code is based on the example notebook #4 in the bagpipes
+# repository (https://github.com/ACCarnall/bagpipes).
+
+import warnings
 import numpy as np
-from astroquery.sdss import SDSS
-from prospect.fitting import lnprobfn
-from prospect.models import SpecModel
-from astropy.coordinates import SkyCoord
-from sedpy.observate import load_filters
-from prospect.sources import CSPSpecBasis
-from prospect.utils.obsutils import fix_obs
-from prospect.models.templates import TemplateLibrary
+import bagpipes as pipes
 
-bands = "ugriz"
-mcol = [f"cModelMag_{b}" for b in bands]
-ecol = [f"cModelMagErr_{b}" for b in bands]
-cat = SDSS.query_crossid(SkyCoord(ra=204.46376, dec=35.79883, unit="deg"),
-                         data_release=16,
-                         photoobj_fields=mcol + ecol + ["specObjID"])
-shdus = SDSS.get_spectra(plate=2101, mjd=53858, fiberID=220)[0]
-filters = load_filters([f"sdss_{b}0" for b in bands])
-maggies = np.array([10**(-0.4 * cat[0][f"cModelMag_{b}"]) for b in bands])
-magerr = np.array([cat[0][f"cModelMagErr_{b}"] for b in bands])
-magerr = np.clip(magerr, 0.05, np.inf)
 
-obs = dict(wavelength=None, spectrum=None, unc=None,
-           redshift=shdus[2].data[0]["z"], maggies=maggies,
-           maggies_unc=magerr * maggies / 1.086, filters=filters)
-obs = fix_obs(obs)
+def load_goodss(ID):
+    """ Load CANDELS GOODS South photometry from the Guo et al. (2013)
+    catalogue. """
 
-model_params = TemplateLibrary["parametric_sfh"]
-model_params.update(TemplateLibrary["nebular"])
-model_params["zred"]["init"] = obs["redshift"]
+    # load up the relevant columns from the catalogue.
+    cat = np.loadtxt(
+        "benchmarks/hlsp_candels_hst_wfc3_goodss-tot-multiband_f160w_v1-1" +
+        "photom_cat.txt",
+        usecols=(10, 13, 16, 19, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55,
+                 11, 14, 17, 20, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56))
 
-model = SpecModel(model_params)
-assert len(model.free_params) == 5
-noise_model = (None, None)
+    # Find the correct row for the object we want.
+    row = int(ID) - 1
 
-sps = CSPSpecBasis(zcontinuous=1)
+    # Extract the object we want from the catalogue.
+    fluxes = cat[row, :15]
+    fluxerrs = cat[row, 15:]
+
+    # Turn these into a 2D array.
+    photometry = np.c_[fluxes, fluxerrs]
+
+    # blow up the errors associated with any missing fluxes.
+    for i in range(len(photometry)):
+        if (photometry[i, 0] == 0.) or (photometry[i, 1] <= 0):
+            photometry[i, :] = [0., 9.9*10**99.]
+
+    # Enforce a maximum SNR of 20, or 10 in the IRAC channels.
+    for i in range(len(photometry)):
+        if i < 10:
+            max_snr = 20.
+
+        else:
+            max_snr = 10.
+
+        if photometry[i, 0]/photometry[i, 1] > max_snr:
+            photometry[i, 1] = photometry[i, 0]/max_snr
+
+    return photometry
+
+
+goodss_filt_list = np.loadtxt(
+    "benchmarks/filters/goodss_filt_list.txt", dtype="str")
+
+galaxy = pipes.galaxy("17433", load_goodss,
+                      spectrum_exists=False, filt_list=goodss_filt_list)
+
+dblplaw = {}
+dblplaw["tau"] = (0., 15.)
+dblplaw["alpha"] = (0.01, 1000.)
+dblplaw["beta"] = (0.01, 1000.)
+dblplaw["alpha_prior"] = "log_10"
+dblplaw["beta_prior"] = "log_10"
+dblplaw["massformed"] = (1., 15.)
+dblplaw["metallicity"] = (0., 2.5)
+
+dust = {}
+dust["type"] = "Calzetti"
+dust["Av"] = (0., 2.)
+
+nebular = {}
+nebular["logU"] = -3.
+
+fit_info = {}
+fit_info["redshift"] = (0., 10.)
+fit_info["redshift_prior"] = "Gaussian"
+fit_info["redshift_prior_mu"] = 1.0
+fit_info["redshift_prior_sigma"] = 0.25
+fit_info["dblplaw"] = dblplaw
+fit_info["dust"] = dust
+fit_info["nebular"] = nebular
+
+fit = pipes.fit(galaxy, fit_info, run="dblplaw_sfh")
 
 
 def galaxy_likelihood(x):
-    theta = np.zeros_like(x)
-    theta[0] = 10**(8 + 4 * x[0])
-    theta[1] = -2 + 2.19 * x[1]
-    theta[2] = 2 * x[2]
-    theta[3] = 0.001 + 13.799 * x[3]
-    theta[4] = 10**(np.log10(0.1) + (np.log10(30.0) - np.log10(0.1)) * x[4])
-    return lnprobfn(theta, model=model, obs=obs, sps=sps, noise=noise_model,
-                    nested=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return fit.fitted_model.lnlike(
+            fit.fitted_model.prior.transform(np.copy(x)))

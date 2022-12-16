@@ -290,7 +290,7 @@ def main():
     elif args.likelihood == 'galaxy':
         from galaxy_likelihood import galaxy_likelihood
         likelihood = galaxy_likelihood
-        n_dim = 5
+        n_dim = 7
     else:
         raise Exception("Unknown likelihood '{}'.".format(args.likelihood))
 

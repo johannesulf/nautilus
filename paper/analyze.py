@@ -80,7 +80,7 @@ for folder in os.listdir('benchmarks'):
             pdf = np.mean(results[select]['x_{}'.format(i)], axis=0)
             pdf_all = np.mean(results['x_{}'.format(i)], axis=0)
             n_bins = np.sum(pdf_all > np.amax(pdf_all) * 1e-3)
-            kernel_size = n_bins // 50
+            kernel_size = n_bins // 70
 
             while kernel_size == 0 or 1000 % kernel_size != 0:
                 kernel_size += 1
@@ -304,8 +304,8 @@ plt.close()
 
 # %%
 
-sampler_list = ['nautilus', 'dynesty-r', 'pocoMC', 'UltraNest']
-color_list = ['purple', 'orange', 'royalblue', 'darkblue']
+sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
+color_list = ['purple', 'orange', 'royalblue']
 for sampler, color in zip(sampler_list, color_list):
     x_bins = np.linspace(1e-6, 1 - 1e-6,
                          len(posterior['exoplanet'][sampler][4][0]) + 1)
