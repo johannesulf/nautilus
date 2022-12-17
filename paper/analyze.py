@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table, vstack
-from compute import loggamma_logpdf
+from likelihoods.analytic import loggamma_logpdf
 
 # %%
 
@@ -15,6 +15,9 @@ posterior = {}
 for folder in os.listdir('results'):
 
     directory = os.path.join('results', folder)
+
+    if not os.path.isdir(directory):
+        continue
 
     results = vstack([Table.read(os.path.join(directory, fname)) for fname in
                       os.listdir(directory)])
@@ -282,7 +285,8 @@ for sampler, color in zip(sampler_list, color_list):
         x_max = x_bins[i + 1]
         y_true[i] = np.mean(np.exp(loggamma_logpdf(
             np.linspace(x_min, x_max, 100), 1.0, 2.0 / 3.0, 1.0 / 30.0)))
-    ax2.plot(x, y / y_true, color=color)
+    mask = y_true > 0
+    ax2.plot(x[mask], y[mask] / y_true[mask], color=color)
 x = np.linspace(0, 1, 10000)
 ax1.plot(x, np.exp(loggamma_logpdf(x, 1.0, 2.0 / 3.0, 1.0 / 30.0)),
          color='black', ls='--', label='analytic')
