@@ -5,14 +5,14 @@ all:
 	sed -i '/begin/d' ./bmd.tex
 	sed -i '/end/d' ./bmd.tex
 	sed -i '/sampler/d' ./bmd.tex
-	cp ../plots/non-nested.pdf ./
-	cp ../plots/bounds.pdf ./
-	cp ../plots/performance.pdf ./
-	cp ../plots/loggamma-30_x10_posterior.pdf ./
-	cp ../plots/funnel-20_x1_posterior.pdf ./
-	cp ../plots/rosenbrock-10_x8_posterior.pdf ./
-	cp ../plots/rosenbrock-10_full_posterior.pdf ./
-	cp ../plots/exoplanet_x5_posterior.pdf ./
+	cp ../figures/non-nested.pdf ./
+	cp ../figures/bounds.pdf ./
+	cp ../figures/performance.pdf ./
+	cp ../figures/loggamma-30_x10_posterior.pdf ./
+	cp ../figures/funnel-20_x1_posterior.pdf ./
+	cp ../figures/rosenbrock-10_x8_posterior.pdf ./
+	cp ../figures/rosenbrock-10_full_posterior.pdf ./
+	cp ../figures/exoplanet_x5_posterior.pdf ./
 	bibm pdflatex ms.tex
 
 clean:

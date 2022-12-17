@@ -1,9 +1,14 @@
 # The following code is based on the example notebook #4 in the bagpipes
 # repository (https://github.com/ACCarnall/bagpipes).
 
+import os
 import warnings
 import numpy as np
 import bagpipes as pipes
+
+old_path = os.getcwd()
+new_path = os.path.dirname(os.path.realpath(__file__))
+os.chdir(new_path)
 
 
 def load_goodss(ID):
@@ -12,8 +17,7 @@ def load_goodss(ID):
 
     # load up the relevant columns from the catalogue.
     cat = np.loadtxt(
-        "benchmarks/hlsp_candels_hst_wfc3_goodss-tot-multiband_f160w_v1" +
-        "-1photom_cat.txt",
+        "hlsp_candels_hst_wfc3_goodss-tot-multiband_f160w_v1-1photom_cat.txt",
         usecols=(10, 13, 16, 19, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55,
                  11, 14, 17, 20, 26, 29, 32, 35, 38, 41, 44, 47, 50, 53, 56))
 
@@ -46,8 +50,7 @@ def load_goodss(ID):
     return photometry
 
 
-goodss_filt_list = np.loadtxt(
-    "filters/goodss_filt_list.txt", dtype="str")
+goodss_filt_list = np.loadtxt("filters/goodss_filt_list.txt", dtype="str")
 
 galaxy = pipes.galaxy("2", load_goodss,
                       spectrum_exists=False, filt_list=goodss_filt_list)
@@ -77,11 +80,15 @@ fit_info["dblplaw"] = dblplaw
 fit_info["dust"] = dust
 fit_info["nebular"] = nebular
 
-fit = pipes.fit(galaxy, fit_info, run="dblplaw_sfh")
+fit = pipes.fit(galaxy, fit_info)
 
 
-def galaxy_likelihood(x):
+def likelihood(x):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return max(fit.fitted_model.lnlike(
             fit.fitted_model.prior.transform(np.copy(x))), -100)
+
+likelihood(np.ones(7) * 0.5)
+
+os.chdir(old_path)

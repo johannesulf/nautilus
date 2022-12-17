@@ -12,12 +12,9 @@ summary = []
 posterior = {}
 
 
-for folder in os.listdir('benchmarks'):
+for folder in os.listdir('results'):
 
-    directory = os.path.join('benchmarks', folder)
-
-    if not os.path.isdir(directory) or folder == '__pycache__':
-        continue
+    directory = os.path.join('results', folder)
 
     results = vstack([Table.read(os.path.join(directory, fname)) for fname in
                       os.listdir(directory)])
@@ -125,8 +122,8 @@ for folder in os.listdir('benchmarks'):
 
     plt.tight_layout(pad=0.3)
     plt.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig(os.path.join('plots', folder + '_posterior.pdf'))
-    plt.savefig(os.path.join('plots', folder + '_posterior.png'), dpi=300)
+    plt.savefig(os.path.join('figures', folder + '_posterior.pdf'))
+    plt.savefig(os.path.join('figures', folder + '_posterior.png'), dpi=300)
     plt.close()
 
 summary = Table(summary)
@@ -161,8 +158,8 @@ for key, label, name in zip(key_list, label_list, name_list):
         plt.gca().set_yticks([])
         plt.gca().set_yticks([], minor=True)
         plt.tight_layout(pad=0.3)
-        plt.savefig(os.path.join('plots', '{}_{}.pdf'.format(problem, name)))
-        plt.savefig(os.path.join('plots', '{}_{}.png'.format(problem, name)),
+        plt.savefig(os.path.join('figures', '{}_{}.pdf'.format(problem, name)))
+        plt.savefig(os.path.join('figures', '{}_{}.png'.format(problem, name)),
                     dpi=300)
         plt.close()
 
@@ -215,8 +212,8 @@ ax1.set_xticks([], minor=True)
 ax2.set_xticks([], minor=True)
 plt.tight_layout(pad=0.1)
 plt.subplots_adjust(hspace=0)
-plt.savefig(os.path.join('plots', 'performance.pdf'))
-plt.savefig(os.path.join('plots', 'performance.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'performance.pdf'))
+plt.savefig(os.path.join('figures', 'performance.png'), dpi=300)
 plt.close()
 
 # %%
@@ -243,8 +240,8 @@ for problem in problem_list:
     plt.ylabel('Relative Uncertainty')
     plt.legend(loc='best', frameon=False)
     plt.tight_layout(pad=0.3)
-    plt.savefig(os.path.join('plots', '{}_std.pdf'.format(problem)))
-    plt.savefig(os.path.join('plots', '{}_std.png'.format(problem)), dpi=300)
+    plt.savefig(os.path.join('figures', '{}_std.pdf'.format(problem)))
+    plt.savefig(os.path.join('figures', '{}_std.png'.format(problem)), dpi=300)
     plt.close()
 
 # %%
@@ -263,8 +260,8 @@ plt.xlabel(r'$x_1$')
 plt.ylabel(r'$p(x_1)$')
 plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'funnel-20_x1_posterior.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'funnel-20_x1_posterior.pdf'))
+plt.savefig(os.path.join('figures', 'funnel-20_x1_posterior.png'), dpi=300)
 plt.close()
 
 # %%
@@ -298,8 +295,8 @@ ax1.set_ylabel(r'$p(x_{10})$')
 ax2.set_ylabel(r'Ratio')
 ax1.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.8)
-plt.savefig(os.path.join('plots', 'loggamma-30_x10_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'loggamma-30_x10_posterior.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'loggamma-30_x10_posterior.pdf'))
+plt.savefig(os.path.join('figures', 'loggamma-30_x10_posterior.png'), dpi=300)
 plt.close()
 
 # %%
@@ -322,8 +319,8 @@ plt.xlabel(r'K2-24b Semi-Amplitude $\ln K [\mathrm{m} \, \mathrm{s}^{-1}]$')
 plt.ylabel(r'$p(\ln K)$')
 plt.legend(loc='best', frameon=False)
 _ = plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('plots', 'exoplanet_x5_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'exoplanet_x5_posterior.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'exoplanet_x5_posterior.pdf'))
+plt.savefig(os.path.join('figures', 'exoplanet_x5_posterior.png'), dpi=300)
 plt.close()
 
 
@@ -342,8 +339,8 @@ plt.xlabel(r'$x_8$')
 plt.ylabel(r'$p(x_8)$')
 plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'rosenbrock-10_x8_posterior.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'rosenbrock-10_x8_posterior.pdf'))
+plt.savefig(os.path.join('figures', 'rosenbrock-10_x8_posterior.png'), dpi=300)
 plt.close()
 
 # %%
@@ -381,7 +378,7 @@ for key, name, template in zip(key_list, name_list, template_list):
 
 fig, axes = plt.subplots(5, 5, figsize=(7, 7))
 table = Table.read(os.path.join(
-    'benchmarks', 'rosenbrock-10_emcee_posterior.hdf5'))
+    'results', 'rosenbrock-10_emcee_posterior.hdf5'))
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
@@ -389,7 +386,7 @@ corner.corner(
     levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='grey',
     contour_kwargs=dict(linewidths=1), fig=fig)
 table = Table.read(os.path.join(
-    'benchmarks', 'rosenbrock-10_nautilus-10000_posterior.hdf5'))
+    'results', 'rosenbrock-10_nautilus-10000_posterior.hdf5'))
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
@@ -407,6 +404,7 @@ for i in range(4):
 axes[4, 4].set_xlim(axes[4, 0].get_ylim())
 plt.tight_layout(pad=0.3)
 plt.subplots_adjust(wspace=0.1, hspace=0.1)
-plt.savefig(os.path.join('plots', 'rosenbrock-10_full_posterior.pdf'))
-plt.savefig(os.path.join('plots', 'rosenbrock-10_full_posterior.png'), dpi=300)
+plt.savefig(os.path.join('figures', 'rosenbrock-10_full_posterior.pdf'))
+plt.savefig(os.path.join('figures', 'rosenbrock-10_full_posterior.png'),
+            dpi=300)
 plt.close()
