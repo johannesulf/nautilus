@@ -1,20 +1,19 @@
 #!/bin/bash
 
-#!/bin/bash
-
 TEMPLATE=$'#!/bin/bash
 #SBATCH --partition=leauthaud
 #SBATCH --account=leauthaud
 #SBATCH --job-name=compute_LIKELIHOOD
 #SBATCH --nodes=1
 #SBATCH --time=72:00:00
-#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=ALL
 #SBATCH --mail-user=jolange@ucsc.edu
 #SBATCH --output=log/compute_LIKELIHOOD.out
 
 source init.sh
+cd ..
 for i in {0..39}; do
-  OMP_NUM_THREADS=1 python compute.py LIKELIHOOD --n_run=1 &
+  OMP_NUM_THREADS=1 python compute.py LIKELIHOOD --n_run=5 &
 done
 
 wait
