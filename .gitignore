@@ -3,7 +3,10 @@ __pycache__
 docs/build
 dist
 *.hdf5
-paper/plots
 paper/draft/*
 !paper/draft/ms.tex
 !paper/draft/Makefile
+paper/figures/*
+!paper/figures/illustration
+!paper/figures/non-nested.p*
+!paper/figures/bounds.p*
