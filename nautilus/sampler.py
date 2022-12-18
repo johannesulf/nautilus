@@ -305,7 +305,7 @@ class Sampler():
         points = np.vstack(self.points)
         select = self.shell_info['n_shell'] > 0
         log_v = np.repeat(self.shell_info['log_v'][select] -
-                          np.log(self.shell_info['n_shell'])[select],
+                          np.log(self.shell_info['n_shell'][select]),
                           self.shell_info['n_shell'][select])
         log_l = np.concatenate(self.log_l)
         log_w = log_v + log_l
