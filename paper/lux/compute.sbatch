@@ -10,6 +10,7 @@ source init.sh
 cd ..
 for i in {0..39}; do
   OMP_NUM_THREADS=1 python compute.py $ARGS --n_run=5 &
+  sleep 1
 done
 
 wait
