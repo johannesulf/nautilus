@@ -4,9 +4,15 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.2] - 2022-12-20
+### Added
+- Added support for `scikit-learn` 1.2.
+
 ## [0.3.1] - 2022-12-08
 ### Fixed
-- Changed scikit-learn requirement to < 1.2. Currently, nautilus is incompatible with the newly-released scikit-learn version.
+- Changed `scikit-learn` requirement to < 1.2. Currently, `nautilus` is incompatible with the newly-released `scikit-learn` version.
 
 ## [0.3.0] - 2022-11-08
 ### Added

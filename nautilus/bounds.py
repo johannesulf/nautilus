@@ -461,7 +461,12 @@ class MultiEllipsoid():
         index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
         points = self.ells[index].transform(self.points[index])
 
-        d = KMeans(n_clusters=2, random_state=self.random_state).fit_transform(
+        if self.random_state != np.random:
+            random_state = self.random_state
+        else:
+            random_state = None
+        d = KMeans(
+            n_clusters=2, n_init=10, random_state=random_state).fit_transform(
             points)
 
         labels = np.argmin(d, axis=1)
