@@ -101,9 +101,7 @@ def main():
         raise Exception("Unknown likelihood '{}'.".format(args.likelihood))
 
     for iteration in range(args.n_run):
-        print(args)
         for algorithm in args.sampler:
-            print(algorithm)
 
             if algorithm in ['dynesty-u', 'dynesty-r', 'dynesty-s']:
 
