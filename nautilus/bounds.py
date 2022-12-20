@@ -465,7 +465,8 @@ class MultiEllipsoid():
             random_state = self.random_state
         else:
             random_state = None
-        d = KMeans(n_clusters=2, random_state=random_state).fit_transform(
+        d = KMeans(
+            n_clusters=2, n_init=10, random_state=random_state).fit_transform(
             points)
 
         labels = np.argmin(d, axis=1)
