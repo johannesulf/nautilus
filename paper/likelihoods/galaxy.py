@@ -87,7 +87,8 @@ def likelihood(x):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return max(fit.fitted_model.lnlike(
-            fit.fitted_model.prior.transform(np.copy(x))), np.random.random())
+            fit.fitted_model.prior.transform(np.copy(x))),
+            -1e20 * (1 + np.sum(x)))
 
 likelihood(np.ones(7) * 0.5)
 
