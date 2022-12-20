@@ -1,6 +1,4 @@
 #!/bin/bash
-
-TEMPLATE=$'#!/bin/bash
 #SBATCH --partition=leauthaud
 #SBATCH --account=leauthaud
 #SBATCH --job-name=compute_LIKELIHOOD
@@ -13,19 +11,9 @@ TEMPLATE=$'#!/bin/bash
 source init.sh
 cd ..
 for i in {0..39}; do
-  OMP_NUM_THREADS=1 python compute.py LIKELIHOOD --n_run=5 &
+  OMP_NUM_THREADS=1 python compute.py $ARGS --n_run=5 &
 done
 
 wait
-'
 
-if [ -z ${1} ]; then
-  echo "Please specify the likelihood problem."
-  return 1
-fi
-
-SCRIPT="${TEMPLATE//LIKELIHOOD/$1}"
-SCRIPT_NAME="compute_${1}.sh"
-echo "$SCRIPT" > $SCRIPT_NAME
-sbatch $SCRIPT_NAME
-rm $SCRIPT_NAME
+# example usage: ARGS="loggamma-30 dynesty-r"; STR=$(echo "$ARGS" | tr ' ' _); sbatch --job-name=compute_$STR --output=log/compute_$STR.out --export=ARGS="$ARGS" compute.sbatch

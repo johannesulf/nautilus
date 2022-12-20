@@ -3,6 +3,7 @@ import sys
 import logging
 import argparse
 import numpy as np
+from pathlib import Path
 from astropy.table import vstack, Table
 
 import dynesty
@@ -16,27 +17,63 @@ def prior(x):
     return x
 
 
+def write(likelihood, algorithm, n_dim, log_z, n_like, n_eff, points, log_l,
+          weights, full):
+
+    result = {}
+    result['sampler'] = algorithm
+    result['log Z'] = log_z
+    result['N_like'] = n_like
+    result['N_eff'] = n_eff
+    result['bmd'] = 2 * (np.average(log_l**2, weights=weights) -
+                         np.average(log_l, weights=weights)**2)
+    for i in range(n_dim):
+        result['x_{}'.format(i)] = np.histogram(
+            points[:, i], np.linspace(0, 1, 1001), density=True,
+            weights=weights)[0]
+
+    table = Table([result, ])
+
+    path = Path('.') / 'results' / likelihood / algorithm
+    path.mkdir(parents=True, exist_ok=True)
+
+    path = path /  '{}.hdf5'.format(str(os.getpid()))
+
+    if path.is_file():
+        table = vstack([Table.read(path), table])
+
+    table.write(path, overwrite=True, path='data')
+
+    if full:
+        table = Table()
+        table['points'] = points
+        table['weights'] = weights
+        path = Path('.') / 'results' / '{}_{}_posterior.hdf5'.format(
+            likelihood, algorithm)
+        table.write(path, overwrite=True, path='data')
+
+
 def main():
 
     parser = argparse.ArgumentParser(
         description='Run a likelihood analysis multiple times with ' +
                     'different samplers.')
     parser.add_argument('likelihood', help='the likehood function to use')
+    parser.add_argument('sampler', help='which sampler(s) to use', nargs='+',
+                        choices=['nautilus', 'dynesty-u', 'dynesty-r',
+                                 'dynesty-s', 'pocoMC', 'UltraNest', 'emcee'])
     parser.add_argument('--n_run', type=int, default=1,
                         help='number likelihood runs for each sampler')
-    parser.add_argument('--sampler', default='ndup',
-                        help='which samplers to use')
-    parser.add_argument('--dynesty', default='urs',
-                        help='which dynesty sampling modes to use')
     parser.add_argument('--nautilus', default=1500, type=int,
                         help='how many live points to use')
-    parser.add_argument('--emcee', default=50, type=float,
-                        help='how many autocorrelation times')
     parser.add_argument('--full', action='store_true',
                         help='whether to store the full posterior')
     parser.add_argument('--verbose', action='store_true')
 
     args = parser.parse_args()
+
+    if args.n_run > 1 and args.full:
+        raise ValueError('Can only save full posterior for one run.')
 
     if not args.verbose:
         sys.stdout = open(os.devnull, "w")
@@ -64,38 +101,21 @@ def main():
         raise Exception("Unknown likelihood '{}'.".format(args.likelihood))
 
     for iteration in range(args.n_run):
-        for sampling_algorithm in ['nautilus', 'nautilus-r', 'emcee',
-                                   'dynesty-u', 'dynesty-r', 'dynesty-s',
-                                   'UltraNest', 'pocoMC']:
+        print(args)
+        for algorithm in args.sampler:
+            print(algorithm)
 
-            if sampling_algorithm[0].lower() not in args.sampler:
-                continue
+            if algorithm in ['dynesty-u', 'dynesty-r', 'dynesty-s']:
 
-            if sampling_algorithm[:7] == 'dynesty':
-
-                if sampling_algorithm == 'dynesty-u':
-                    if args.likelihood.split('-')[0] not in [
-                            'cosmology', 'funnel']:
-                        continue
-
-                if sampling_algorithm == 'dynesty-s':
-                    if args.likelihood.split('-')[0] == 'galaxy':
-                        continue
-
-                sample = sampling_algorithm.split('-')[1]
-
-                if sample.lower() not in args.dynesty:
-                    continue
-
-                if sample == 'u':
-                    sample = 'unif'
-                elif sample == 'r':
-                    sample = 'rwalk'
+                if algorithm == 'dynesty-u':
+                    mode = 'unif'
+                elif algorithm == 'dynesty-r':
+                    mode = 'rwalk'
                 else:
-                    sample = 'slice'
+                    mode = 'slice'
 
                 sampler = dynesty.DynamicNestedSampler(
-                    likelihood, prior, n_dim, sample=sample)
+                    likelihood, prior, n_dim, sample=mode)
                 sampler.run_nested(print_progress=args.verbose)
 
                 results = sampler.results
@@ -107,11 +127,10 @@ def main():
                     np.exp(results.logwt))
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
 
-            elif sampling_algorithm == 'UltraNest':
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
 
-                if (args.likelihood.split('-')[0] == 'rosenbrock' or
-                        args.likelihood.split('-')[0] == 'loggamma'):
-                    continue
+            elif algorithm == 'UltraNest':
 
                 sampler = ultranest.integrator.ReactiveNestedSampler(
                     [str(i) for i in range(n_dim)], likelihood, prior)
@@ -124,33 +143,44 @@ def main():
                 weights = result['weighted_samples']['weights']
                 n_eff = np.sum(weights)**2 / np.sum(weights**2)
 
-            elif sampling_algorithm in ['nautilus', 'nautilus-r']:
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
 
-                if sampling_algorithm == 'nautilus':
-                    sampler = nautilus.Sampler(
-                        prior, likelihood, n_dim, pass_struct=False,
-                        n_live=args.nautilus)
-                    sampler.run(verbose=args.verbose)
-                else:
-                    sampler.discard_points()
-                    sampler.run(verbose=args.verbose, n_eff=10000)
+            elif algorithm == 'nautilus':
+
+                sampler = nautilus.Sampler(
+                    prior, likelihood, n_dim, pass_struct=False,
+                    n_live=args.nautilus)
+                sampler.run(verbose=args.verbose)
 
                 log_z = sampler.evidence()
                 n_like = sampler.n_like
                 n_eff = sampler.effective_sample_size()
                 points, log_w, log_l = sampler.posterior()
                 weights = np.exp(log_w - np.amax(log_w))
-                if args.nautilus != 1500:
-                    sampling_algorithm += '-{}'.format(args.nautilus)
 
-            elif sampling_algorithm == 'emcee':
+                if args.nautilus != 1500:
+                    algorithm += '-{}'.format(args.nautilus)
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
+
+                sampler.discard_points()
+                sampler.run(verbose=args.verbose, n_eff=10000)
+
+                log_z = sampler.evidence()
+                n_like = sampler.n_like
+                n_eff = sampler.effective_sample_size()
+                points, log_w, log_l = sampler.posterior()
+                weights = np.exp(log_w - np.amax(log_w))
+
+                algorithm += '-r'
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
+
+            elif algorithm == 'emcee':
 
                 logger = logging.getLogger('emcee.autocorr')
                 logger.disabled = True
-
-                if args.likelihood.split('-')[0] not in [
-                        'rosenbrock', 'cosmology', 'exoplanet']:
-                    continue
 
                 if args.likelihood.split('-')[0] == 'rosenbrock':
                     vectorize = True
@@ -184,7 +214,7 @@ def main():
                         print('steps: {}, tau: {:.1f}'.format(
                             n_steps, np.amax(tau)))
 
-                    if n_steps >= 1000 and np.all(n_steps > args.emcee * tau):
+                    if n_steps >= 1000 and np.all(n_steps > 1000 * tau):
                         break
 
                 log_z = np.nan
@@ -194,7 +224,10 @@ def main():
                 log_l = sampler.get_log_prob(discard=n_steps // 5, flat=True)
                 weights = np.ones(len(points))
 
-            elif sampling_algorithm == 'pocoMC':
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
+
+            elif algorithm == 'pocoMC':
                 n_particles = 1000
 
                 def log_prior(x):
@@ -220,47 +253,8 @@ def main():
                 weights = np.ones(len(points))
                 n_eff = len(points)
 
-            result = {}
-            result['sampler'] = sampling_algorithm
-            result['log Z'] = log_z
-            result['N_like'] = n_like
-            result['N_eff'] = n_eff
-            result['bmd'] = 2 * (np.average(log_l**2, weights=weights) -
-                                 np.average(log_l, weights=weights)**2)
-            for i in range(n_dim):
-                result['x_{}'.format(i)] = np.histogram(
-                    points[:, i], np.linspace(0, 1, 1001), density=True,
-                    weights=weights)[0]
-
-            path = os.path.join('results', args.likelihood)
-
-            try:
-                os.mkdir(path)
-            except FileExistsError:
-                pass
-
-            path = os.path.join(path, str(os.getpid()) + '.hdf5')
-
-            if type(result) != list:
-                result = [result, ]
-
-            if os.path.exists(path):
-                table = Table.read(path)
-                table_add = Table(result)
-                table = vstack([table, table_add])
-            else:
-                table = Table(result)
-
-            table.write(path, overwrite=True, path='data')
-
-            if args.full and iteration == 0:
-                table = Table()
-                table['points'] = points
-                table['weights'] = weights
-                path = os.path.join(
-                    'results', args.likelihood + '_' +
-                    sampling_algorithm + '_posterior.hdf5')
-                table.write(path, overwrite=True, path='data')
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
 
 
 if __name__ == '__main__':

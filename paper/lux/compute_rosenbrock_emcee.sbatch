@@ -9,5 +9,5 @@
 #SBATCH --output=log/compute_rosenbrock-10_emcee.out
 
 source init.sh
-python compute.py rosenbrock-10 --sampler=e --emcee=1000 --verbose --full
+python compute.py rosenbrock-10 emcee --verbose --full
 
