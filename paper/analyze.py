@@ -1,6 +1,6 @@
-import os
 import corner
 import numpy as np
+from pathlib import Path
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from astropy.table import Table, vstack
@@ -12,23 +12,22 @@ summary = []
 posterior = {}
 
 
-for folder in os.listdir('results'):
+for path in (Path('.') / 'results').iterdir():
 
-    directory = os.path.join('results', folder)
-
-    if not os.path.isdir(directory):
+    if not path.is_dir():
         continue
 
-    results = vstack([Table.read(os.path.join(directory, fname)) for fname in
-                      os.listdir(directory)])
-    posterior[folder] = {}
+    likelihood = path.name
+
+    results = vstack([Table.read(p) for p in path.glob('*/*')])
+    posterior[likelihood] = {}
 
     for i, sampler in enumerate(np.unique(results['sampler'])):
-        print(folder, sampler, np.sum(results['sampler'] == sampler))
+        print(likelihood, sampler, np.sum(results['sampler'] == sampler))
 
         select = results['sampler'] == sampler
         summary_row = {}
-        summary_row['problem'] = folder
+        summary_row['likelihood'] = likelihood
         summary_row['sampler'] = sampler
         if sampler == 'emcee':
             summary_row['log Z'] = np.nan
@@ -55,7 +54,7 @@ for folder in os.listdir('results'):
             (results['N_eff'] / results['N_like'])[select])
 
         summary.append(summary_row)
-        posterior[folder][sampler] = []
+        posterior[likelihood][sampler] = []
 
     n_dim = np.sum([name[:2] == 'x_' for name in results.colnames])
     ncols = int(np.ceil(np.sqrt(n_dim + 1)))
@@ -92,14 +91,14 @@ for folder in os.listdir('results'):
 
             lines.append(axarr[i].plot(x, pdf, alpha=0.5)[0])
             labels.append(sampler)
-            posterior[folder][sampler].append((x, pdf))
+            posterior[likelihood][sampler].append((x, pdf))
 
         x_bins = np.linspace(0, 1, 1001)
         x = 0.5 * (x_bins[1:] + x_bins[:-1])
         axarr[i].set_xlim(np.amin(x[pdf_all > np.amax(pdf_all) * 1e-3]),
                           np.amax(x[pdf_all > np.amax(pdf_all) * 1e-3]))
         axarr[i].set_ylim(ymin=0)
-        if folder == 'cosmology':
+        if likelihood == 'cosmology':
             text = [r'$\log M_{\rm min}$', r'$\sigma_{\log M}$', r'$\log M_0$',
                     r'$\log M_1$', r'$\alpha$', r'$A_{\rm cen}$',
                     r'$A_{\rm sat}$'][i]
@@ -125,11 +124,13 @@ for folder in os.listdir('results'):
 
     plt.tight_layout(pad=0.3)
     plt.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig(os.path.join('figures', folder + '_posterior.pdf'))
-    plt.savefig(os.path.join('figures', folder + '_posterior.png'), dpi=300)
+    plt.savefig(Path('.') / 'figures' / '{}_posterior.pdf'.format(likelihood))
+    plt.savefig(Path('.') / 'figures' / '{}_posterior.png'.format(likelihood),
+                dpi=300)
     plt.close()
 
 summary = Table(summary)
+path = Path('.') / 'figures'
 
 # %%
 
@@ -139,8 +140,8 @@ label_list = [r'Evidence $\log \mathcal{Z}$',
 name_list = ['evidence', 'bmd']
 
 for key, label, name in zip(key_list, label_list, name_list):
-    for problem in np.unique(summary['problem']):
-        select = summary['problem'] == problem
+    for likelihood in np.unique(summary['likelihood']):
+        select = summary['likelihood'] == likelihood
         if np.all(np.isnan(summary['{} error'.format(key)][select])):
             continue
         x_min = np.nanmin(
@@ -161,9 +162,8 @@ for key, label, name in zip(key_list, label_list, name_list):
         plt.gca().set_yticks([])
         plt.gca().set_yticks([], minor=True)
         plt.tight_layout(pad=0.3)
-        plt.savefig(os.path.join('figures', '{}_{}.pdf'.format(problem, name)))
-        plt.savefig(os.path.join('figures', '{}_{}.png'.format(problem, name)),
-                    dpi=300)
+        plt.savefig(path / '{}_{}.pdf'.format(likelihood, name))
+        plt.savefig(path / '{}_{}.png'.format(likelihood, name), dpi=300)
         plt.close()
 
 # %%
@@ -173,8 +173,8 @@ ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
 ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
 ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
 
-problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
-                'galaxy', 'exoplanet']
+likelihood_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
+                   'galaxy', 'exoplanet']
 label_list = [r'LogGamma$_{30}$', r'Funnel$_{20}$', r'Rosenbrock$_{10}$',
               'Cosmology', 'Galaxy', 'Exoplanet']
 sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
@@ -184,10 +184,10 @@ color_list = ['purple', 'purple', 'darkblue', 'orange', 'orange', 'orange',
 label_set = np.zeros(len(sampler_list), dtype=bool)
 marker_list = ['o', '*', 'p', 'd', 's', 'v', 'h']
 
-for i, problem in enumerate(problem_list):
+for i, likelihood in enumerate(likelihood_list):
     for k, (sampler, color, marker) in enumerate(
             zip(sampler_list, color_list, marker_list)):
-        select = ((summary['problem'] == problem) &
+        select = ((summary['likelihood'] == likelihood) &
                   (summary['sampler'] == sampler))
         if np.any(select):
             label = sampler if (not label_set[k] and i > 0) else None
@@ -215,8 +215,8 @@ ax1.set_xticks([], minor=True)
 ax2.set_xticks([], minor=True)
 plt.tight_layout(pad=0.1)
 plt.subplots_adjust(hspace=0)
-plt.savefig(os.path.join('figures', 'performance.pdf'))
-plt.savefig(os.path.join('figures', 'performance.png'), dpi=300)
+plt.savefig(path / 'performance.pdf')
+plt.savefig(path / 'performance.png', dpi=300)
 plt.close()
 
 # %%
@@ -224,18 +224,18 @@ plt.close()
 sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 
-for problem in problem_list:
+for likelihood in likelihood_list:
     std = {}
     for sampler in sampler_list:
         try:
-            p = posterior[problem][sampler]
+            p = posterior[likelihood][sampler]
             n_dim = len(p)
             std[sampler] = np.zeros(n_dim)
             for i in range(n_dim):
                 std[sampler][i] = np.sqrt(
                     np.average(p[i][0]**2, weights=p[i][1]) -
                     np.average(p[i][0], weights=p[i][1])**2)
-        except:
+        except KeyError:
             pass
     for sampler in std.keys():
         plt.plot(std[sampler] / std['nautilus-r'], label=sampler)
@@ -243,8 +243,8 @@ for problem in problem_list:
     plt.ylabel('Relative Uncertainty')
     plt.legend(loc='best', frameon=False)
     plt.tight_layout(pad=0.3)
-    plt.savefig(os.path.join('figures', '{}_std.pdf'.format(problem)))
-    plt.savefig(os.path.join('figures', '{}_std.png'.format(problem)), dpi=300)
+    plt.savefig(path / '{}_std.pdf'.format(likelihood))
+    plt.savefig(path / '{}_std.png'.format(likelihood), dpi=300)
     plt.close()
 
 # %%
@@ -263,8 +263,8 @@ plt.xlabel(r'$x_1$')
 plt.ylabel(r'$p(x_1)$')
 plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('figures', 'funnel-20_x1_posterior.pdf'))
-plt.savefig(os.path.join('figures', 'funnel-20_x1_posterior.png'), dpi=300)
+plt.savefig(path / 'funnel-20_x1_posterior.pdf')
+plt.savefig(path / 'funnel-20_x1_posterior.png', dpi=300)
 plt.close()
 
 # %%
@@ -299,8 +299,8 @@ ax1.set_ylabel(r'$p(x_{10})$')
 ax2.set_ylabel(r'Ratio')
 ax1.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.8)
-plt.savefig(os.path.join('figures', 'loggamma-30_x10_posterior.pdf'))
-plt.savefig(os.path.join('figures', 'loggamma-30_x10_posterior.png'), dpi=300)
+plt.savefig(path / 'loggamma-30_x10_posterior.pdf')
+plt.savefig(path / 'loggamma-30_x10_posterior.png', dpi=300)
 plt.close()
 
 # %%
@@ -323,8 +323,8 @@ plt.xlabel(r'K2-24b Semi-Amplitude $\ln K [\mathrm{m} \, \mathrm{s}^{-1}]$')
 plt.ylabel(r'$p(\ln K)$')
 plt.legend(loc='best', frameon=False)
 _ = plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('figures', 'exoplanet_x5_posterior.pdf'))
-plt.savefig(os.path.join('figures', 'exoplanet_x5_posterior.png'), dpi=300)
+plt.savefig(path / 'exoplanet_x5_posterior.pdf')
+plt.savefig(path / 'exoplanet_x5_posterior.png', dpi=300)
 plt.close()
 
 
@@ -343,13 +343,13 @@ plt.xlabel(r'$x_8$')
 plt.ylabel(r'$p(x_8)$')
 plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
-plt.savefig(os.path.join('figures', 'rosenbrock-10_x8_posterior.pdf'))
-plt.savefig(os.path.join('figures', 'rosenbrock-10_x8_posterior.png'), dpi=300)
+plt.savefig(path / 'rosenbrock-10_x8_posterior.pdf')
+plt.savefig(path / 'rosenbrock-10_x8_posterior.png', dpi=300)
 plt.close()
 
 # %%
 
-problem_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
+likelihood_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
                 'galaxy', 'exoplanet']
 sampler_list = ['nautilus', 'nautilus-r', 'dynesty-u', 'dynesty-r',
                 'dynesty-s', 'pocoMC', 'UltraNest']
@@ -362,35 +362,35 @@ for key, name, template in zip(key_list, name_list, template_list):
     table_tex = []
     for sampler in sampler_list:
         table_tex_row = dict(sampler=sampler)
-        for problem in problem_list:
-            select = ((summary['problem'] == problem) &
+        for likelihood in likelihood_list:
+            select = ((summary['likelihood'] == likelihood) &
                       (summary['sampler'] == sampler))
             if np.sum(select) == 1:
                 y = summary[select][key][0]
                 y_error = summary[select]['{} error'.format(key)][0]
-                table_tex_row[problem] = template.format(mean=y, err=y_error)
+                table_tex_row[likelihood] = template.format(mean=y, err=y_error)
             else:
-                table_tex_row[problem] = r'--'
+                table_tex_row[likelihood] = r'--'
 
         table_tex.append(table_tex_row)
 
     table_tex = Table(table_tex)
-    table_tex.write(os.path.join(
-        'draft', '{}.tex'.format(name)), overwrite=True)
+    table_tex.write(Path('.') / 'draft' / '{}.tex'.format(name),
+                    overwrite=True)
 
 # %%
 
 fig, axes = plt.subplots(5, 5, figsize=(7, 7))
-table = Table.read(os.path.join(
-    'results', 'rosenbrock-10_emcee_posterior.hdf5'))
+table = Table.read(Path('.') / 'results' /
+                   'rosenbrock-10_emcee_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
     plot_datapoints=False, plot_density=False, no_fill_contours=True,
     levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='grey',
     contour_kwargs=dict(linewidths=1), fig=fig)
-table = Table.read(os.path.join(
-    'results', 'rosenbrock-10_nautilus-10000_posterior.hdf5'))
+table = Table.read(Path('.') / 'results' /
+                   'rosenbrock-10_nautilus-10000_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
@@ -408,7 +408,6 @@ for i in range(4):
 axes[4, 4].set_xlim(axes[4, 0].get_ylim())
 plt.tight_layout(pad=0.3)
 plt.subplots_adjust(wspace=0.1, hspace=0.1)
-plt.savefig(os.path.join('figures', 'rosenbrock-10_full_posterior.pdf'))
-plt.savefig(os.path.join('figures', 'rosenbrock-10_full_posterior.png'),
-            dpi=300)
+plt.savefig(path / 'rosenbrock-10_full_posterior.pdf')
+plt.savefig(path / 'rosenbrock-10_full_posterior.png', dpi=300)
 plt.close()
