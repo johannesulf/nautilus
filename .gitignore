@@ -7,6 +7,9 @@ paper/draft/*
 !paper/draft/ms.tex
 !paper/draft/Makefile
 paper/figures/*
+paper/draw_neural_net.py
 !paper/figures/illustration
 !paper/figures/non-nested.p*
 !paper/figures/bounds.p*
+!paper/figures/tessellation.p*
+!paper/figures/posterior.p*

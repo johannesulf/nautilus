@@ -269,14 +269,16 @@ plt.close()
 
 # %%
 
-sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
-f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 1]},
+sampler_list = ['nautilus', 'nautilus-r', 'dynesty-r', 'dynesty-s', 'pocoMC']
+color_list = ['purple', 'purple', 'orange', 'orange', 'royalblue']
+ls_list = ['-', '--', '-', '--', '-']
+f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [2.5, 1]},
                              sharex=True)
 
-for sampler, color in zip(sampler_list, color_list):
+for sampler, color, ls in zip(sampler_list, color_list, ls_list):
     x = posterior['loggamma-30'][sampler][9][0]
     y = posterior['loggamma-30'][sampler][9][1]
-    ax1.plot(x, y, color=color, label=sampler)
+    ax1.plot(x, y, color=color, label=sampler, ls=ls)
     x_bins = x - np.diff(x)[0] / 2
     x_bins = np.append(x_bins, 1.0)
     y_true = np.zeros_like(y)
@@ -286,7 +288,7 @@ for sampler, color in zip(sampler_list, color_list):
         y_true[i] = np.mean(np.exp(loggamma_logpdf(
             np.linspace(x_min, x_max, 100), 1.0, 2.0 / 3.0, 1.0 / 30.0)))
     mask = y_true > 0
-    ax2.plot(x[mask], y[mask] / y_true[mask], color=color)
+    ax2.plot(x[mask], y[mask] / y_true[mask], color=color, ls=ls)
 x = np.linspace(0, 1, 10000)
 ax1.plot(x, np.exp(loggamma_logpdf(x, 1.0, 2.0 / 3.0, 1.0 / 30.0)),
          color='black', ls='--', label='analytic')
@@ -297,8 +299,10 @@ ax2.set_ylim(0, 1.3)
 plt.xlabel(r'$x_{10}$')
 ax1.set_ylabel(r'$p(x_{10})$')
 ax2.set_ylabel(r'Ratio')
+ax1.set_yticks([0, 5, 10])
 ax1.legend(loc='best', frameon=False)
-plt.tight_layout(pad=0.8)
+plt.tight_layout(pad=0.3)
+plt.subplots_adjust(hspace=0.05)
 plt.savefig(path / 'loggamma-30_x10_posterior.pdf')
 plt.savefig(path / 'loggamma-30_x10_posterior.png', dpi=300)
 plt.close()

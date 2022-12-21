@@ -1,27 +1,17 @@
 import numpy as np
+from pathlib import Path
+from nautilus import Sampler
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from nautilus import Sampler
-from scipy.optimize import rosen
 from draw_neural_net import draw_neural_net
-from scipy.stats import percentileofscore
+from likelihoods.analytic import rosenbrock_likelihood
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import percentileofscore, multivariate_normal
 
+path = Path('figures')
 
 def prior(x):
     return x
-
-
-def rosenbrock_likelihood(x):
-
-    log_l = -rosen((x.T - 0.5) * 10)
-
-    if x.ndim == 2:
-        log_l = np.where(np.any((x < 0) | (x > 1), axis=-1), -np.inf, log_l)
-    elif np.any(x < 0) or np.any(x > 1):
-        log_l = -np.inf
-
-    return log_l
 
 # %%
 
@@ -35,25 +25,90 @@ b_3 = Ellipse((0.5, 0.5), 0.3, 0.6, 45, fc=cmap(0.2), ec='black', alpha=0.8)
 plt.gca().add_patch(b_1)
 plt.gca().add_patch(b_2)
 plt.gca().add_patch(b_3)
-plt.text(0.1, 0.9, r'$B_0$', ha='left', va='top')
-plt.text(0.9, 0.9, r'$B_1$', ha='right', va='top')
-plt.text(0.7, 0.7, r'$B_2$', ha='right', va='top')
-plt.text(0.5, 0.5, r'$B_3$', ha='center', va='center')
+plt.text(0.1, 0.9, r'$B_1$', ha='left', va='top')
+plt.text(0.9, 0.9, r'$B_2$', ha='right', va='top')
+plt.text(0.7, 0.7, r'$B_3$', ha='right', va='top')
+plt.text(0.5, 0.5, r'$B_4$', ha='center', va='center')
 plt.xlabel(r'$x_1$')
 plt.ylabel(r'$x_2$')
 plt.xticks([])
 plt.yticks([])
 plt.tight_layout(pad=0.3)
-plt.savefig('non-nested.png', dpi=300)
-plt.savefig('non-nested.pdf')
+plt.savefig(path / 'non-nested.png', dpi=300)
+plt.savefig(path / 'non-nested.pdf')
+plt.close()
+
+# %%
+
+def likelihood(x):
+    return multivariate_normal.logpdf(
+        x, mean=[0.5, 0.5], cov=np.array([[1, 0.5], [0.5, 1]]) * 0.05)
+
+
+fig, axarr = plt.subplots(figsize=(7, 2), ncols=3, nrows=1)
+
+x = np.linspace(0, +1, 2000)
+y = np.linspace(0, +1, 2000)
+X, Y = np.meshgrid(x, y)
+points = np.vstack([X.ravel(), Y.ravel()]).T
+in_bound = np.zeros_like(X)
+cmap = plt.get_cmap('Blues')
+colors = cmap([0.0, 0.3, 0.6])
+
+sampler = Sampler(prior, likelihood, n_dim=2, n_update=3000)
+
+for i, ax in enumerate(axarr):
+    sampler.add_bound(verbose=True)
+    sampler.fill_bound(verbose=True)
+    in_bound += sampler.bounds[-1].contains(points).reshape(
+        X.shape).astype(int)
+    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5], colors=colors)
+    ax.scatter(sampler.points[-1][::10, 0], sampler.points[-1][::10, 1],
+               color='black', s=3, lw=0)
+    ax.get_xaxis().set_ticks([])
+    ax.get_yaxis().set_ticks([])
+    ax.text(0.5, 0.95, 'Iteration {}'.format(i + 1),
+            horizontalalignment='center', verticalalignment='top',
+            transform=ax.transAxes, color='red')
+
+plt.tight_layout(pad=0.3)
+plt.savefig(path / 'tessellation.pdf')
+plt.savefig(path / 'tessellation.png', dpi=300)
+plt.close()
+
+# %%
+
+fig, axarr = plt.subplots(figsize=(7, 2), ncols=3, nrows=1)
+points, log_w, log_l = sampler.posterior()
+w = np.exp(log_w)
+w = w / np.amax(w)
+points = points[np.random.random(len(points)) < w]
+i_shell = sampler.shell_association(points)
+for i, ax in enumerate(axarr):
+    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5], colors=colors)
+    mask = i_shell == i
+    ax.scatter(points[mask, 0], points[mask, 1], color='black', s=3, lw=0)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.get_xaxis().set_ticks([])
+    ax.get_yaxis().set_ticks([])
+    ax.text(0.5, 0.95, 'Posterior Shell {}'.format(i + 1),
+            horizontalalignment='center', verticalalignment='top',
+            transform=ax.transAxes, color='red')
+plt.tight_layout(pad=0.3)
+plt.savefig(path / 'posterior.pdf')
+plt.savefig(path / 'posterior.png', dpi=300)
 plt.close()
 
 # %%
 
 sampler = Sampler(
     prior, rosenbrock_likelihood, n_dim=2, vectorized=True,
-    pass_struct=False)
-for i in range(7):
+    pass_struct=False, n_live=3000, neural_network_kwargs={
+        'hidden_layer_sizes': (100, 100, 100), 'alpha': 0,
+        'learning_rate_init': 1e-2, 'max_iter': 10000,
+        'random_state': 0, 'tol': 1e-7, 'n_iter_no_change': 100})
+for i in range(6):
     sampler.add_bound(verbose=True)
     sampler.fill_bound(verbose=True)
 
@@ -88,7 +143,7 @@ ax = axarr[0, 1]
 ax.text(0.05, 0.95, '2', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 points = np.vstack(sampler.points)
-use = sampler.bounds[-1].bounds[0].ellipsoid.contains(points)
+use = sampler.bounds[-1].nbounds[0].ellipsoid.contains(points)
 points = points[use]
 log_l = log_l[use]
 points = points * 10 - 5
@@ -108,7 +163,7 @@ ax = axarr[0, 2]
 ax.text(0.05, 0.95, '3', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 points = (points + 5) / 10
-points = sampler.bounds[-1].bounds[0].ellipsoid.transform(points)
+points = sampler.bounds[-1].nbounds[0].ellipsoid.transform(points)
 p_l = np.argsort(np.argsort(log_l)) / float(len(log_l))
 p_l_min = percentileofscore(log_l, log_l_min) / 100
 s_l = np.where(p_l < p_l_min, p_l / p_l_min / 2,
@@ -139,9 +194,9 @@ ax.axis('off')
 ax = axarr[1, 1]
 ax.text(0.05, 0.95, '5', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-s_l_pred = sampler.bounds[-1].bounds[0].emulator.predict(points)
+s_l_pred = sampler.bounds[-1].nbounds[0].emulator.predict(points)
 ax.scatter(s_l, s_l_pred, s=1, color='black', rasterized=True, lw=0)
-ax.axhline(sampler.bounds[-1].bounds[0].score_predict_min, ls='--',
+ax.axhline(sampler.bounds[-1].nbounds[0].score_predict_min, ls='--',
            color='black')
 ax.set_xlabel(r'$s_\mathcal{L}$')
 ax.set_ylabel(r'$\hat{s}_\mathcal{L}$')
@@ -151,8 +206,8 @@ ax.set_ylim(0, 1)
 ax = axarr[1, 2]
 ax.text(0.05, 0.95, '6', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-x = np.linspace(0, +1, 1000)
-y = np.linspace(0, +1, 1000)
+x = np.linspace(0, +1, 3000)
+y = np.linspace(0, +1, 3000)
 X, Y = np.meshgrid(x, y)
 points = np.vstack([X.ravel(), Y.ravel()]).T
 X = X * 10 - 5
@@ -165,5 +220,5 @@ ax.set_xlabel(r'$x_1$')
 ax.set_ylabel(r'$x_2$')
 
 plt.tight_layout(pad=0.3)
-plt.savefig('bounds.pdf')
-plt.savefig('bounds.png', dpi=300)
+plt.savefig(path / 'bounds.pdf')
+plt.savefig(path / 'bounds.png', dpi=300)
