@@ -87,7 +87,8 @@ i_shell = sampler.shell_association(points)
 for i, ax in enumerate(axarr):
     ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5], colors=colors)
     mask = i_shell == i
-    ax.scatter(points[mask, 0], points[mask, 1], color='black', s=3, lw=0)
+    ax.scatter(points[mask, 0][::10], points[mask, 1][::10], color='black',
+               s=3, lw=0)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.get_xaxis().set_ticks([])

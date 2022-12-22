@@ -181,32 +181,39 @@ sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 color_list = ['purple', 'purple', 'darkblue', 'orange', 'orange', 'orange',
               'royalblue']
+ls_list = ['-', '--', '-', ':', '-', '--', '-']
 label_set = np.zeros(len(sampler_list), dtype=bool)
-marker_list = ['o', '*', 'p', 'd', 's', 'v', 'h']
 
-for i, likelihood in enumerate(likelihood_list):
-    for k, (sampler, color, marker) in enumerate(
-            zip(sampler_list, color_list, marker_list)):
+
+for k, (sampler, color, ls) in enumerate(
+        zip(sampler_list, color_list, ls_list)):
+
+    x = []
+    n_like = []
+    eff = []
+
+    for i, likelihood in enumerate(likelihood_list):
         select = ((summary['likelihood'] == likelihood) &
                   (summary['sampler'] == sampler))
         if np.any(select):
-            label = sampler if (not label_set[k] and i > 0) else None
-            ax1.scatter(
-                [i], summary['N_like'][select], color=color,
-                marker=marker, label=label, alpha=0.7, lw=0, s=100)
-            label_set[k] = i > 0
-            ax2.scatter([i], summary['efficiency'][select], color=color,
-                        marker=marker, alpha=0.7, lw=0, s=100)
+            x.append(i)
+            n_like.append(summary['N_like'][select][0])
+            eff.append(summary['efficiency'][select][0])
+
+    if len(x) > 0:
+        ax1.plot(x, n_like, color=color, marker='o', label=sampler, ls=ls,
+                 zorder=k)
+        ax2.plot(x, eff, color=color, marker='o', ls=ls, zorder=k)
 
 handles, labels = ax1.get_legend_handles_labels()
 ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
-           ncol=len(sampler_list), frameon=False, handletextpad=0,
-           columnspacing=0.8, borderpad=0)
+           ncol=len(sampler_list), frameon=False, handletextpad=0.3,
+           columnspacing=0.8, borderpad=0, markerscale=0, handlelength=1.5)
 ax3.axis('off')
 ax1.set_yscale('log')
 ax2.set_yscale('log')
-ax1.set_ylabel('Likelihood Calls')
-ax2.set_ylabel('Efficiency')
+ax1.set_ylabel('Likelihood Evaluations')
+ax2.set_ylabel('Sampling Efficiency')
 ax1.set_xticks(np.arange(len(label_list)))
 ax2.set_xticks(np.arange(len(label_list)))
 ax1.set_xticklabels(label_list, rotation=45)
