@@ -6,7 +6,7 @@ all:
 	sed -i '/end/d' ./bmd.tex
 	sed -i '/sampler/d' ./bmd.tex
 	cp ../figures/non-nested.pdf ./
-	cp ../figures/tessellation.pdf ./
+	cp ../figures/exploration.pdf ./
 	cp ../figures/posterior.pdf ./
 	cp ../figures/bounds.pdf ./
 	cp ../figures/performance.pdf ./

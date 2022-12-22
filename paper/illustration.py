@@ -72,8 +72,8 @@ for i, ax in enumerate(axarr):
             transform=ax.transAxes, color='red')
 
 plt.tight_layout(pad=0.3)
-plt.savefig(path / 'tessellation.pdf')
-plt.savefig(path / 'tessellation.png', dpi=300)
+plt.savefig(path / 'exploration.pdf')
+plt.savefig(path / 'exploration.png', dpi=300)
 plt.close()
 
 # %%
