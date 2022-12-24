@@ -395,20 +395,26 @@ fig, axes = plt.subplots(5, 5, figsize=(7, 7))
 table = Table.read(Path('.') / 'results' /
                    'rosenbrock-10_emcee_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
+corner_range = 0.999999
 corner.corner(
-    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=1000,
     plot_datapoints=False, plot_density=False, no_fill_contours=True,
-    levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='grey',
-    contour_kwargs=dict(linewidths=1), fig=fig)
+    levels=(0.68, 0.95, 0.997), range=np.ones(5) * corner_range, color='grey',
+    contour_kwargs=dict(linewidths=1), smooth=5, smooth1d=5, fig=fig)
+corner_range_abs = []
+for i in range(5):
+    x = (table['points'][:, 1::2][:, i] - 0.5) * 10
+    corner_range_abs.append((np.percentile(x, 50 * (1 - corner_range)),
+                             np.percentile(x, 100 - 50 * (1 - corner_range))))
 table = Table.read(Path('.') / 'results' /
-                   'rosenbrock-10_nautilus-10000_posterior.hdf5')
+                   'rosenbrock-10_nautilus-15000_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
-    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=70,
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=1000,
     labels=np.array([r'$x_{{{}}}$'.format(i) for i in range(1, 11)])[1::2],
     plot_datapoints=False, plot_density=False, fill_contours=True,
-    levels=(0.68, 0.95, 0.997), range=np.ones(5) * 0.999999, color='purple',
-    contour_kwargs=dict(linewidths=0), fig=fig)
+    levels=(0.68, 0.95, 0.997), range=corner_range_abs, color='purple',
+    contour_kwargs=dict(linewidths=0), smooth=5, smooth1d=5, fig=fig)
 axes[0, -1].text(0.0, 0.5, 'emcee', ha='left', va='bottom',
                  transform=axes[0, -1].transAxes, color='grey', fontsize=14)
 axes[0, -1].text(0.0, 0.5, 'nautilus', ha='left', va='top',
@@ -417,6 +423,8 @@ axes[0, -1].text(0.0, 0.5, 'nautilus', ha='left', va='top',
 for i in range(4):
     axes[i, i].set_xlim(axes[i + 1, i].get_xlim())
 axes[4, 4].set_xlim(axes[4, 0].get_ylim())
+for i in range(5):
+    axes[i, i].set_ylim(ymin=0)
 plt.tight_layout(pad=0.3)
 plt.subplots_adjust(wspace=0.1, hspace=0.1)
 plt.savefig(path / 'rosenbrock-10_full_posterior.pdf')
