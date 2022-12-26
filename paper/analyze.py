@@ -26,6 +26,12 @@ for path in (Path('.') / 'results').iterdir():
         print(likelihood, sampler, np.sum(results['sampler'] == sampler))
 
         select = results['sampler'] == sampler
+        if likelihood == 'loggamma-30':
+            x_30_mean = [
+                np.average(np.linspace(0, 1, 1001)[:-1] + 0.0005,
+                           weights=row['x_29']) for row in results[select]]
+            print('30 times scatter of mean for x_30: {:.3f}'.format(
+                30 * np.std(x_30_mean)))
         summary_row = {}
         summary_row['likelihood'] = likelihood
         summary_row['sampler'] = sampler
