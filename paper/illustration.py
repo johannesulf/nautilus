@@ -16,7 +16,7 @@ def prior(x):
 # %%
 
 
-cmap = plt.get_cmap('inferno')
+cmap = plt.get_cmap('viridis')
 
 plt.figure(figsize=(2.5, 2.5))
 b_1 = Ellipse((0.5, 0.5), 1.3, 0.5, 45, fc=cmap(0.8), ec='black')
@@ -62,14 +62,16 @@ for i, ax in enumerate(axarr):
     sampler.fill_bound(verbose=True)
     in_bound += sampler.bounds[-1].contains(points).reshape(
         X.shape).astype(int)
-    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5], colors=colors)
+    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5],
+                colors=colors, zorder=i)
     ax.scatter(sampler.points[-1][::10, 0], sampler.points[-1][::10, 1],
-               color='black', s=3, lw=0)
+               color='black', s=3, lw=0, zorder=101)
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.95, 'Iteration {}'.format(i + 1),
             horizontalalignment='center', verticalalignment='top',
-            transform=ax.transAxes, color='red')
+            transform=ax.transAxes, color='red', zorder=100)
+    ax.set_rasterization_zorder(10)
 
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'exploration.pdf')
@@ -85,17 +87,19 @@ w = w / np.amax(w)
 points = points[np.random.random(len(points)) < w]
 i_shell = sampler.shell_association(points)
 for i, ax in enumerate(axarr):
-    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5], colors=colors)
+    ax.contourf(X, Y, in_bound, levels=[0.5, 1.5, 2.5, 3.5],
+                colors=colors, zorder=i)
     mask = i_shell == i
     ax.scatter(points[mask, 0][::10], points[mask, 1][::10], color='black',
-               s=3, lw=0)
+               s=3, lw=0, zorder=100)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.get_xaxis().set_ticks([])
     ax.get_yaxis().set_ticks([])
     ax.text(0.5, 0.95, 'Posterior Shell {}'.format(i + 1),
             horizontalalignment='center', verticalalignment='top',
-            transform=ax.transAxes, color='red')
+            transform=ax.transAxes, color='red', zorder=101)
+    ax.set_rasterization_zorder(10)
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'posterior.pdf')
 plt.savefig(path / 'posterior.png', dpi=300)
@@ -105,10 +109,7 @@ plt.close()
 
 sampler = Sampler(
     prior, rosenbrock_likelihood, n_dim=2, vectorized=True,
-    pass_struct=False, n_live=3000, neural_network_kwargs={
-        'hidden_layer_sizes': (100, 100, 100), 'alpha': 0,
-        'learning_rate_init': 1e-2, 'max_iter': 10000,
-        'random_state': 0, 'tol': 1e-7, 'n_iter_no_change': 100})
+    pass_struct=False, n_live=3000)
 for i in range(6):
     sampler.add_bound(verbose=True)
     sampler.fill_bound(verbose=True)
@@ -125,11 +126,11 @@ ax.text(0.05, 0.95, '1', horizontalalignment='left', verticalalignment='top',
 points = np.vstack(sampler.points) * 10 - 5
 log_l = np.concatenate(sampler.log_l)
 log_l_min = sampler.shell_info['log_l_min_iteration'][-1]
-img = ax.scatter(points[:, 0], points[:, 1], s=1, c=log_l, vmin=-1e5, vmax=0,
-                 rasterized=True, lw=0, cmap='inferno')
+img = ax.scatter(points[::3, 0], points[::3, 1], s=1, c=log_l[::3], vmin=-1e5,
+                 vmax=0, rasterized=True, lw=0, cmap='viridis')
 use = log_l > log_l_min
-ax.scatter(points[:, 0][use], points[:, 1][use], s=1, rasterized=True, lw=0,
-           color='black')
+ax.scatter(points[:, 0][use][::3], points[:, 1][use][::3], s=1,
+           rasterized=True, lw=0, color='black')
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.0)
 cbar = fig.colorbar(img, cax=cax, orientation='vertical', ticks=[-1e5, 0])
@@ -148,8 +149,8 @@ use = sampler.bounds[-1].nbounds[0].ellipsoid.contains(points)
 points = points[use]
 log_l = log_l[use]
 points = points * 10 - 5
-img = ax.scatter(points[:, 0], points[:, 1], s=1, c=log_l, vmin=-1e2, vmax=0,
-                 rasterized=True, lw=0, cmap='inferno')
+img = ax.scatter(points[::3, 0], points[::3, 1], s=1, c=log_l[::3], vmin=-1e2,
+                 vmax=0, rasterized=True, lw=0, cmap='viridis')
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.0)
 cbar = fig.colorbar(img, cax=cax, orientation='vertical', ticks=[-1e2, 0])
@@ -169,8 +170,8 @@ p_l = np.argsort(np.argsort(log_l)) / float(len(log_l))
 p_l_min = percentileofscore(log_l, log_l_min) / 100
 s_l = np.where(p_l < p_l_min, p_l / p_l_min / 2,
                0.5 + (p_l - p_l_min) / (1 - p_l_min) / 2)
-img = ax.scatter(points[:, 0], points[:, 1], s=1, c=s_l, vmin=0, vmax=1,
-                 rasterized=True, lw=0, cmap='inferno')
+img = ax.scatter(points[::3, 0], points[::3, 1], s=1.5, c=s_l[::3], vmin=0,
+                 vmax=1, rasterized=True, lw=0, cmap='viridis')
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.0)
 cbar = fig.colorbar(img, cax=cax, orientation='vertical', ticks=[0, 1])
@@ -183,7 +184,7 @@ ax.set_ylabel(r'$\tilde{x}_2$')
 ax = axarr[1, 0]
 ax.text(0.05, 0.95, '4', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-draw_neural_net(ax, 0.05, 0.95, 0.0, 1.0, [2, 8, 8, 8, 1])
+draw_neural_net(ax, 0.05, 0.95, 0.0, 1.0, [2, 8, 4, 2, 1])
 ax.text(0.0, 0.5625, r'$\tilde{x}_1$', horizontalalignment='right',
         verticalalignment='center', transform=ax.transAxes)
 ax.text(0.0, 0.4375, r'$\tilde{x}_2$', horizontalalignment='right',
@@ -196,7 +197,7 @@ ax = axarr[1, 1]
 ax.text(0.05, 0.95, '5', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 s_l_pred = sampler.bounds[-1].nbounds[0].emulator.predict(points)
-ax.scatter(s_l, s_l_pred, s=1, color='black', rasterized=True, lw=0)
+ax.scatter(s_l[::5], s_l_pred[::5], s=1, color='black', rasterized=True, lw=0)
 ax.axhline(sampler.bounds[-1].nbounds[0].score_predict_min, ls='--',
            color='black')
 ax.set_xlabel(r'$s_\mathcal{L}$')
@@ -214,7 +215,9 @@ points = np.vstack([X.ravel(), Y.ravel()]).T
 X = X * 10 - 5
 Y = Y * 10 - 5
 in_bound = sampler.bounds[-1].contains(points).reshape(X.shape)
-ax.contour(X, Y, in_bound, levels=[0.5], colors='black', linewidths=1)
+ax.contour(X, Y, in_bound, levels=[0.5], colors='black', linewidths=1,
+           zorder=-10)
+ax.set_rasterization_zorder(0)
 ax.set_xlim(-5, +5)
 ax.set_ylim(-5, +5)
 ax.set_xlabel(r'$x_1$')
