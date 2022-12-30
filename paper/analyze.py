@@ -403,10 +403,11 @@ table = Table.read(Path('.') / 'results' /
 table['weights'] /= np.sum(table['weights'])
 corner_range = 0.999999
 corner.corner(
-    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=100,
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=60,
     plot_datapoints=False, plot_density=False, no_fill_contours=True,
     levels=(0.68, 0.95, 0.997), range=np.ones(5) * corner_range, color='grey',
-    contour_kwargs=dict(linewidths=1), fig=fig)
+    contour_kwargs=dict(linewidths=1.5, alpha=0.5), fig=fig,
+    hist_kwargs=dict(lw=1.5))
 corner_range_abs = []
 for i in range(5):
     x = (table['points'][:, 1::2][:, i] - 0.5) * 10
@@ -416,11 +417,12 @@ table = Table.read(Path('.') / 'results' /
                    'rosenbrock-10_nautilus-15000_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
-    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=100,
+    (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=60,
     labels=np.array([r'$x_{{{}}}$'.format(i) for i in range(1, 11)])[1::2],
     plot_datapoints=False, plot_density=False, fill_contours=True,
     levels=(0.68, 0.95, 0.997), range=corner_range_abs, color='purple',
-    contour_kwargs=dict(linewidths=0), fig=fig, labelpad=-0.1)
+    contour_kwargs=dict(linewidths=0), fig=fig, labelpad=-0.1,
+    hist_kwargs=dict(alpha=0.5, lw=1.5))
 axes[0, -1].text(0.0, 0.5, 'emcee', ha='left', va='bottom',
                  transform=axes[0, -1].transAxes, color='grey', fontsize=14)
 axes[0, -1].text(0.0, 0.5, 'nautilus', ha='left', va='top',
