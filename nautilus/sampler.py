@@ -40,8 +40,8 @@ class Sampler():
         points belonging to the i-th bound/shell.
     shell_info : numpy.ndarray
         Array listing several summary statistics for each bound/shell.
-    tessellated : bool, optional
-        Whether the space has been tessellated and the shells have been
+    explored : bool, optional
+        Whether the space has been explored and the shells have been
         constructed.
 
     """
@@ -216,10 +216,10 @@ class Sampler():
             ('log_v', 'f8'), ('log_l', 'f8'), ('log_z', 'f8'), ('n_eff', 'f8'),
             ('n_shell', 'i8'), ('n_bound', 'i8'),
             ('log_l_min_iteration', 'f8')])
-        self.tessellated = False
+        self.explored = False
 
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
-            discard_tesselation=False, verbose=False):
+            discard_exploration=False, verbose=False):
         """Run the sampler until convergence.
 
         Parameters
@@ -234,18 +234,19 @@ class Sampler():
         n_eff : float, optional
             Minimum effective sample size. The algorithm will sample from the
             shells until this is reached. Default is 10000.
-        discard_tesselation : bool, optional
-            Whether to discard points drawn in the tesselation phase. This is
-            required for an unbiased evidence estimate. Default is true.
+        discard_exploration : bool, optional
+            Whether to discard points drawn in the exploration phase. This is
+            required for a fully unbiased posterior and evidence estimate.
+            Default is true.
         verbose : bool, optional
             If true, print additional information. Default is false.
 
         """
-        if not self.tessellated:
+        if not self.explored:
 
             if verbose:
                 print('#########################')
-                print('### Tesselation Phase ###')
+                print('### Exploration Phase ###')
                 print('#########################')
                 print()
 
@@ -263,9 +264,9 @@ class Sampler():
                     self.shell_info = np.delete(self.shell_info, i_shell,
                                                 axis=0)
 
-            self.tessellated = True
+            self.explored = True
 
-            if discard_tesselation:
+            if discard_exploration:
                 self.discard_points()
 
         if n_shell is None:
@@ -489,7 +490,7 @@ class Sampler():
         print('N_like: {:>17}'.format(self.n_like))
         print('N_eff: {:>18.0f}'.format(self.effective_sample_size()))
         print('log Z: {:>18.3f}'.format(self.evidence()))
-        if not self.tessellated:
+        if not self.explored:
             print('log V: {:>18.3f}'.format(self.shell_info['log_v'][-1]))
             print('f_live: {:>17.3f}'.format(self.live_evidence_fraction()))
 
@@ -768,8 +769,8 @@ class Sampler():
             Points for which to determine shell association.
         n_max : int, optional
             The maximum number of shells to consider. Effectively, this
-            determines the shell association at step `n_max` in the
-            tesselation phase. Default is to consider all shells.
+            determines the shell association at step `n_max` in the exploration
+            phase. Default is to consider all shells.
 
         Returns
         -------
