@@ -367,7 +367,7 @@ class Sampler():
         """
         return logsumexp(self.shell_info['log_z'])
 
-    def sample_shell(self, index, n_shell):
+    def sample_shell(self, index, n_sample):
         """Sample points uniformly from a shell.
 
         The shell at index :math:`i` is defined as the volume enclosed by the
@@ -378,7 +378,7 @@ class Sampler():
         ----------
         index : int
             Index of the shell.
-        n_shell : int
+        n_sample : int
             Total number of samples.
 
         Returns
@@ -393,21 +393,24 @@ class Sampler():
 
         """
         n_bound = 0
-        points = []
+        n_shell = 0
+        points_all = []
 
-        while len(points) < n_shell:
-            point = self.bounds[index].sample()
-            n_bound += 1
-            in_shell = True
+        while n_shell < n_sample:
+            points = self.bounds[index].sample(n_sample - n_shell)
+            n_bound += n_sample - n_shell
+            in_shell = np.ones(len(points), dtype=bool)
 
             for bound in self.bounds[index:][1:]:
-                if in_shell and bound.contains(point):
-                    in_shell = False
+                in_shell = in_shell & ~bound.contains(points)
+                if np.all(~in_shell):
+                    continue
 
-            if in_shell:
-                points.append(point)
+            if np.any(in_shell):
+                n_shell += np.sum(in_shell)
+                points_all.append(points[in_shell])
 
-        return np.array(points), n_bound
+        return np.vstack(points_all), n_bound
 
     def evaluate_likelihood(self, points):
         """Evaluate the likelihood for a given set of points.

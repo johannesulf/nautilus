@@ -346,7 +346,7 @@ def ellipsoids_overlap(ells):
 
     for i_1, i_2 in itertools.combinations(range(len(ells)), 2):
         d = c[i_1] - c[i_2]
-        k = lambda s: (1 - np.dot(np.dot(
+        def k(s): return (1 - np.dot(np.dot(
             d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d))
         if minimize(k, 0.5, bounds=[(1e-9, 1-1e-9)]).fun > 0:
             return True
@@ -653,7 +653,6 @@ class NeuralBound():
             points_t, score, neural_network_kwargs=neural_network_kwargs,
             neural_network_thread_limit=neural_network_thread_limit)
 
-
         self.score_predict_min = np.polyval(np.polyfit(
             score, self.emulator.predict(points_t), 3), 0.5)
 
@@ -842,7 +841,11 @@ class NautilusBound():
             n_sample = 10000
             points = self.sample_bounds[0].sample(n_sample)
             points = points[self.sample_bounds[1].contains(points)]
-            points = points[self.contains(points)]
+            in_nbound = np.zeros(len(points), dtype=bool)
+            if len(self.nbounds) > 0:
+                for bound in self.nbounds:
+                    in_nbound = in_nbound | bound.contains(points)
+            points = points[in_nbound]
             self.points_sample = np.vstack([self.points_sample, points])
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)
