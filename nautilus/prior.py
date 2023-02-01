@@ -116,8 +116,8 @@ class Prior():
 
         return phys_points
 
-    def physical_to_structure(self, phys_points):
-        """Express points in the prior volume as a structured data type.
+    def physical_to_dictionary(self, phys_points):
+        """Express points in the prior volume as a dictionary.
 
         Parameters
         ----------
@@ -127,10 +127,8 @@ class Prior():
 
         Returns
         -------
-        struct_points : dict or numpy.ndarray
-            Points as a structured data type. If `phys_points` has one
-            dimension, this will be a dictionary. Otherwise, it will be a
-            structured numpy array. Each model parameter, including fixed ones,
+        param_dict : dict
+            Points as a dictionary. Each model parameter, including fixed ones,
             can be accessed via their key.
 
         Raises
@@ -144,23 +142,18 @@ class Prior():
         except AssertionError:
             raise ValueError('Dimensionality of points does not match prior.')
 
-        if phys_points.ndim == 1:
-            struct_points = {}
-        else:
-            struct_points = np.zeros(
-                phys_points.shape[0], dtype=[(key, float) for key in
-                                             self.keys])
+        param_dict = {}
 
         i = 0
         for key, dist in zip(self.keys, self.dists):
             if hasattr(dist, 'isf'):
-                struct_points[key] = phys_points[..., i]
+                param_dict[key] = phys_points[..., i]
                 i = i + 1
             elif isinstance(dist, numbers.Number):
-                struct_points[key] = np.ones(phys_points[..., 0].shape) * dist
+                param_dict[key] = np.ones(phys_points[..., 0].shape) * dist
 
         for key, dist in zip(self.keys, self.dists):
             if isinstance(dist, str):
-                struct_points[key] = struct_points[dist]
+                param_dict[key] = param_dict[dist]
 
-        return struct_points
+        return param_dict

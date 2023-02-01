@@ -82,8 +82,8 @@ def test_unit_to_physical():
     assert np.allclose(phys[:, 2], dist2.isf(1 - unit[:, 2]))
 
 
-def test_physical_to_structure():
-    # Test converting physical coordinates to dictionaries/structured arrays.
+def test_physical_to_dictionary():
+    # Test converting physical coordinates to dictionaries.
 
     prior = Prior()
     prior.add_parameter(key='a')
@@ -94,25 +94,24 @@ def test_physical_to_structure():
 
     phys = np.random.random(size=4)
     with pytest.raises(ValueError):
-        struct = prior.physical_to_structure(phys)
+        param_dict = prior.physical_to_dictionary(phys)
 
     phys = np.random.random(size=3)
-    struct = prior.physical_to_structure(phys)
-    assert isinstance(struct, dict)
-    assert len(struct) == 5
-    assert struct['a'] == phys[0]
-    assert struct['d'] == phys[1]
-    assert struct['e'] == phys[2]
-    assert struct['b'] == struct['a']
-    assert struct['c'] == struct['b']
+    param_dict = prior.physical_to_dictionary(phys)
+    assert isinstance(param_dict, dict)
+    assert len(param_dict) == 5
+    assert param_dict['a'] == phys[0]
+    assert param_dict['d'] == phys[1]
+    assert param_dict['e'] == phys[2]
+    assert param_dict['b'] == param_dict['a']
+    assert param_dict['c'] == param_dict['b']
 
     phys = np.random.random(size=(10, 3))
-    struct = prior.physical_to_structure(phys)
-    assert isinstance(struct, np.ndarray)
-    assert struct.shape[0] == phys.shape[0]
-    assert len(struct.dtype.names) == 5
-    assert np.all(struct['a'] == phys[:, 0])
-    assert np.all(struct['d'] == phys[:, 1])
-    assert np.all(struct['e'] == phys[:, 2])
-    assert np.all(struct['b'] == struct['a'])
-    assert np.all(struct['c'] == struct['b'])
+    param_dict = prior.physical_to_dictionary(phys)
+    assert isinstance(param_dict, dict)
+    assert len(param_dict.keys()) == 5
+    assert np.all(param_dict['a'] == phys[:, 0])
+    assert np.all(param_dict['d'] == phys[:, 1])
+    assert np.all(param_dict['e'] == phys[:, 2])
+    assert np.all(param_dict['b'] == param_dict['a'])
+    assert np.all(param_dict['c'] == param_dict['b'])
