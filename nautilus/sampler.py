@@ -22,41 +22,74 @@ class Sampler():
         Function returning the natural logarithm of the likelihood.
     n_dim : int
         Number of dimensions of the likelihood function.
-    config : dict
-        Sampler run parameters.
+    n_live : int
+        Number of live points.
+    n_update : int
+        The maximum number of additions to the live set before a new bound is
+        created.
+    n_like_new_bound : int
+        The maximum number of likelihood calls before a new bounds is created.
+    enlarge : float
+        Factor by which the volume of ellipsoidal bounds is increased.
+    use_neural_networks : bool
+        Whether to use neural network emulators in the construction of the
+        bounds.
+    neural_network_kwargs : dict
+        Keyword arguments passed to the constructor of
+        `sklearn.neural_network.MLPRegressor`.
+    n_batch : int
+        Number of likelihood evaluations that are performed at each step.
+    vectorized : bool
+        If true, the likelihood function can receive multiple input sets at
+        once.
+    pass_dict : bool
+        If true, the likelihood function expects model parameters as
+        dictionaries.
+    neural_network_thread_limit : int or None
+        Maximum number of threads used by `sklearn`.
     pool : object
         Pool used to parallelize likelihood calls.
     random_state : np.random.RandomState
         Random state of the sampler used for random number generation.
+    n_like : int
+        Total number of likelihood evaluations.
+    explored : bool, optional
+        Whether the space has been explored and the shells have been
+        constructed.
     bounds : list
         List of all the constructed bounds.
     points : list
         List of arrays where each array at position i lists the points
         belonging to the i-th bound/shell.
-    n_like : int
-        Total number of likelihood evaluations.
     log_l : list
         List of arrays where each array at position i list the likelihood of
         points belonging to the i-th bound/shell.
-    shell_info : numpy.ndarray
-        Array listing several summary statistics for each bound/shell.
-    explored : bool, optional
-        Whether the space has been explored and the shells have been
-        constructed.
+    shell_n : numpy.ndarray
+        Number of points for each bound/shell.
+    shell_n_sample_shell : numpy.ndarray
+        Number of points sampled in each bound that fall into the shell.
+    shell_n_sample_bound : numpy.ndarray
+        Number of points sampled in each bound.
+    shell_n_eff : numpy.ndarray
+        Effective sample size for each bound/shell.
+    shell_log_l_min : numpy.ndarray
+        Minimum logarithm of the likelihood required for an update in each
+        bound/shell.
+    shell_log_l : numpy.ndarray
+        Logarithm of the mean likelihood of points in each bound/shell.
+    shell_log_v : numpy.ndarray
+        Logarithm of the volume of each bound/shell.
 
     """
-
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
-                 n_update=None, n_like_update=None, enlarge=None,
-                 use_neural_networks=True,
-                 neural_network_kwargs={
+                 n_update=None, enlarge=None, neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
                      'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
-                 likelihood_kwargs={}, n_batch=100, vectorized=False,
-                 pass_dict=None, pool=None, neural_network_thread_limit=1,
-                 random_state=None):
+                 likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
+                 n_like_new_bound=None, vectorized=False, pass_dict=None,
+                 pool=None, neural_network_thread_limit=1, random_state=None):
         r"""
         Initialize the sampler.
 
@@ -77,20 +110,13 @@ class Sampler():
         n_update : None or int, optional
             The maximum number of additions to the live set before a new bound
             is created. If None, use `n_live`. Default is None.
-        n_like_update : None or int, optional
-            The maximum number of likelihood calls before a new bounds is
-            created. If None, use 10 times `n_live`. Default is None.
         enlarge : float, optional
             Factor by which the volume of ellipsoidal bounds is increased.
             Default is 1.1 to the power of `n_dim`, i.e. the ellipsoidal bounds
             are increased by 10% in every dimension.
-        use_neural_networks : bool, optional
-            Whether to use neural network emulators in the construction of the
-            bounds. Default is True.
         neural_network_kwargs : dict, optional
             Keyword arguments passed to the constructor of
-            `sklearn.neural_network.MLPRegressor`. By default, no keyword
-            arguments are passed to the constructor.
+            `sklearn.neural_network.MLPRegressor`.
         prior_args : list, optional
             List of extra positional arguments for `prior`. Only used if
             `prior` is a function.
@@ -108,6 +134,12 @@ class Sampler():
             lead to new bounds being created long after `n_update` additions to
             the live set have been achieved. This will not cause any bias but
             could reduce efficiency. Default is 100.
+        use_neural_networks : bool, optional
+            Whether to use neural network emulators in the construction of the
+            bounds. Default is True.
+        n_like_new_bound : None or int, optional
+            The maximum number of likelihood calls before a new bounds is
+            created. If None, use 10 times `n_live`. Default is None.
         vectorized : bool, optional
             If true, the likelihood function can receive multiple input sets
             at once. For example, if the likelihood function receives arrays,
@@ -116,7 +148,7 @@ class Sampler():
             likelihood function accepts dictionaries, it should be able to
             process dictionaries where each value is an array with shape
             (n_points). Default is False.
-        pass_struct : bool, optional
+        pass_dict : bool or None, optional
             If true, the likelihood function expects model parameters as
             dictionaries. If false, it expects regular numpy arrays. Default is
             to set it to True if prior was a nautilus.Prior instance and False
@@ -174,10 +206,10 @@ class Sampler():
         else:
             self.n_update = n_update
 
-        if n_like_update is None:
-            self.n_like_update = 10 * n_live
+        if n_like_new_bound is None:
+            self.n_like_new_bound = 10 * n_live
         else:
-            self.n_like_update = n_like_update
+            self.n_like_new_bound = n_like_new_bound
 
         if enlarge is None:
             self.enlarge = 1.1**self.n_dim
@@ -368,7 +400,7 @@ class Sampler():
         return logsumexp(self.shell_log_l + self.shell_log_v)
 
     def sample_shell(self, index, shell_t=None):
-        """Sample points uniformly from a shell.
+        """Sample a batch of points uniformly from a shell.
 
         The shell at index :math:`i` is defined as the volume enclosed by the
         bound of index :math:`i` and enclosed by not other bound of index
@@ -378,14 +410,22 @@ class Sampler():
         ----------
         index : int
             Index of the shell.
-        n_sample : int
-            Total number of samples.
+        shell_t : np.ndarray or None, optional
+            If not None, an array of shell associations of possible transfer
+            points.
 
         Returns
         -------
-        points
-        n_bound
-        idx_t
+        points : numpy.ndarray
+            Array of shape (n_shell, n_dim) containing points sampled uniformly
+            from the shell.
+        n_bound : int
+            Number of points drawn within the bound at index :math:`i`. Will
+            be different from `n_shell` if there are bounds with index
+            :math:`k` with :math:`k > i`.
+        idx_t : np.ndarray, optional
+            Indeces of the transfer candidates that should be transferred. Only
+            returned if `shell_t` is not None.
 
         """
         if shell_t is not None and index not in [-1, len(self.bounds) - 1]:
@@ -610,7 +650,7 @@ class Sampler():
         n_update = 0
         n_like = 0
         n_update_max = self.n_update
-        n_like_max = self.n_like_update
+        n_like_max = self.n_like_new_bound
         if len(self.bounds) == 1:
             n_update_max += self.n_live
             n_like_max = np.inf
