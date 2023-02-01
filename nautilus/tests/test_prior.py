@@ -82,7 +82,7 @@ def test_unit_to_physical():
     assert np.allclose(phys[:, 2], dist2.isf(1 - unit[:, 2]))
 
 
-def test_physical_to_structure():
+def test_physical_to_dictionary():
     # Test converting physical coordinates to dictionaries/structured arrays.
 
     prior = Prior()
@@ -94,10 +94,10 @@ def test_physical_to_structure():
 
     phys = np.random.random(size=4)
     with pytest.raises(ValueError):
-        struct = prior.physical_to_structure(phys)
+        struct = prior.physical_to_dictionary(phys)
 
     phys = np.random.random(size=3)
-    struct = prior.physical_to_structure(phys)
+    struct = prior.physical_to_dictionary(phys)
     assert isinstance(struct, dict)
     assert len(struct) == 5
     assert struct['a'] == phys[0]
@@ -107,7 +107,7 @@ def test_physical_to_structure():
     assert struct['c'] == struct['b']
 
     phys = np.random.random(size=(10, 3))
-    struct = prior.physical_to_structure(phys)
+    struct = prior.physical_to_dictionary(phys)
     assert isinstance(struct, np.ndarray)
     assert struct.shape[0] == phys.shape[0]
     assert len(struct.dtype.names) == 5
