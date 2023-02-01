@@ -1,7 +1,12 @@
 """Module implementing the Nautilus sampler."""
 
+try:
+    import h5py
+except ImportError:
+    pass
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
 from functools import partial
 from multiprocessing import Pool
 from scipy.special import logsumexp
@@ -81,6 +86,7 @@ class Sampler():
         Logarithm of the volume of each bound/shell.
 
     """
+
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
                  n_update=None, enlarge=None, neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
@@ -270,9 +276,9 @@ class Sampler():
         discard_exploration : bool, optional
             Whether to discard points drawn in the exploration phase. This is
             required for a fully unbiased posterior and evidence estimate.
-            Default is true.
+            Default is True.
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         if not self.explored:
@@ -563,7 +569,7 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         self.shell_n = np.append(self.shell_n, 0)
@@ -619,7 +625,7 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         shell_t = []
@@ -769,7 +775,7 @@ class Sampler():
             Minimum number of points in each shell. The algorithm will sample
             from the shells until this is reached. Default is 0.
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         idx = np.flatnonzero(self.shell_n < n_shell)
@@ -873,3 +879,67 @@ class Sampler():
             m = m / np.diag(m)[:, np.newaxis]
 
         return m
+
+    def write(self, filepath, overwrite=False):
+        """Write the sampler to disk.
+
+        Parameters
+        ----------
+        filepath : string or pathlib.Path
+            Path to the file. Must have a '.h5' or '.hdf5' extension.
+        overwrite : bool, optional
+            Whether to overwrite an existing file. Default is False.
+
+        Raises
+        ------
+        ValueError
+            If file extension is not '.h5' or '.hdf5'.
+        RuntimeError
+            If file exists and `overwrite` is False.
+
+        """
+        path = Path(filepath)
+
+        if path.suffix not in ['.h5', '.hdf5']:
+            raise ValueError("File ending must '.h5' or '.hdf5'.")
+
+        if path.exists():
+            if not overwrite:
+                raise RuntimeError("File {} already exists.".format(filepath))
+            else:
+                path.unlink()
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        fstream = h5py.File(path, 'w')
+        group = fstream.create_group('sampler')
+        group.attrs['n_dim'] = self.n_dim
+        group.attrs['n_live'] = self.n_live
+        group.attrs['n_update'] = self.n_update
+        group.attrs['n_like_new_bound'] = self.n_like_new_bound
+        group.attrs['enlarge'] = self.enlarge
+        group.attrs['use_neural_networks'] = self.use_neural_networks
+        for key in self.neural_network_kwargs.keys():
+            group.attrs['neural_network_{}'.format(key)] =\
+                self.neural_network_kwargs[key]
+        group.attrs['n_batch'] = self.n_batch
+        group.attrs['vectorized'] = self.vectorized
+        group.attrs['pass_dict'] = self.pass_dict
+        group.attrs['neural_network_thread_limit'] =\
+            self.neural_network_thread_limit
+        group.attrs['n_like'] = self.n_like
+        group.attrs['explored'] = self.explored
+        group.attrs['shell_n'] = self.shell_n
+        group.attrs['shell_n_sample_shell'] = self.shell_n_sample_shell
+        group.attrs['shell_n_sample_bound'] = self.shell_n_sample_bound
+        group.attrs['shell_n_eff'] = self.shell_n_eff
+        group.attrs['shell_log_l_min'] = self.shell_log_l_min
+        group.attrs['shell_log_l'] = self.shell_log_l
+        group.attrs['shell_log_v'] = self.shell_log_v
+        for shell in range(len(self.bounds)):
+            group.create_dataset(
+                'points_{}'.format(shell), data=self.points[shell])
+            group.create_dataset(
+                'log_l_{}'.format(shell), data=self.log_l[shell])
+
+        fstream.close()
