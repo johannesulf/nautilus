@@ -657,7 +657,7 @@ class Sampler():
 
         if verbose:
             pbar = tqdm(desc='Filling bound {}'.format(len(self.bounds)),
-                        total=n_update, leave=False)
+                        total=n_update_max, leave=False)
 
         while n_update < n_update_max and n_like < n_like_max:
             points, n_bound, idx_t = self.sample_shell(-1, shell_t)
