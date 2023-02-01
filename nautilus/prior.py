@@ -127,7 +127,7 @@ class Prior():
 
         Returns
         -------
-        dict_points : dict
+        param_dict : dict
             Points as a dictionary. Each model parameter, including fixed ones,
             can be accessed via their key.
 
