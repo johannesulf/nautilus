@@ -142,18 +142,18 @@ class Prior():
         except AssertionError:
             raise ValueError('Dimensionality of points does not match prior.')
 
-        struct_points = {}
+        param_dict = {}
 
         i = 0
         for key, dist in zip(self.keys, self.dists):
             if hasattr(dist, 'isf'):
-                struct_points[key] = phys_points[..., i]
+                param_dict[key] = phys_points[..., i]
                 i = i + 1
             elif isinstance(dist, numbers.Number):
-                struct_points[key] = np.ones(phys_points[..., 0].shape) * dist
+                param_dict[key] = np.ones(phys_points[..., 0].shape) * dist
 
         for key, dist in zip(self.keys, self.dists):
             if isinstance(dist, str):
-                struct_points[key] = struct_points[dist]
+                param_dict[key] = param_dict[dist]
 
-        return struct_points
+        return param_dict
