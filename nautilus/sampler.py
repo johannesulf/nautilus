@@ -268,21 +268,23 @@ class Sampler():
 
         self.filepath = filepath
         if resume and filepath is not None and Path(filepath).exists():
-            fstream = h5py.File(filepath, 'r')
-            group = fstream['sampler']
-            self.random_state.set_state(
-                tuple(group.attrs['random_state_{}'.format(i)] for i in
-                      range(5)))
+            with h5py.File(filepath, 'r') as fstream:
+                group = fstream['sampler']
+                self.random_state.set_state(
+                    tuple(group.attrs['random_state_{}'.format(i)] for i in
+                          range(5)))
 
-            for key in ['n_like', 'explored', 'shell_n',
-                        'shell_n_sample_shell', 'shell_n_sample_bound',
-                        'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                        'shell_log_v']:
-                setattr(self, key, group.attrs[key])
+                for key in ['n_like', 'explored', 'shell_n',
+                            'shell_n_sample_shell', 'shell_n_sample_bound',
+                            'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                            'shell_log_v']:
+                    setattr(self, key, group.attrs[key])
 
-            for shell in range(len(self.shell_n)):
-                self.points.append(group['points_{}'.format(shell)])
-                self.log_l.append(group['log_l_{}'.format(shell)])
+                for shell in range(len(self.shell_n)):
+                    self.points.append(
+                        np.array(group['points_{}'.format(shell)]))
+                    self.log_l.append(
+                        np.array(group['log_l_{}'.format(shell)]))
 
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_exploration=False, verbose=False):
