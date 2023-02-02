@@ -273,15 +273,13 @@ class Sampler():
             self.random_state.set_state(
                 tuple(group.attrs['random_state_{}'.format(i)] for i in
                       range(5)))
-            self.n_like = group.attrs['n_like']
-            self.explored = group.attrs['explored']
-            self.shell_n = group.attrs['shell_n']
-            self.shell_n_sample_shell = group.attrs['shell_n_sample_shell']
-            self.shell_n_sample_bound = group.attrs['shell_n_sample_bound']
-            self.shell_n_eff = group.attrs['shell_n_eff']
-            self.shell_log_l_min = group.attrs['shell_log_l_min']
-            self.shell_log_l = group.attrs['shell_log_l']
-            self.shell_log_v = group.attrs['shell_log_v']
+
+            for key in ['n_like', 'explored', 'shell_n',
+                        'shell_n_sample_shell', 'shell_n_sample_bound',
+                        'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                        'shell_log_v']:
+                setattr(self, key, group.attrs[key])
+
             for shell in range(len(self.shell_n)):
                 self.points.append(group['points_{}'.format(shell)])
                 self.log_l.append(group['log_l_{}'.format(shell)])
@@ -951,32 +949,22 @@ class Sampler():
 
         fstream = h5py.File(filepath, 'x')
         group = fstream.create_group('sampler')
-        group.attrs['n_dim'] = self.n_dim
-        group.attrs['n_live'] = self.n_live
-        group.attrs['n_update'] = self.n_update
-        group.attrs['n_like_new_bound'] = self.n_like_new_bound
-        group.attrs['enlarge'] = self.enlarge
-        group.attrs['use_neural_networks'] = self.use_neural_networks
+
+        for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
+                    'enlarge', 'use_neural_networks', 'n_batch', 'vectorized',
+                    'pass_dict', 'neural_network_thread_limit', 'n_like',
+                    'explored', 'shell_n', 'shell_n_sample_shell',
+                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v']:
+            group.attrs[key] = getattr(self, key)
+
         for key in self.neural_network_kwargs.keys():
             group.attrs['neural_network_{}'.format(key)] =\
                 self.neural_network_kwargs[key]
-        group.attrs['n_batch'] = self.n_batch
-        group.attrs['vectorized'] = self.vectorized
-        group.attrs['pass_dict'] = self.pass_dict
-        group.attrs['neural_network_thread_limit'] =\
-            self.neural_network_thread_limit
-        for i in range(5):
-            group.attrs['random_state_{}'.format(i)] =\
-                self.random_state.get_state()[i]
-        group.attrs['n_like'] = self.n_like
-        group.attrs['explored'] = self.explored
-        group.attrs['shell_n'] = self.shell_n
-        group.attrs['shell_n_sample_shell'] = self.shell_n_sample_shell
-        group.attrs['shell_n_sample_bound'] = self.shell_n_sample_bound
-        group.attrs['shell_n_eff'] = self.shell_n_eff
-        group.attrs['shell_log_l_min'] = self.shell_log_l_min
-        group.attrs['shell_log_l'] = self.shell_log_l
-        group.attrs['shell_log_v'] = self.shell_log_v
+
+        for i, var in enumerate(self.random_state.get_state()):
+            group.attrs['random_state_{}'.format(i)] = var
+
         for shell in range(len(self.bounds)):
             group.create_dataset(
                 'points_{}'.format(shell), data=self.points[shell])
@@ -1009,17 +997,16 @@ class Sampler():
 
         fstream = h5py.File(filepath, 'r+')
         group = fstream['sampler']
-        for i in range(5):
-            group.attrs['random_state_{}'.format(i)] =\
-                self.random_state.get_state()[i]
-        group.attrs['n_like'] = self.n_like
-        group.attrs['shell_n'] = self.shell_n
-        group.attrs['shell_n_sample_shell'] = self.shell_n_sample_shell
-        group.attrs['shell_n_sample_bound'] = self.shell_n_sample_bound
-        group.attrs['shell_n_eff'] = self.shell_n_eff
-        group.attrs['shell_log_l_min'] = self.shell_log_l_min
-        group.attrs['shell_log_l'] = self.shell_log_l
-        group.attrs['shell_log_v'] = self.shell_log_v
+
+        for key in ['n_like', 'shell_n', 'shell_n_sample_shell',
+                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v']:
+            group.attrs[key] = getattr(self, key)
+
+        for key in self.neural_network_kwargs.keys():
+            group.attrs['neural_network_{}'.format(key)] =\
+                self.neural_network_kwargs[key]
+
         del group['points_{}'.format(shell)]
         group.create_dataset(
                 'points_{}'.format(shell), data=self.points[shell])
