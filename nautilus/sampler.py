@@ -321,6 +321,8 @@ class Sampler():
             while (self.live_evidence_fraction() > f_live):
                 self.add_bound(verbose=verbose)
                 self.fill_bound(verbose=verbose)
+                if self.filepath is not None:
+                    self.write(self.filepath, overwrite=True)
 
             # If some shells are unoccupied in the end, remove them. They will
             # contain close to 0 volume and may never yield a point when
@@ -335,9 +337,13 @@ class Sampler():
                     self.shell_log_v = np.delete(self.shell_log_v, shell)
 
             self.explored = True
+            if self.filepath is not None:
+                self.write(self.filepath, overwrite=True)
 
             if discard_exploration:
                 self.discard_points()
+                if self.filepath is not None:
+                    self.write(self.filepath, overwrite=True)
 
         if n_shell is None:
             n_shell = self.n_batch
@@ -761,24 +767,26 @@ class Sampler():
             log_v_live = log_v[np.argsort(log_l)][-self.n_live:]
             return logsumexp(log_v_live)
 
-    def add_samples_to_shell(self, index):
+    def add_samples_to_shell(self, shell):
         """Add samples to a shell.
 
         The number of points added is always equal to the batch size.
 
         Parameters
         ----------
-        index : int
+        shell : int
             The index of the shell for which to add points.
 
         """
-        points, n_bound = self.sample_shell(index)
-        self.shell_n_sample_shell[index] += len(points)
-        self.shell_n_sample_bound[index] += n_bound
+        points, n_bound = self.sample_shell(shell)
+        self.shell_n_sample_shell[shell] += len(points)
+        self.shell_n_sample_bound[shell] += n_bound
         log_l = self.evaluate_likelihood(points)
-        self.points[index] = np.vstack([self.points[index], points])
-        self.log_l[index] = np.concatenate([self.log_l[index], log_l])
-        self.update_shell_info(index)
+        self.points[shell] = np.vstack([self.points[shell], points])
+        self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
+        self.update_shell_info(shell)
+        if self.filepath is not None:
+            self.write_shell_update(self.filepath, shell)
 
     def discard_points(self):
         """Discard all points drawn."""
@@ -927,20 +935,21 @@ class Sampler():
             If file exists and `overwrite` is False.
 
         """
-        path = Path(filepath)
+        filepath = Path(filepath)
 
-        if path.suffix not in ['.h5', '.hdf5']:
+        if filepath.suffix not in ['.h5', '.hdf5']:
             raise ValueError("File ending must '.h5' or '.hdf5'.")
 
-        if path.exists():
+        if filepath.exists():
             if not overwrite:
-                raise RuntimeError("File {} already exists.".format(filepath))
+                raise RuntimeError(
+                    "File {} already exists.".format(str(filepath)))
             else:
-                path.unlink()
+                filepath.unlink()
 
-        path.parent.mkdir(parents=True, exist_ok=True)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        fstream = h5py.File(path, 'w')
+        fstream = h5py.File(filepath, 'x')
         group = fstream.create_group('sampler')
         group.attrs['n_dim'] = self.n_dim
         group.attrs['n_live'] = self.n_live
@@ -973,5 +982,48 @@ class Sampler():
                 'points_{}'.format(shell), data=self.points[shell])
             group.create_dataset(
                 'log_l_{}'.format(shell), data=self.log_l[shell])
+
+        fstream.close()
+
+    def write_shell_update(self, filepath, shell):
+        """Update the sampler data for a single shell.
+
+        Parameters
+        ----------
+        filepath : string or pathlib.Path
+            Path to the file. Must have a '.h5' or '.hdf5' extension.
+        shell : int
+            Shell index for which to write the upate.
+
+        Raises
+        ------
+        RuntimeError
+            If file does not exist.
+
+        """
+        filepath = Path(filepath)
+
+        if not filepath.exists():
+            raise RuntimeError(
+                "File {} does not exist.".format(str(filepath)))
+
+        fstream = h5py.File(filepath, 'r+')
+        group = fstream['sampler']
+        for i in range(5):
+            group.attrs['random_state_{}'.format(i)] =\
+                self.random_state.get_state()[i]
+        group.attrs['n_like'] = self.n_like
+        group.attrs['shell_n'] = self.shell_n
+        group.attrs['shell_n_sample_shell'] = self.shell_n_sample_shell
+        group.attrs['shell_n_sample_bound'] = self.shell_n_sample_bound
+        group.attrs['shell_n_eff'] = self.shell_n_eff
+        group.attrs['shell_log_l_min'] = self.shell_log_l_min
+        group.attrs['shell_log_l'] = self.shell_log_l
+        group.attrs['shell_log_v'] = self.shell_log_v
+        del group['points_{}'.format(shell)]
+        group.create_dataset(
+                'points_{}'.format(shell), data=self.points[shell])
+        del group['log_l_{}'.format(shell)]
+        group.create_dataset('log_l_{}'.format(shell), data=self.log_l[shell])
 
         fstream.close()
