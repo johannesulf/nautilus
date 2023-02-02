@@ -95,7 +95,8 @@ class Sampler():
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, neural_network_thread_limit=1, random_state=None):
+                 pool=None, neural_network_thread_limit=1, random_state=None,
+                 filepath=None, resume=True):
         r"""
         Initialize the sampler.
 
@@ -170,6 +171,14 @@ class Sampler():
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
+        filepath : string, pathlib.Path or None, optional
+            Path to the file where results are saved. Must have a '.h5' or
+            '.hdf5' extension. If None, no results are written. Default is
+            None.
+        resume : bool, optional
+            If True, resume from previous run if `filepath` exists. If False,
+            start from scratch and overwrite any previous file. Default is
+            True.
 
         Raises
         ------
@@ -256,6 +265,26 @@ class Sampler():
         self.shell_log_l_min = np.zeros(0, dtype=float)
         self.shell_log_l = np.zeros(0, dtype=float)
         self.shell_log_v = np.zeros(0, dtype=float)
+
+        self.filepath = filepath
+        if resume and filepath is not None and Path(filepath).exists():
+            fstream = h5py.File(filepath, 'r')
+            group = fstream['sampler']
+            self.random_state.set_state(
+                tuple(group.attrs['random_state_{}'.format(i)] for i in
+                      range(5)))
+            self.n_like = group.attrs['n_like']
+            self.explored = group.attrs['explored']
+            self.shell_n = group.attrs['shell_n']
+            self.shell_n_sample_shell = group.attrs['shell_n_sample_shell']
+            self.shell_n_sample_bound = group.attrs['shell_n_sample_bound']
+            self.shell_n_eff = group.attrs['shell_n_eff']
+            self.shell_log_l_min = group.attrs['shell_log_l_min']
+            self.shell_log_l = group.attrs['shell_log_l']
+            self.shell_log_v = group.attrs['shell_log_v']
+            for shell in range(len(self.shell_n)):
+                self.points.append(group['points_{}'.format(shell)])
+                self.log_l.append(group['log_l_{}'.format(shell)])
 
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_exploration=False, verbose=False):
@@ -927,6 +956,9 @@ class Sampler():
         group.attrs['pass_dict'] = self.pass_dict
         group.attrs['neural_network_thread_limit'] =\
             self.neural_network_thread_limit
+        for i in range(5):
+            group.attrs['random_state_{}'.format(i)] =\
+                self.random_state.get_state()[i]
         group.attrs['n_like'] = self.n_like
         group.attrs['explored'] = self.explored
         group.attrs['shell_n'] = self.shell_n
