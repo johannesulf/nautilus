@@ -286,6 +286,13 @@ class Sampler():
                     self.log_l.append(
                         np.array(group['log_l_{}'.format(shell)]))
 
+                self.bounds = [UnitCube.read(fstream['bound_0'],
+                                             random_state=self.random_state), ]
+                for i in range(1, len(self.shell_n)):
+                    self.bounds.append(NautilusBound.read(
+                        fstream['bound_{}'.format(i)],
+                        random_state=self.random_state))
+
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_exploration=False, verbose=False):
         """Run the sampler until convergence.
@@ -618,7 +625,7 @@ class Sampler():
         if len(self.bounds) == 0:
             log_l_min = -np.inf
             self.bounds.append(
-                UnitCube(self.n_dim, random_state=self.random_state))
+                UnitCube.compute(self.n_dim, random_state=self.random_state))
         else:
             if verbose:
                 print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
@@ -626,7 +633,7 @@ class Sampler():
             points = np.vstack(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
-            bound = NautilusBound(
+            bound = NautilusBound.compute(
                 points, log_l, log_l_min, self.live_volume(),
                 enlarge=self.enlarge,
                 use_neural_networks=self.use_neural_networks,
@@ -972,6 +979,9 @@ class Sampler():
                 'points_{}'.format(shell), data=self.points[shell])
             group.create_dataset(
                 'log_l_{}'.format(shell), data=self.log_l[shell])
+
+        for i, bound in enumerate(self.bounds):
+            bound.write(fstream.create_group('bound_{}'.format(i)))
 
         fstream.close()
 
