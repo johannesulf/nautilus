@@ -13,7 +13,7 @@ def get_test_points(n_dim, c):
 def test_unit_cube_sample_and_contains():
 
     n_dim, n_points = 7, 1000
-    cube = bounds.UnitCube(n_dim)
+    cube = bounds.UnitCube.compute(n_dim)
 
     point = cube.sample()
     assert point.shape == (n_dim, )
@@ -29,15 +29,18 @@ def test_unit_cube_sample_and_contains():
 def test_unit_cube_volume():
 
     n_dim = 7
-    cube = bounds.UnitCube(n_dim)
+    cube = bounds.UnitCube.compute(n_dim)
     assert cube.volume() == 0
 
 
 def test_unit_cube_random_state():
     n_dim, n_points = 7, 1000
-    cube = bounds.UnitCube(n_dim, random_state=np.random.RandomState(0))
-    cube_same = bounds.UnitCube(n_dim, random_state=np.random.RandomState(0))
-    cube_diff = bounds.UnitCube(n_dim, random_state=np.random.RandomState(1))
+    cube = bounds.UnitCube.compute(
+        n_dim, random_state=np.random.RandomState(0))
+    cube_same = bounds.UnitCube.compute(
+        n_dim, random_state=np.random.RandomState(0))
+    cube_diff = bounds.UnitCube.compute(
+        n_dim, random_state=np.random.RandomState(1))
     points = cube.sample(n_points)
     assert np.all(points == cube_same.sample(n_points))
     assert not np.all(points == cube_diff.sample(n_points))
@@ -75,8 +78,8 @@ def test_ellipsoid_sample_and_contains():
     n_dim = 7
     c = np.random.random(n_dim)
     points = get_test_points(n_dim, c)
-    ell = bounds.Ellipsoid(points, enlarge=1.0,
-                           random_state=np.random.RandomState(0))
+    ell = bounds.Ellipsoid.compute(
+        points, enlarge=1.0, random_state=np.random.RandomState(0))
 
     point = ell.sample()
     assert point.shape == (n_dim, )
@@ -89,8 +92,8 @@ def test_ellipsoid_sample_and_contains():
     assert np.all(np.linalg.norm(points - c, axis=1) < 1 + 1e-9)
     assert np.all(ell.contains(points))
 
-    ell = bounds.Ellipsoid(points, enlarge=2.0,
-                           random_state=np.random.RandomState(0))
+    ell = bounds.Ellipsoid.compute(
+        points, enlarge=2.0, random_state=np.random.RandomState(0))
     points = ell.sample(n_points)
     assert not np.all(np.linalg.norm(points - c, axis=1) < 1)
     assert np.all(ell.contains(points))
@@ -101,7 +104,7 @@ def test_ellipsoid_volume():
     n_dim = 7
     points = get_test_points(n_dim, np.random.random(n_dim))
     for enlarge in [1.0, 2.0, np.pi]:
-        ell = bounds.Ellipsoid(points, enlarge=enlarge)
+        ell = bounds.Ellipsoid.compute(points, enlarge=enlarge)
         assert np.isclose(
             ell.volume(), np.log(enlarge * np.pi**(n_dim / 2) /
                                  gamma(n_dim / 2 + 1)))
@@ -112,7 +115,8 @@ def test_ellipsoid_transform():
     np.random.seed(0)
     n_dim, n_points = 7, 1000
     points = np.random.random(size=(n_points, n_dim))
-    ell = bounds.Ellipsoid(points, random_state=np.random.RandomState(0))
+    ell = bounds.Ellipsoid.compute(
+        points, random_state=np.random.RandomState(0))
     points = ell.sample(n_points)
     points_t = ell.transform(points)
     assert np.all(np.abs(points_t) < 1 + 1e-9)
@@ -125,10 +129,11 @@ def test_ellipsoid_random_state():
     n_dim, n_points = 7, 1000
     points = np.random.random(size=(n_points, n_dim))
 
-    ell = bounds.Ellipsoid(points, random_state=np.random.RandomState(0))
-    ell_same = bounds.Ellipsoid(
+    ell = bounds.Ellipsoid.compute(
         points, random_state=np.random.RandomState(0))
-    ell_diff = bounds.Ellipsoid(
+    ell_same = bounds.Ellipsoid.compute(
+        points, random_state=np.random.RandomState(0))
+    ell_diff = bounds.Ellipsoid.compute(
         points, random_state=np.random.RandomState(1))
     points = ell.sample(n_points)
     assert np.all(points == ell_same.sample(n_points))
@@ -143,7 +148,7 @@ def test_multi_ellipsoid_split():
     points = np.random.random(size=(n_points, n_dim))
     points[n_points // 2:, 0] += 100
 
-    mell = bounds.MultiEllipsoid(
+    mell = bounds.MultiEllipsoid.compute(
         points, enlarge=1.0 + 1e-9, random_state=np.random.RandomState(0))
 
     # When not allowing overlaps, only 2 ellipsoids should be possible.
@@ -169,8 +174,8 @@ def test_multi_ellipsoid_sample_and_contains():
     np.random.seed(0)
     n_dim, n_points = 7, 1000
     points = np.random.normal(size=(n_points, n_dim))
-    mell = bounds.MultiEllipsoid(points, enlarge=1.0,
-                                 random_state=np.random.RandomState(0))
+    mell = bounds.MultiEllipsoid.compute(
+        points, enlarge=1.0, random_state=np.random.RandomState(0))
     for i in range(4):
         mell.split_ellipsoid()
 
@@ -183,8 +188,8 @@ def test_multi_ellipsoid_sample_and_contains():
     assert points.shape == (n_points, n_dim)
     assert np.all(mell.contains(points))
 
-    mell_large = bounds.MultiEllipsoid(points, enlarge=2.0,
-                                       random_state=np.random.RandomState(0))
+    mell_large = bounds.MultiEllipsoid.compute(
+        points, enlarge=2.0, random_state=np.random.RandomState(0))
     points = mell_large.sample(n_points)
     assert not np.all(mell.contains(points))
 
@@ -195,12 +200,13 @@ def test_multi_ellipsoid_random_state():
     n_dim, n_points = 7, 1000
     points = np.random.normal(size=(n_points, n_dim))
 
-    mell = bounds.MultiEllipsoid(points, random_state=np.random.RandomState(0))
+    mell = bounds.MultiEllipsoid.compute(
+        points, random_state=np.random.RandomState(0))
     mell.split_ellipsoid()
-    mell_same = bounds.MultiEllipsoid(
+    mell_same = bounds.MultiEllipsoid.compute(
         points, random_state=np.random.RandomState(0))
     mell_same.split_ellipsoid()
-    mell_diff = bounds.MultiEllipsoid(
+    mell_diff = bounds.MultiEllipsoid.compute(
         points, random_state=np.random.RandomState(1))
     mell_diff.split_ellipsoid()
     points = mell.sample(n_points)
@@ -216,7 +222,7 @@ def test_neural_bound_contains():
     points = np.random.random(size=(n_points, n_dim))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nell = bounds.NeuralBound(points, log_l, log_l_min)
+    nell = bounds.NeuralBound.compute(points, log_l, log_l_min)
 
     points = np.random.random(size=(n_points, n_dim))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
@@ -232,7 +238,7 @@ def test_nautilus_bound_sample_and_contains():
     points = np.random.random(size=(n_points, n_dim))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nell = bounds.NautilusBound(points, log_l, log_l_min, 0)
+    nell = bounds.NautilusBound.compute(points, log_l, log_l_min, 0)
 
     points = nell.sample(n_points)
     log_l = -np.linalg.norm(points - 0.5, axis=1)
