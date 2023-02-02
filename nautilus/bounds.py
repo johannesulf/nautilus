@@ -721,11 +721,11 @@ class NeuralBound():
         bound.
     """
 
-
-    def __init__(self, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
-                 neural_network_kwargs={}, neural_network_thread_limit=1,
-                 random_state=None):
-        """Initialize a neural network-based bound.
+    @classmethod
+    def compute(cls, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
+                neural_network_kwargs={}, neural_network_thread_limit=1,
+                random_state=None):
+        """Compute a neural network-based bound.
 
         Parameters
         ----------
@@ -754,27 +754,28 @@ class NeuralBound():
             Determines random number generation. Default is None.
 
         """
-        self.n_dim = points.shape[1]
+        bound = cls()
+        bound.n_dim = points.shape[1]
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
 
         # Determine the outer bound.
         if ellipsoid is None:
-            self.ellipsoid = Ellipsoid(
+            bound.ellipsoid = Ellipsoid(
                 points[log_l > log_l_min], enlarge=enlarge,
-                random_state=self.random_state)
+                random_state=bound.random_state)
         else:
-            self.ellipsoid = ellipsoid
+            bound.ellipsoid = ellipsoid
 
         # Train the network.
-        select = self.ellipsoid.contains(points)
+        select = bound.ellipsoid.contains(points)
         points = points[select]
         log_l = log_l[select]
 
-        points_t = self.ellipsoid.transform(points)
+        points_t = bound.ellipsoid.transform(points)
         perc = np.argsort(np.argsort(log_l)) / float(len(log_l))
         perc_min = percentileofscore(log_l, log_l_min) / 100
         score = np.zeros(len(points))
@@ -782,12 +783,14 @@ class NeuralBound():
         if np.any(select):
             score[select] = 0.5 * (perc[select] / perc_min)
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
-        self.emulator = NeuralNetworkEmulator(
+        bound.emulator = NeuralNetworkEmulator(
             points_t, score, neural_network_kwargs=neural_network_kwargs,
             neural_network_thread_limit=neural_network_thread_limit)
 
-        self.score_predict_min = np.polyval(np.polyfit(
-            score, self.emulator.predict(points_t), 3), 0.5)
+        bound.score_predict_min = np.polyval(np.polyfit(
+            score, bound.emulator.predict(points_t), 3), 0.5)
+
+        return bound
 
     def contains(self, points):
         """Check whether points are contained in the bound.
