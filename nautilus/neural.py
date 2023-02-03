@@ -37,6 +37,11 @@ class NeuralNetworkEmulator():
             Maximum number of threads used by `sklearn`. If None, no limits
             are applied. Default is 1.
 
+        Returns
+        -------
+        emulator : NeuralNetworkEmulator
+            The likelihood neural network emulator.
+
         """
         emulator = cls()
 
@@ -100,6 +105,11 @@ class NeuralNetworkEmulator():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+
+        Returns
+        -------
+        emulator : NeuralNetworkEmulator
+            The likelihood neural network emulator.
 
         """
         emulator = cls()

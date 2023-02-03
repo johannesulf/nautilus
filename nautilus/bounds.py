@@ -38,6 +38,11 @@ class UnitCube():
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
+        Returns
+        -------
+        bound : UnitCube
+            The bound.
+
         """
         bound = cls()
         bound.n_dim = n_dim
@@ -117,6 +122,13 @@ class UnitCube():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : UnitCube
+            The bound.
 
         """
         bound = cls()
@@ -258,6 +270,11 @@ class Ellipsoid():
             If `enlarge` is smaller than unity or the number of points does
             not exceed the number of dimensions.
 
+        Returns
+        -------
+        bound : Ellipsoid
+            The bound.
+
         """
         bound = cls()
         bound.n_dim = points.shape[1]
@@ -386,6 +403,13 @@ class Ellipsoid():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : Ellipsoid
+            The bound.
 
         """
         bound = cls()
@@ -486,6 +510,11 @@ class MultiEllipsoid():
         ValueError
             If `n_points_min` is smaller than the number of dimensions plus
             one.
+
+        Returns
+        -------
+        bound : MultiEllipsoid
+            The bound.
 
         """
         bound = cls()
@@ -678,6 +707,13 @@ class MultiEllipsoid():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : MultiEllipsoid
+            The bound.
 
         """
         bound = cls()
@@ -751,6 +787,11 @@ class NeuralBound():
             are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NeuralBound
+            The bound.
 
         """
         bound = cls()
@@ -839,6 +880,13 @@ class NeuralBound():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NeuralBound
+            The bound.
 
         """
         bound = cls()
@@ -927,6 +975,11 @@ class NautilusBound():
             are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NautilusBound
+            The bound.
 
         """
         bound = cls()
@@ -1111,6 +1164,13 @@ class NautilusBound():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NautilusBound
+            The bound.
 
         """
         bound = cls()
