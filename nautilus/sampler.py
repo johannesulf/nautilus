@@ -325,7 +325,8 @@ class Sampler():
                 print('#########################')
                 print()
 
-            while (self.live_evidence_fraction() > f_live):
+            while (self.live_evidence_fraction() > f_live or
+                   len(self.bounds) == 0):
                 self.add_bound(verbose=verbose)
                 self.fill_bound(verbose=verbose)
                 if self.filepath is not None:
@@ -538,6 +539,8 @@ class Sampler():
         -------
         log_l : numpy.ndarray
             Natural log of the likelihood of each point.
+        blobs : list, dict or None
+            Blobs associated with the points, if any.
 
         """
         if callable(self.prior):
@@ -557,15 +560,54 @@ class Sampler():
                 args = [self.prior.physical_to_dictionary(arg) for arg in args]
 
         if self.pool is not None:
-            log_l = self.pool.map(self.likelihood, args)
+            result = self.pool.map(self.likelihood, args)
         elif self.vectorized:
-            log_l = self.likelihood(args)
+            result = self.likelihood(args)
         else:
-            log_l = list(map(self.likelihood, args))
+            result = list(map(self.likelihood, args))
 
-        self.n_like += len(log_l)
+        self.n_like += len(result)
 
-        return log_l
+        blobs = None
+
+        if not self.vectorized:
+
+            if isinstance(result[0], tuple):
+                log_l = [result[i][0] for i in range(len(result))]
+                if len(result[0]) > 1 and isinstance(result[0][1], dict):
+                    blobs = {}
+                    for key in result[0][1].keys():
+                        blobs[key] = [result[i][1][key] for i in
+                                      range(len(result))]
+                else:
+                    blobs = []
+                    for k in range(1, len(result[0])):
+                        blobs.append([result[i][k] for i in
+                                      range(len(result))])
+            else:
+                log_l = result
+
+            log_l = np.array(log_l)
+
+            if isinstance(blobs, list):
+                for i in range(len(blobs)):
+                    blobs[i] = np.array(blobs[i])
+            elif isinstance(blobs, dict):
+                for key in blobs.keys():
+                    blobs[key] = np.array(blobs[key])
+
+        else:
+
+            if isinstance(result, tuple):
+                log_l = result[0]
+                if len(result) > 1 and isinstance(result[1], dict):
+                    blobs = result[1]
+                else:
+                    blobs = list(result[1:])
+            else:
+                log_l = result
+
+        return log_l, blobs
 
     def update_shell_info(self, index):
         """Update the shell information for calculation of summary statistics.
@@ -710,7 +752,7 @@ class Sampler():
         while n_update < n_update_max and n_like < n_like_max:
             points, n_bound, idx_t = self.sample_shell(-1, shell_t)
             assert len(points) + len(idx_t) == n_bound
-            log_l = self.evaluate_likelihood(points)
+            log_l, blobs = self.evaluate_likelihood(points)
             self.points[-1].append(points)
             self.log_l[-1].append(log_l)
             if len(idx_t) > 0:
@@ -788,7 +830,7 @@ class Sampler():
         points, n_bound = self.sample_shell(shell)
         self.shell_n_sample_shell[shell] += len(points)
         self.shell_n_sample_bound[shell] += n_bound
-        log_l = self.evaluate_likelihood(points)
+        log_l, blobs = self.evaluate_likelihood(points)
         self.points[shell] = np.vstack([self.points[shell], points])
         self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
         self.update_shell_info(shell)
