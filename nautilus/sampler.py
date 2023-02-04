@@ -1,7 +1,12 @@
 """Module implementing the Nautilus sampler."""
 
+try:
+    import h5py
+except ImportError:
+    pass
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
 from functools import partial
 from multiprocessing import Pool
 from scipy.special import logsumexp
@@ -81,6 +86,7 @@ class Sampler():
         Logarithm of the volume of each bound/shell.
 
     """
+
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
                  n_update=None, enlarge=None, neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
@@ -89,7 +95,8 @@ class Sampler():
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, neural_network_thread_limit=1, random_state=None):
+                 pool=None, neural_network_thread_limit=1, random_state=None,
+                 filepath=None, resume=True):
         r"""
         Initialize the sampler.
 
@@ -164,6 +171,14 @@ class Sampler():
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
+        filepath : string, pathlib.Path or None, optional
+            Path to the file where results are saved. Must have a '.h5' or
+            '.hdf5' extension. If None, no results are written. Default is
+            None.
+        resume : bool, optional
+            If True, resume from previous run if `filepath` exists. If False,
+            start from scratch and overwrite any previous file. Default is
+            True.
 
         Raises
         ------
@@ -251,6 +266,33 @@ class Sampler():
         self.shell_log_l = np.zeros(0, dtype=float)
         self.shell_log_v = np.zeros(0, dtype=float)
 
+        self.filepath = filepath
+        if resume and filepath is not None and Path(filepath).exists():
+            with h5py.File(filepath, 'r') as fstream:
+                group = fstream['sampler']
+                self.random_state.set_state(
+                    tuple(group.attrs['random_state_{}'.format(i)] for i in
+                          range(5)))
+
+                for key in ['n_like', 'explored', 'shell_n',
+                            'shell_n_sample_shell', 'shell_n_sample_bound',
+                            'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                            'shell_log_v']:
+                    setattr(self, key, group.attrs[key])
+
+                for shell in range(len(self.shell_n)):
+                    self.points.append(
+                        np.array(group['points_{}'.format(shell)]))
+                    self.log_l.append(
+                        np.array(group['log_l_{}'.format(shell)]))
+
+                self.bounds = [UnitCube.read(fstream['bound_0'],
+                                             random_state=self.random_state), ]
+                for i in range(1, len(self.shell_n)):
+                    self.bounds.append(NautilusBound.read(
+                        fstream['bound_{}'.format(i)],
+                        random_state=self.random_state))
+
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_exploration=False, verbose=False):
         """Run the sampler until convergence.
@@ -270,9 +312,9 @@ class Sampler():
         discard_exploration : bool, optional
             Whether to discard points drawn in the exploration phase. This is
             required for a fully unbiased posterior and evidence estimate.
-            Default is true.
+            Default is True.
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         if not self.explored:
@@ -286,6 +328,8 @@ class Sampler():
             while (self.live_evidence_fraction() > f_live):
                 self.add_bound(verbose=verbose)
                 self.fill_bound(verbose=verbose)
+                if self.filepath is not None:
+                    self.write(self.filepath, overwrite=True)
 
             # If some shells are unoccupied in the end, remove them. They will
             # contain close to 0 volume and may never yield a point when
@@ -300,9 +344,13 @@ class Sampler():
                     self.shell_log_v = np.delete(self.shell_log_v, shell)
 
             self.explored = True
+            if self.filepath is not None:
+                self.write(self.filepath, overwrite=True)
 
             if discard_exploration:
                 self.discard_points()
+                if self.filepath is not None:
+                    self.write(self.filepath, overwrite=True)
 
         if n_shell is None:
             n_shell = self.n_batch
@@ -563,7 +611,7 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         self.shell_n = np.append(self.shell_n, 0)
@@ -577,7 +625,7 @@ class Sampler():
         if len(self.bounds) == 0:
             log_l_min = -np.inf
             self.bounds.append(
-                UnitCube(self.n_dim, random_state=self.random_state))
+                UnitCube.compute(self.n_dim, random_state=self.random_state))
         else:
             if verbose:
                 print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
@@ -585,7 +633,7 @@ class Sampler():
             points = np.vstack(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
-            bound = NautilusBound(
+            bound = NautilusBound.compute(
                 points, log_l, log_l_min, self.live_volume(),
                 enlarge=self.enlarge,
                 use_neural_networks=self.use_neural_networks,
@@ -619,7 +667,7 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         shell_t = []
@@ -726,24 +774,26 @@ class Sampler():
             log_v_live = log_v[np.argsort(log_l)][-self.n_live:]
             return logsumexp(log_v_live)
 
-    def add_samples_to_shell(self, index):
+    def add_samples_to_shell(self, shell):
         """Add samples to a shell.
 
         The number of points added is always equal to the batch size.
 
         Parameters
         ----------
-        index : int
+        shell : int
             The index of the shell for which to add points.
 
         """
-        points, n_bound = self.sample_shell(index)
-        self.shell_n_sample_shell[index] += len(points)
-        self.shell_n_sample_bound[index] += n_bound
+        points, n_bound = self.sample_shell(shell)
+        self.shell_n_sample_shell[shell] += len(points)
+        self.shell_n_sample_bound[shell] += n_bound
         log_l = self.evaluate_likelihood(points)
-        self.points[index] = np.vstack([self.points[index], points])
-        self.log_l[index] = np.concatenate([self.log_l[index], log_l])
-        self.update_shell_info(index)
+        self.points[shell] = np.vstack([self.points[shell], points])
+        self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
+        self.update_shell_info(shell)
+        if self.filepath is not None:
+            self.write_shell_update(self.filepath, shell)
 
     def discard_points(self):
         """Discard all points drawn."""
@@ -769,7 +819,7 @@ class Sampler():
             Minimum number of points in each shell. The algorithm will sample
             from the shells until this is reached. Default is 0.
         verbose : bool, optional
-            If true, print additional information. Default is false.
+            If true, print additional information. Default is False.
 
         """
         idx = np.flatnonzero(self.shell_n < n_shell)
@@ -873,3 +923,106 @@ class Sampler():
             m = m / np.diag(m)[:, np.newaxis]
 
         return m
+
+    def write(self, filepath, overwrite=False):
+        """Write the sampler to disk.
+
+        Parameters
+        ----------
+        filepath : string or pathlib.Path
+            Path to the file. Must have a '.h5' or '.hdf5' extension.
+        overwrite : bool, optional
+            Whether to overwrite an existing file. Default is False.
+
+        Raises
+        ------
+        ValueError
+            If file extension is not '.h5' or '.hdf5'.
+        RuntimeError
+            If file exists and `overwrite` is False.
+
+        """
+        filepath = Path(filepath)
+
+        if filepath.suffix not in ['.h5', '.hdf5']:
+            raise ValueError("File ending must '.h5' or '.hdf5'.")
+
+        if filepath.exists():
+            if not overwrite:
+                raise RuntimeError(
+                    "File {} already exists.".format(str(filepath)))
+            else:
+                filepath.unlink()
+
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        fstream = h5py.File(filepath, 'x')
+        group = fstream.create_group('sampler')
+
+        for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
+                    'enlarge', 'use_neural_networks', 'n_batch', 'vectorized',
+                    'pass_dict', 'neural_network_thread_limit', 'n_like',
+                    'explored', 'shell_n', 'shell_n_sample_shell',
+                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v']:
+            group.attrs[key] = getattr(self, key)
+
+        for key in self.neural_network_kwargs.keys():
+            group.attrs['neural_network_{}'.format(key)] =\
+                self.neural_network_kwargs[key]
+
+        for i, var in enumerate(self.random_state.get_state()):
+            group.attrs['random_state_{}'.format(i)] = var
+
+        for shell in range(len(self.bounds)):
+            group.create_dataset(
+                'points_{}'.format(shell), data=self.points[shell])
+            group.create_dataset(
+                'log_l_{}'.format(shell), data=self.log_l[shell])
+
+        for i, bound in enumerate(self.bounds):
+            bound.write(fstream.create_group('bound_{}'.format(i)))
+
+        fstream.close()
+
+    def write_shell_update(self, filepath, shell):
+        """Update the sampler data for a single shell.
+
+        Parameters
+        ----------
+        filepath : string or pathlib.Path
+            Path to the file. Must have a '.h5' or '.hdf5' extension.
+        shell : int
+            Shell index for which to write the upate.
+
+        Raises
+        ------
+        RuntimeError
+            If file does not exist.
+
+        """
+        filepath = Path(filepath)
+
+        if not filepath.exists():
+            raise RuntimeError(
+                "File {} does not exist.".format(str(filepath)))
+
+        fstream = h5py.File(filepath, 'r+')
+        group = fstream['sampler']
+
+        for key in ['n_like', 'shell_n', 'shell_n_sample_shell',
+                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v']:
+            group.attrs[key] = getattr(self, key)
+
+        for key in self.neural_network_kwargs.keys():
+            group.attrs['neural_network_{}'.format(key)] =\
+                self.neural_network_kwargs[key]
+
+        del group['points_{}'.format(shell)]
+        group.create_dataset(
+                'points_{}'.format(shell), data=self.points[shell])
+        del group['log_l_{}'.format(shell)]
+        group.create_dataset('log_l_{}'.format(shell), data=self.log_l[shell])
+
+        fstream.close()

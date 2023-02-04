@@ -27,8 +27,9 @@ class UnitCube():
 
     """
 
-    def __init__(self, n_dim, random_state=None):
-        r"""Initialize the :math:`n_{\rm dim}`-dimensional unit hypercube.
+    @classmethod
+    def compute(cls, n_dim, random_state=None):
+        r"""Compute the :math:`n_{\rm dim}`-dimensional unit hypercube.
 
         Parameters
         ----------
@@ -37,13 +38,21 @@ class UnitCube():
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
+        Returns
+        -------
+        bound : UnitCube
+            The bound.
+
         """
-        self.n_dim = n_dim
+        bound = cls()
+        bound.n_dim = n_dim
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
+
+        return bound
 
     def contains(self, points):
         """Check whether points are contained in the unit hypercube.
@@ -92,6 +101,46 @@ class UnitCube():
 
         """
         return 0
+
+    def write(self, group):
+        """Write the bound to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['type'] = 'UnitCube'
+        group.attrs['n_dim'] = self.n_dim
+
+    @classmethod
+    def read(cls, group, random_state=None):
+        """Read the bound from an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : UnitCube
+            The bound.
+
+        """
+        bound = cls()
+
+        if random_state is None:
+            bound.random_state = np.random
+        else:
+            bound.random_state = random_state
+
+        bound.n_dim = group.attrs['n_dim']
+
+        return bound
 
 
 def invert_symmetric_positive_semidefinite_matrix(m):
@@ -201,8 +250,9 @@ class Ellipsoid():
 
     """
 
-    def __init__(self, points, enlarge=2.0, random_state=None):
-        r"""Initialize an :math:`n_{\rm dim}`-dimensional ellipsoid.
+    @classmethod
+    def compute(cls, points, enlarge=2.0, random_state=None):
+        r"""Compute an :math:`n_{\rm dim}`-dimensional ellipsoid.
 
         Parameters
         ----------
@@ -220,8 +270,14 @@ class Ellipsoid():
             If `enlarge` is smaller than unity or the number of points does
             not exceed the number of dimensions.
 
+        Returns
+        -------
+        bound : Ellipsoid
+            The bound.
+
         """
-        self.n_dim = points.shape[1]
+        bound = cls()
+        bound.n_dim = points.shape[1]
 
         try:
             assert enlarge >= 1
@@ -229,23 +285,25 @@ class Ellipsoid():
             raise ValueError(
                 "The 'enlarge' factor cannot be smaller than unity.")
 
-        if not points.shape[0] > self.n_dim:
+        if not points.shape[0] > bound.n_dim:
             raise ValueError('Number of points must be larger than number ' +
                              'dimensions.')
 
-        self.c, self.A = minimum_volume_enclosing_ellipsoid(points)
-        self.A /= enlarge**(2.0 / self.n_dim)
-        self.B = np.linalg.cholesky(np.linalg.inv(self.A))
-        self.B_inv = np.linalg.inv(self.B)
-        self.log_v = (np.linalg.slogdet(self.B)[1] +
-                      self.n_dim * np.log(2.) +
-                      self.n_dim * gammaln(1.5) -
-                      gammaln(self.n_dim / 2.0 + 1))
+        bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+        bound.A /= enlarge**(2.0 / bound.n_dim)
+        bound.B = np.linalg.cholesky(np.linalg.inv(bound.A))
+        bound.B_inv = np.linalg.inv(bound.B)
+        bound.log_v = (np.linalg.slogdet(bound.B)[1] +
+                       bound.n_dim * np.log(2.) +
+                       bound.n_dim * gammaln(1.5) -
+                       gammaln(bound.n_dim / 2.0 + 1))
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
+
+        return bound
 
     def transform(self, points, inverse=False):
         """Transform points into the coordinate frame of the ellipsoid.
@@ -324,6 +382,48 @@ class Ellipsoid():
         """
         return self.log_v
 
+    def write(self, group):
+        """Write the bound to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['type'] = 'Ellipsoid'
+        for key in ['n_dim', 'c', 'A', 'B', 'B_inv', 'log_v']:
+            group.attrs[key] = getattr(self, key)
+
+    @classmethod
+    def read(cls, group, random_state=None):
+        """Read the bound from an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : Ellipsoid
+            The bound.
+
+        """
+        bound = cls()
+
+        if random_state is None:
+            bound.random_state = np.random
+        else:
+            bound.random_state = random_state
+
+        for key in ['n_dim', 'c', 'A', 'B', 'B_inv', 'log_v']:
+            setattr(bound, key, group.attrs[key])
+
+        return bound
+
 
 def ellipsoids_overlap(ells):
     """Determine if ellipsoids overlap.
@@ -383,9 +483,10 @@ class MultiEllipsoid():
         Determines random number generation.
     """
 
-    def __init__(self, points, enlarge=2.0, n_points_min=None,
-                 random_state=None):
-        r"""Initialize a union of :math:`n_{\rm dim}`-dimensional ellipsoids.
+    @classmethod
+    def compute(cls, points, enlarge=2.0, n_points_min=None,
+                random_state=None):
+        r"""Compute a union of :math:`n_{\rm dim}`-dimensional ellipsoids.
 
         Upon creation, the union consists of a single ellipsoid.
 
@@ -410,32 +511,40 @@ class MultiEllipsoid():
             If `n_points_min` is smaller than the number of dimensions plus
             one.
 
+        Returns
+        -------
+        bound : MultiEllipsoid
+            The bound.
+
         """
-        self.n_dim = points.shape[1]
+        bound = cls()
+        bound.n_dim = points.shape[1]
 
-        self.points = [points]
-        self.ells = [Ellipsoid(points, enlarge=enlarge,
-                               random_state=random_state)]
-        self.log_v = [self.ells[0].volume()]
+        bound.points = [points]
+        bound.ells = [Ellipsoid.compute(points, enlarge=enlarge,
+                                        random_state=random_state)]
+        bound.log_v = np.array([bound.ells[0].volume()])
 
-        self.points_sample = np.zeros((0, points.shape[1]))
-        self.n_sample = 0
-        self.n_reject = 0
+        bound.points_sample = np.zeros((0, points.shape[1]))
+        bound.n_sample = 0
+        bound.n_reject = 0
 
-        self.enlarge = enlarge
+        bound.enlarge = enlarge
         if n_points_min is None:
-            n_points_min = self.n_dim + 1
+            n_points_min = bound.n_dim + 1
 
-        if n_points_min < self.n_dim + 1:
+        if n_points_min < bound.n_dim + 1:
             raise ValueError('The number of points per ellipsoid cannot be ' +
                              'smaller than the number of dimensions plus one.')
 
-        self.n_points_min = n_points_min
+        bound.n_points_min = n_points_min
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
+
+        return bound
 
     def split_ellipsoid(self, allow_overlap=True):
         """Split the largest ellipsoid to the ellipsoid union.
@@ -479,7 +588,7 @@ class MultiEllipsoid():
         new_ells.pop(index)
         points = self.points[index]
         for label in [0, 1]:
-            new_ells.append(Ellipsoid(
+            new_ells.append(Ellipsoid.compute(
                 points[labels == label], enlarge=self.enlarge,
                 random_state=self.random_state))
 
@@ -487,7 +596,7 @@ class MultiEllipsoid():
             return False
 
         self.ells = new_ells
-        self.log_v = [ell.volume() for ell in self.ells]
+        self.log_v = np.array([ell.volume() for ell in self.ells])
         self.points.pop(index)
         self.points.append(points[labels == 0])
         self.points.append(points[labels == 1])
@@ -569,6 +678,64 @@ class MultiEllipsoid():
         return logsumexp(self.log_v) + np.log(
             1.0 - self.n_reject / self.n_sample)
 
+    def write(self, group):
+        """Write the bound to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['type'] = 'MultiEllipsoid'
+        for key in ['n_dim', 'log_v', 'n_sample', 'n_reject', 'enlarge',
+                    'n_points_min']:
+            group.attrs[key] = getattr(self, key)
+
+        for i, ell in enumerate(self.ells):
+            ell.write(group.create_group('ell_{}'.format(i)))
+
+        for i in range(len(self.points)):
+            group.create_dataset('points_{}'.format(i), data=self.points[i])
+        group.create_dataset('points_sample', data=self.points_sample)
+
+    @classmethod
+    def read(cls, group, random_state=None):
+        """Read the bound from an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : MultiEllipsoid
+            The bound.
+
+        """
+        bound = cls()
+
+        if random_state is None:
+            bound.random_state = np.random
+        else:
+            bound.random_state = random_state
+
+        for key in ['n_dim', 'log_v', 'n_sample', 'n_reject', 'enlarge',
+                    'n_points_min']:
+            setattr(bound, key, group.attrs[key])
+
+        bound.ells = [Ellipsoid.read(
+            group['ell_{}'.format(i)], random_state=bound.random_state) for i
+            in range(len(bound.log_v))]
+        bound.points = [np.array(group['points_{}'.format(i)]) for i in
+                        range(len(bound.log_v))]
+        bound.points_sample = np.array(group['points_sample'])
+
+        return bound
+
 
 class NeuralBound():
     r"""Neural network-based bound in :math:`n_{\rm dim}` dimensions.
@@ -589,10 +756,11 @@ class NeuralBound():
         bound.
     """
 
-    def __init__(self, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
-                 neural_network_kwargs={}, neural_network_thread_limit=1,
-                 random_state=None):
-        """Initialize a neural network-based bound.
+    @classmethod
+    def compute(cls, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
+                neural_network_kwargs={}, neural_network_thread_limit=1,
+                random_state=None):
+        """Compute a neural network-based bound.
 
         Parameters
         ----------
@@ -620,28 +788,34 @@ class NeuralBound():
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
+        Returns
+        -------
+        bound : NeuralBound
+            The bound.
+
         """
-        self.n_dim = points.shape[1]
+        bound = cls()
+        bound.n_dim = points.shape[1]
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
 
         # Determine the outer bound.
         if ellipsoid is None:
-            self.ellipsoid = Ellipsoid(
+            bound.ellipsoid = Ellipsoid.compute(
                 points[log_l > log_l_min], enlarge=enlarge,
-                random_state=self.random_state)
+                random_state=bound.random_state)
         else:
-            self.ellipsoid = ellipsoid
+            bound.ellipsoid = ellipsoid
 
         # Train the network.
-        select = self.ellipsoid.contains(points)
+        select = bound.ellipsoid.contains(points)
         points = points[select]
         log_l = log_l[select]
 
-        points_t = self.ellipsoid.transform(points)
+        points_t = bound.ellipsoid.transform(points)
         perc = np.argsort(np.argsort(log_l)) / float(len(log_l))
         perc_min = percentileofscore(log_l, log_l_min) / 100
         score = np.zeros(len(points))
@@ -649,12 +823,14 @@ class NeuralBound():
         if np.any(select):
             score[select] = 0.5 * (perc[select] / perc_min)
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
-        self.emulator = NeuralNetworkEmulator(
+        bound.emulator = NeuralNetworkEmulator.train(
             points_t, score, neural_network_kwargs=neural_network_kwargs,
             neural_network_thread_limit=neural_network_thread_limit)
 
-        self.score_predict_min = np.polyval(np.polyfit(
-            score, self.emulator.predict(points_t), 3), 0.5)
+        bound.score_predict_min = np.polyval(np.polyfit(
+            score, bound.emulator.predict(points_t), 3), 0.5)
+
+        return bound
 
     def contains(self, points):
         """Check whether points are contained in the bound.
@@ -682,6 +858,51 @@ class NeuralBound():
 
         return np.squeeze(in_bound)
 
+    def write(self, group):
+        """Write the bound to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['n_dim'] = self.n_dim
+        group.attrs['score_predict_min'] = self.score_predict_min
+        self.ellipsoid.write(group.create_group('ellipsoid'))
+        self.emulator.write(group.create_group('emulator'))
+
+    @classmethod
+    def read(cls, group, random_state=None):
+        """Read the bound from an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NeuralBound
+            The bound.
+
+        """
+        bound = cls()
+
+        if random_state is None:
+            bound.random_state = np.random
+        else:
+            bound.random_state = random_state
+
+        bound.n_dim = group.attrs['n_dim']
+        bound.score_predict_min = group.attrs['score_predict_min']
+        bound.ellipsoid = Ellipsoid.read(group['ellipsoid'])
+        bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
+
+        return bound
+
 
 class NautilusBound():
     """Union of multiple non-overlapping neural network-based bounds.
@@ -692,7 +913,9 @@ class NautilusBound():
     Attributes
     ----------
     log_v : list
-        List of the natural log of the volumes of each bound.
+        Natural log of the volume of the sampling bound.
+    n_networks : int
+        Number of neural networks.
     nbounds : list
         List of the individual neural network-based bounds.
     sample_bounds : tuple
@@ -700,13 +923,20 @@ class NautilusBound():
         while any points must lie in both to be part of the bound.
     random_state : None or numpy.random.RandomState instance
         Determines random number generation.
+    points_sample : numpy.ndarray
+        Points that a call to `sample` will return next.
+    n_sample : int
+        Number of points sampled from all ellipsoids.
+    n_reject : int
+        Number of points rejected due to overlap.
     """
 
-    def __init__(self, points, log_l, log_l_min, log_v_target, enlarge=2.0,
-                 n_points_min=None, split_threshold=100,
-                 use_neural_networks=True, neural_network_kwargs={},
-                 neural_network_thread_limit=1, random_state=None):
-        """Initialize a union of multiple neural network-based bounds.
+    @classmethod
+    def compute(cls, points, log_l, log_l_min, log_v_target, enlarge=2.0,
+                n_points_min=None, split_threshold=100,
+                use_neural_networks=True, neural_network_kwargs={},
+                neural_network_thread_limit=1, random_state=None):
+        """Compute a union of multiple neural network-based bounds.
 
         Parameters
         ----------
@@ -746,20 +976,29 @@ class NautilusBound():
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
+        Returns
+        -------
+        bound : NautilusBound
+            The bound.
+
         """
-        mell = MultiEllipsoid(points[log_l > log_l_min], enlarge=enlarge,
-                              random_state=random_state)
-        cube = UnitCube(points.shape[-1])
+        bound = cls()
+
+        mell = MultiEllipsoid.compute(
+            points[log_l > log_l_min], enlarge=enlarge,
+            random_state=random_state)
+        cube = UnitCube.compute(points.shape[-1])
 
         while mell.split_ellipsoid(allow_overlap=False):
             pass
 
-        self.nbounds = []
+        bound.n_networks = len(mell.ells)
+        bound.nbounds = []
 
         if use_neural_networks:
             for ell in mell.ells:
                 select = ell.contains(points)
-                self.nbounds.append(NeuralBound(
+                bound.nbounds.append(NeuralBound.compute(
                     points[select], log_l[select], log_l_min, ellipsoid=ell,
                     enlarge=enlarge,
                     neural_network_kwargs=neural_network_kwargs,
@@ -783,20 +1022,22 @@ class NautilusBound():
                 break
 
         if mell.volume() >= 0:
-            self.sample_bounds = (cube, mell)
+            bound.sample_bounds = (cube, mell)
         else:
-            self.sample_bounds = (mell, cube)
+            bound.sample_bounds = (mell, cube)
 
-        self.log_v = self.sample_bounds[0].volume()
+        bound.log_v = bound.sample_bounds[0].volume()
 
         if random_state is None:
-            self.random_state = np.random
+            bound.random_state = np.random
         else:
-            self.random_state = random_state
+            bound.random_state = random_state
 
-        self.points_sample = np.zeros((0, points.shape[1]))
-        self.n_sample = 0
-        self.n_reject = 0
+        bound.points_sample = np.zeros((0, points.shape[1]))
+        bound.n_sample = 0
+        bound.n_reject = 0
+
+        return bound
 
     def contains(self, points):
         """Check whether points are contained in the ellipsoid.
@@ -892,3 +1133,66 @@ class NautilusBound():
         n_sample = len(self.sample_bounds[i].ells)
 
         return n_neural, n_sample
+
+    def write(self, group):
+        """Write the bound to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['type'] = 'NautilusBound'
+
+        for key in ['n_networks', 'log_v', 'n_sample', 'n_reject']:
+            group.attrs[key] = getattr(self, key)
+
+        for i, nbound in enumerate(self.nbounds):
+            nbound.write(group.create_group('nbound_{}'.format(i)))
+
+        self.sample_bounds[0].write(group.create_group('sample_bound_0'))
+        self.sample_bounds[1].write(group.create_group('sample_bound_1'))
+
+        group.create_dataset('points_sample', data=self.points_sample)
+
+    @classmethod
+    def read(cls, group, random_state=None):
+        """Read the bound from an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+        random_state : None or numpy.random.RandomState instance, optional
+            Determines random number generation. Default is None.
+
+        Returns
+        -------
+        bound : NautilusBound
+            The bound.
+
+        """
+        bound = cls()
+
+        if random_state is None:
+            bound.random_state = np.random
+        else:
+            bound.random_state = random_state
+
+        for key in ['n_networks', 'log_v', 'n_sample', 'n_reject']:
+            setattr(bound, key, group.attrs[key])
+
+        bound.nbounds = [NeuralBound.read(
+            group['nbound_{}'.format(i)], random_state=bound.random_state) for
+            i in range(bound.n_networks)]
+        if group['sample_bound_0'].attrs['type'] == 'UnitCube':
+            classes = [UnitCube, MultiEllipsoid]
+        else:
+            classes = [MultiEllipsoid, UnitCube]
+        bound.sample_bounds = tuple(
+            classes[i].read(group['sample_bound_{}'.format(i)],
+                            random_state=bound.random_state) for i in range(2))
+        bound.points_sample = np.array(group['points_sample'])
+
+        return bound
