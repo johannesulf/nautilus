@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Likelihood functions will now never be passed structured numpy arrays. In case they previously received structured numpy arrays, they will now receive dictionaries. Similarly, `nautilus.Prior.physical_to_structure` has been renamed to `nautilus.Prior.physical_to_dictionary` and the keyword argument of `nautilus.Sampler` from `pass_struct` to `pass_dict`.
 - The `n_like_update` keyword argument for `nautilus.Sampler` has been renamed to `n_like_new_bound`.
 - The number of points for which the likelihood is evaluated is now always the batch size.
+- Renamed `return_dict` keyword argument in `Sampler.posterior` to `return_as_dict`.
 
 ### Added
-- Added support for checkpointing and writing the sampler to disk.
+- Checkpointing and writing the sampler to disk.
+- Support for so-called blobs, following the implementation in `emcee`.
 
 ## [0.3.3] - 2023-01-23
 
@@ -24,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.2] - 2022-12-20
 
 ### Added
-- Added support for `scikit-learn` 1.2.
+- Support for `scikit-learn` 1.2.
 
 ## [0.3.1] - 2022-12-08
 
