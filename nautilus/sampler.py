@@ -45,10 +45,10 @@ class Sampler():
     n_batch : int
         Number of likelihood evaluations that are performed at each step.
     vectorized : bool
-        If true, the likelihood function can receive multiple input sets at
+        If True, the likelihood function can receive multiple input sets at
         once.
     pass_dict : bool
-        If true, the likelihood function expects model parameters as
+        If True, the likelihood function expects model parameters as
         dictionaries.
     neural_network_thread_limit : int or None
         Maximum number of threads used by `sklearn`.
@@ -67,8 +67,11 @@ class Sampler():
         List of arrays where each array at position i lists the points
         belonging to the i-th bound/shell.
     log_l : list
-        List of arrays where each array at position i list the likelihood of
-        points belonging to the i-th bound/shell.
+        Log likelihood values of each point. Same ordering as `points`.
+    blobs : list
+        Blobs associated with each point. Same ordering as `points`.
+    blobs_dtype : numpy.dtype
+        Data type of the blobs.
     shell_n : numpy.ndarray
         Number of points for each bound/shell.
     shell_n_sample_shell : numpy.ndarray
@@ -96,7 +99,7 @@ class Sampler():
                  likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
                  pool=None, neural_network_thread_limit=1, random_state=None,
-                 filepath=None, resume=True):
+                 blobs_dtype=None, filepath=None, resume=True):
         r"""
         Initialize the sampler.
 
@@ -148,7 +151,7 @@ class Sampler():
             The maximum number of likelihood calls before a new bounds is
             created. If None, use 10 times `n_live`. Default is None.
         vectorized : bool, optional
-            If true, the likelihood function can receive multiple input sets
+            If True, the likelihood function can receive multiple input sets
             at once. For example, if the likelihood function receives arrays,
             it should be able to take an array with shape (n_points, n_dim)
             and return an array with shape (n_points). Similarly, if the
@@ -156,7 +159,7 @@ class Sampler():
             process dictionaries where each value is an array with shape
             (n_points). Default is False.
         pass_dict : bool or None, optional
-            If true, the likelihood function expects model parameters as
+            If True, the likelihood function expects model parameters as
             dictionaries. If false, it expects regular numpy arrays. Default is
             to set it to True if prior was a nautilus.Prior instance and False
             otherwise.
@@ -171,6 +174,10 @@ class Sampler():
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
+        blobs_dtype : object or None, optional
+            Object that can be converted to a data type object describing the
+            blobs. If None, this will be inferred from the first blob. Default
+            is None.
         filepath : string, pathlib.Path or None, optional
             Path to the file where results are saved. Must have a '.h5' or
             '.hdf5' extension. If None, no results are written. Default is
@@ -258,6 +265,8 @@ class Sampler():
         self.bounds = []
         self.points = []
         self.log_l = []
+        self.blobs = []
+        self.blobs_dtype = blobs_dtype
         self.shell_n = np.zeros(0, dtype=int)
         self.shell_n_sample_shell = np.zeros(0, dtype=int)
         self.shell_n_sample_bound = np.zeros(0, dtype=int)
@@ -285,6 +294,12 @@ class Sampler():
                         np.array(group['points_{}'.format(shell)]))
                     self.log_l.append(
                         np.array(group['log_l_{}'.format(shell)]))
+                    try:
+                        self.blobs.append(
+                            np.array(group['blobs_{}'.format(shell)]))
+                        self.blobs_dtype = self.blobs[-1].dtype
+                    except KeyError:
+                        pass
 
                 self.bounds = [UnitCube.read(fstream['bound_0'],
                                              random_state=self.random_state), ]
@@ -314,7 +329,7 @@ class Sampler():
             required for a fully unbiased posterior and evidence estimate.
             Default is True.
         verbose : bool, optional
-            If true, print additional information. Default is False.
+            If True, print additional information. Default is False.
 
         """
         if not self.explored:
@@ -367,15 +382,18 @@ class Sampler():
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
 
-    def posterior(self, return_dict=False, equal_weight=False):
+    def posterior(self, return_as_dict=False, equal_weight=False,
+                  return_blobs=False):
         """Return the posterior sample estimate.
 
         Parameters
         ----------
-        return_dict : bool, optional
-            If true, return `points` as a dictionary.
+        return_as_dict : bool, optional
+            If True, return `points` as a dictionary. Default is False.
         equal_weight : bool, optional
-            If true, return an equal weighted posterior.
+            If True, return an equal weighted posterior. Default is False.
+        return_blobs : bool, optional
+            If True, return the blobs. Default is False.
 
         Returns
         -------
@@ -385,13 +403,26 @@ class Sampler():
             Weights of each point of the posterior.
         log_l : numpy.ndarray
             Logarithm of the likelihood at each point of the posterior.
+        blobs : numpy.ndarray, optional
+            Blobs for each point of the posterior. Only returned if
+            `return_blobs` is True.
+
+        Raises
+        ------
+        ValueError
+            If `return_as_dict` or `return_blobs` are True but the sampler has
+            not been run in a way that that's possible.
 
         """
-        points = np.vstack(self.points)
+        points = np.concatenate(self.points)
         log_v = np.repeat(self.shell_log_v -
                           np.log(np.maximum(self.shell_n, 1)), self.shell_n)
         log_l = np.concatenate(self.log_l)
         log_w = log_v + log_l
+        if return_blobs:
+            if self.blobs_dtype is None:
+                raise ValueError('No blobs have been calculated.')
+            blobs = np.concatenate(self.blobs)
 
         if callable(self.prior):
             unit_to_physical = self.prior
@@ -403,7 +434,7 @@ class Sampler():
         else:
             points = unit_to_physical(points)
 
-        if return_dict:
+        if return_as_dict:
             if callable(self.prior):
                 raise ValueError(
                     'Cannot return points as dictionary. The prior passed ' +
@@ -416,11 +447,16 @@ class Sampler():
             points = points[select]
             log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
             log_l = log_l[select]
+            if return_blobs:
+                blobs = blobs[select]
 
         # Normalize weights.
         log_w = log_w - logsumexp(log_w)
 
-        return points, log_w, log_l
+        if return_blobs:
+            return points, log_w, log_l, blobs
+        else:
+            return points, log_w, log_l
 
     def effective_sample_size(self):
         r"""Estimate the total effective sample size :math:`N_{\rm eff}`.
@@ -520,7 +556,7 @@ class Sampler():
                 points_all.append(points)
                 n_sample += len(points)
 
-        points = np.vstack(points_all)
+        points = np.concatenate(points_all)
 
         if shell_t is None:
             return points, n_bound
@@ -542,6 +578,12 @@ class Sampler():
         blobs : list, dict or None
             Blobs associated with the points, if any.
 
+        Raises
+        ------
+        ValueError
+            If `self.blobs_dtype` is not None but the likelihood function does
+            not return blobs.
+
         """
         if callable(self.prior):
             unit_to_physical = self.prior
@@ -559,53 +601,38 @@ class Sampler():
             else:
                 args = [self.prior.physical_to_dictionary(arg) for arg in args]
 
-        if self.pool is not None:
-            result = self.pool.map(self.likelihood, args)
-        elif self.vectorized:
+        if self.vectorized:
             result = self.likelihood(args)
+            if isinstance(result, tuple):
+                result = list(zip(result))
+        elif self.pool is not None:
+            result = self.pool.map(self.likelihood, args)
         else:
             result = list(map(self.likelihood, args))
 
-        self.n_like += len(result)
+        if self.vectorized and isinstance(result, tuple):
+            result = list(zip(result))
 
-        blobs = None
-
-        if not self.vectorized:
-
-            if isinstance(result[0], tuple):
-                log_l = [result[i][0] for i in range(len(result))]
-                if len(result[0]) > 1 and isinstance(result[0][1], dict):
-                    blobs = {}
-                    for key in result[0][1].keys():
-                        blobs[key] = [result[i][1][key] for i in
-                                      range(len(result))]
+        if isinstance(result[0], tuple):
+            log_l = np.array([r[0] for r in result])
+            blobs = [r[1:] for r in result]
+            if self.blobs_dtype is None:
+                if len(blobs[0]) > 1:
+                    self.blobs_dtype = [
+                        ('blob_{}'.format(i), np.array([b]).dtype) for i, b in
+                        enumerate(blobs[0])]
                 else:
-                    blobs = []
-                    for k in range(1, len(result[0])):
-                        blobs.append([result[i][k] for i in
-                                      range(len(result))])
-            else:
-                log_l = result
-
-            log_l = np.array(log_l)
-
-            if isinstance(blobs, list):
-                for i in range(len(blobs)):
-                    blobs[i] = np.array(blobs[i])
-            elif isinstance(blobs, dict):
-                for key in blobs.keys():
-                    blobs[key] = np.array(blobs[key])
-
+                    self.blobs_dtype = np.array([blobs[0][0]]).dtype
+            blobs = np.squeeze(np.array(blobs, dtype=self.blobs_dtype))
         else:
+            log_l = np.array(result)
+            blobs = None
 
-            if isinstance(result, tuple):
-                log_l = result[0]
-                if len(result) > 1 and isinstance(result[1], dict):
-                    blobs = result[1]
-                else:
-                    blobs = list(result[1:])
-            else:
-                log_l = result
+        if blobs is None and self.blobs_dtype is not None:
+            raise ValueError("'blobs_dtype' was specified but the likelihood" +
+                             " function does not return blobs.")
+
+        self.n_like += len(log_l)
 
         return log_l, blobs
 
@@ -653,7 +680,7 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is False.
+            If True, print additional information. Default is False.
 
         """
         self.shell_n = np.append(self.shell_n, 0)
@@ -672,7 +699,7 @@ class Sampler():
             if verbose:
                 print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
             log_l = np.concatenate(self.log_l)
-            points = np.vstack(self.points)[np.argsort(log_l)]
+            points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
             bound = NautilusBound.compute(
@@ -686,11 +713,10 @@ class Sampler():
                 bound = self.bounds[-1]
             self.bounds.append(bound)
 
-        self.points.append(np.zeros((0, self.n_dim)))
-        self.log_l.append(np.zeros(0))
+        self.points.append([])
+        self.log_l.append([])
+        self.blobs.append([])
         self.shell_log_l_min = np.append(self.shell_log_l_min, log_l_min)
-        self.points[-1] = []
-        self.log_l[-1] = []
 
         if verbose:
             print('Adding bound {:<7} done'.format(
@@ -709,12 +735,13 @@ class Sampler():
         Parameters
         ----------
         verbose : bool, optional
-            If true, print additional information. Default is False.
+            If True, print additional information. Default is False.
 
         """
         shell_t = []
         points_t = []
         log_l_t = []
+        blobs_t = []
 
         # Check which points points from previous shells could be transferred
         # to the new bound.
@@ -723,18 +750,25 @@ class Sampler():
 
                 in_bound = self.bounds[-1].contains(self.points[shell])
                 shell_t.append(np.repeat(shell, np.sum(in_bound)))
-                points_t.append(self.points[shell][in_bound])
-                log_l_t.append(self.log_l[shell][in_bound])
 
+                points_t.append(self.points[shell][in_bound])
                 self.points[shell] = self.points[shell][~in_bound]
+
+                log_l_t.append(self.log_l[shell][in_bound])
                 self.log_l[shell] = self.log_l[shell][~in_bound]
+
+                if self.blobs_dtype is not None:
+                    blobs_t.append(self.blobs[shell][in_bound])
+                    self.blobs[shell] = self.blobs[shell][~in_bound]
+
                 self.shell_n[shell] -= np.sum(in_bound)
                 self.shell_n_sample_shell[shell] -= np.sum(in_bound)
                 self.update_shell_info(shell)
 
             shell_t = np.concatenate(shell_t)
-            points_t = np.vstack(points_t)
+            points_t = np.concatenate(points_t)
             log_l_t = np.concatenate(log_l_t)
+            blobs_t = np.concatenate(blobs_t)
 
         log_l_min = self.shell_log_l_min[-1]
         n_update = 0
@@ -755,12 +789,19 @@ class Sampler():
             log_l, blobs = self.evaluate_likelihood(points)
             self.points[-1].append(points)
             self.log_l[-1].append(log_l)
+            if self.blobs_dtype is not None:
+                self.blobs[-1].append(blobs)
+
             if len(idx_t) > 0:
                 self.points[-1].append(points_t[idx_t])
-                self.log_l[-1].append(log_l_t[idx_t])
-                shell_t = np.delete(shell_t, idx_t)
                 points_t = np.delete(points_t, idx_t)
+                self.log_l[-1].append(log_l_t[idx_t])
                 log_l_t = np.delete(log_l_t, idx_t)
+                if self.blobs_dtype is not None:
+                    self.blobs[-1].append(blobs_t[idx_t])
+                    blobs_t = np.delete(blobs_t, idx_t)
+                shell_t = np.delete(shell_t, idx_t)
+
             self.shell_n[-1] += n_bound
             self.shell_n_sample_shell[-1] += n_bound
             self.shell_n_sample_bound[-1] += n_bound
@@ -770,8 +811,10 @@ class Sampler():
             if verbose:
                 pbar.update(np.sum(log_l >= log_l_min))
 
-        self.points[-1] = np.vstack(self.points[-1])
+        self.points[-1] = np.concatenate(self.points[-1])
         self.log_l[-1] = np.concatenate(self.log_l[-1])
+        if self.blobs_dtype is not None:
+            self.blobs[-1] = np.concatenate(self.blobs[-1])
         self.update_shell_info(-1)
 
         if verbose:
@@ -831,8 +874,10 @@ class Sampler():
         self.shell_n_sample_shell[shell] += len(points)
         self.shell_n_sample_bound[shell] += n_bound
         log_l, blobs = self.evaluate_likelihood(points)
-        self.points[shell] = np.vstack([self.points[shell], points])
+        self.points[shell] = np.concatenate([self.points[shell], points])
         self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
+        if self.blobs_dtype is not None:
+            self.blobs[shell] = np.concatenate([self.blobs[shell], blobs])
         self.update_shell_info(shell)
         if self.filepath is not None:
             self.write_shell_update(self.filepath, shell)
@@ -861,7 +906,7 @@ class Sampler():
             Minimum number of points in each shell. The algorithm will sample
             from the shells until this is reached. Default is 0.
         verbose : bool, optional
-            If true, print additional information. Default is False.
+            If True, print additional information. Default is False.
 
         """
         idx = np.flatnonzero(self.shell_n < n_shell)
@@ -943,7 +988,7 @@ class Sampler():
         ----------
         fractional : bool, optional
             Whether to return the absolute or fractional dependence. Default
-            is true.
+            is True.
 
         Returns
         -------
@@ -951,7 +996,7 @@ class Sampler():
             Two-dimensional array with occupation numbers. The element at index
             :math:`(i, j)` corresponds to the occupation of points in shell
             shell :math:`i` that also belong to bound :math:`j`. If
-            `fractional` is true, this is the fraction of all points in shell
+            `fractional` is True, this is the fraction of all points in shell
             :math:`i` and otherwise it is the absolute number.
 
         """
@@ -1021,6 +1066,9 @@ class Sampler():
                 'points_{}'.format(shell), data=self.points[shell])
             group.create_dataset(
                 'log_l_{}'.format(shell), data=self.log_l[shell])
+            if self.blobs_dtype is not None:
+                group.create_dataset(
+                    'blobs_{}'.format(shell), data=self.blobs[shell])
 
         for i, bound in enumerate(self.bounds):
             bound.write(fstream.create_group('bound_{}'.format(i)))
@@ -1066,5 +1114,9 @@ class Sampler():
                 'points_{}'.format(shell), data=self.points[shell])
         del group['log_l_{}'.format(shell)]
         group.create_dataset('log_l_{}'.format(shell), data=self.log_l[shell])
+        if self.blobs_dtype is not None:
+            del group['blobs_{}'.format(shell)]
+            group.create_dataset('blobs_{}'.format(shell),
+                                 data=self.blobs[shell])
 
         fstream.close()
