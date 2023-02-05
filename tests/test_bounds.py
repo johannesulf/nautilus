@@ -117,6 +117,16 @@ def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary,
     assert np.allclose(A, A_true, rtol=0, atol=1e-2) or tol > 0
 
 
+def test_ellipsoid_construction():
+    # Test that the ellipsoid construction fails under certain circumstances.
+
+    with pytest.raises(ValueError):
+        bounds.Ellipsoid.compute(np.random.random(size=(10, 10)))
+
+    with pytest.raises(ValueError):
+        bounds.Ellipsoid.compute(np.random.random(size=(100, 10)), enlarge=0.9)
+
+
 def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
     # Test that the ellipsoidal sampling and boundary work as expected.
 
@@ -182,6 +192,15 @@ def test_ellipsoid_random_state(random_points_from_hypersphere):
     assert not np.all(points == ell.sample(n_points))
 
 
+def test_multi_ellipsoid_construction():
+    # Test that the multi-ellipsoid construction fails under certain
+    # circumstances.
+
+    with pytest.raises(ValueError):
+        bounds.MultiEllipsoid.compute(np.random.random(size=(100, 10)),
+                                      n_points_min=5)
+
+
 def test_multi_ellipsoid_split(random_points_from_hypersphere):
     # Test that adding ellipsoids works correctly.
 
@@ -202,6 +221,11 @@ def test_multi_ellipsoid_split(random_points_from_hypersphere):
         assert mell.split_ellipsoid(allow_overlap=True)
     assert len(mell.ells) == 5
     assert np.all(mell.contains(points))
+
+    points = np.random.random((20, 10))
+    mell = bounds.MultiEllipsoid.compute(points)
+    # Check that no new ellipsoid can be added.
+    assert not mell.split_ellipsoid()
 
 
 def test_multi_ellipsoid_sample_and_contains(random_points_from_hypersphere):
