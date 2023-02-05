@@ -604,14 +604,11 @@ class Sampler():
         if self.vectorized:
             result = self.likelihood(args)
             if isinstance(result, tuple):
-                result = list(zip(result))
+                result = list(zip(*result))
         elif self.pool is not None:
             result = self.pool.map(self.likelihood, args)
         else:
             result = list(map(self.likelihood, args))
-
-        if self.vectorized and isinstance(result, tuple):
-            result = list(zip(result))
 
         if isinstance(result[0], tuple):
             log_l = np.array([r[0] for r in result])
