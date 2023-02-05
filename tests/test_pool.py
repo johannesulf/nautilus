@@ -19,6 +19,8 @@ def likelihood(x):
     return 1, os.getpid()
 
 
+@pytest.mark.skipif(multiprocessing.get_start_method() == 'spawn',
+                    reason=('pytest does not support spawning'))
 @pytest.mark.parametrize("pool", [1, 2, Pool(2), Pool(3)])
 def test_pool(pool):
     # Test that the expected number of processes are run.
