@@ -4,10 +4,10 @@ try:
     import h5py
 except ImportError:
     pass
-import multiprocessing
 import numpy as np
 
 from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
 from tqdm import tqdm
@@ -247,7 +247,7 @@ class Sampler():
         self.neural_network_thread_limit = neural_network_thread_limit
 
         if isinstance(pool, int):
-            self.pool = multiprocessing.Pool(pool)
+            self.pool = Pool(pool)
         elif pool is not None:
             self.pool = pool
         else:
