@@ -23,9 +23,6 @@ def likelihood(x):
 def test_pool(pool):
     # Test that the expected number of processes are run.
 
-    if platform == 'darwin':
-        multiprocessing.set_start_method('fork')
-
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, pool=pool)
     sampler.run(f_live=1.0, n_eff=0)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
@@ -34,3 +31,5 @@ def test_pool(pool):
         assert len(np.unique(blobs)) == pool
     else:
         assert len(np.unique(blobs)) == pool._processes
+
+    sampler.pool.close()
