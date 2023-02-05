@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 
-from nautilus import bounds
 from scipy.special import gamma
+
+from nautilus import bounds
 
 
 @pytest.fixture

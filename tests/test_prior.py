@@ -1,6 +1,8 @@
-import pytest
 import numpy as np
+import pytest
+
 from scipy.stats import norm
+
 from nautilus.prior import Prior
 
 

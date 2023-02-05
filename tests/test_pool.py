@@ -1,9 +1,9 @@
+import multiprocessing as mp
 import numpy as np
 import os
 import pytest
 import time
 
-from multiprocessing import Pool
 from nautilus import Sampler
 
 
@@ -16,7 +16,7 @@ def likelihood(x):
     return 1, os.getpid()
 
 
-@pytest.mark.parametrize("pool", [1, 2, Pool(2), Pool(3)])
+@pytest.mark.parametrize("pool", [1, 2, mp.Pool(2), mp.Pool(3)])
 def test_pool(pool):
     # Test that the expected number of processes are run.
 

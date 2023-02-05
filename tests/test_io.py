@@ -2,9 +2,10 @@ import h5py
 import numpy as np
 import pytest
 
+from pathlib import Path
+
 from nautilus.bounds import UnitCube
 from nautilus.neural import NeuralNetworkEmulator
-from pathlib import Path
 
 
 @pytest.fixture
