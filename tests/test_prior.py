@@ -91,6 +91,7 @@ def test_physical_to_dictionary():
     prior.add_parameter(key='c', dist='b')
     prior.add_parameter(key='d')
     prior.add_parameter(key='e')
+    prior.add_parameter(key='f', dist=0.5)
 
     phys = np.random.random(size=4)
     with pytest.raises(ValueError):
@@ -99,19 +100,21 @@ def test_physical_to_dictionary():
     phys = np.random.random(size=3)
     param_dict = prior.physical_to_dictionary(phys)
     assert isinstance(param_dict, dict)
-    assert len(param_dict) == 5
+    assert len(param_dict) == 6
     assert param_dict['a'] == phys[0]
     assert param_dict['d'] == phys[1]
     assert param_dict['e'] == phys[2]
     assert param_dict['b'] == param_dict['a']
     assert param_dict['c'] == param_dict['b']
+    assert param_dict['f'] == 0.5
 
     phys = np.random.random(size=(10, 3))
     param_dict = prior.physical_to_dictionary(phys)
     assert isinstance(param_dict, dict)
-    assert len(param_dict.keys()) == 5
+    assert len(param_dict.keys()) == 6
     assert np.all(param_dict['a'] == phys[:, 0])
     assert np.all(param_dict['d'] == phys[:, 1])
     assert np.all(param_dict['e'] == phys[:, 2])
     assert np.all(param_dict['b'] == param_dict['a'])
     assert np.all(param_dict['c'] == param_dict['b'])
+    assert np.all(param_dict['f'] == 0.5)

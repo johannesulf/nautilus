@@ -11,6 +11,10 @@ classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
 dependencies = ["numpy", "scipy", "scikit-learn", "tqdm", "threadpoolctl"]
 
+[project.optional-dependencies]
+checkpointing = ["h5py"]
+tests = ["h5py"]
+
 [project.urls]
 Home = "https://nautilus-sampler.readthedocs.io"
 
