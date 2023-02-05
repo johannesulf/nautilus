@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import pytest
+import time
 
 from multiprocessing import Pool
 from nautilus import Sampler
@@ -11,6 +12,7 @@ def prior(x):
 
 
 def likelihood(x):
+    time.sleep(0.001)
     return 1, os.getpid()
 
 
@@ -18,7 +20,7 @@ def likelihood(x):
 def test_pool(pool):
     # Test that the expected number of processes are run.
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10, pool=pool)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, pool=pool)
     sampler.run(f_live=1.0, n_eff=0)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
