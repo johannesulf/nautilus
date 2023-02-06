@@ -312,3 +312,32 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube,
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     assert np.mean(log_l > log_l_min) >= 0.9
     assert np.all(nell.contains(points))
+
+
+def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
+    # Test nautilus sampling on the classic gaussian shell problem. In this
+    # problem, the likelihood is high on a thin two-dimensional shell.
+
+    radius = 0.45
+    width = 0.01
+
+    np.random.seed(0)
+    points = np.random.random((10000, 2))
+    log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
+    log_l_min = -1
+    points = points[log_l > -100]
+    log_l = log_l[log_l > -100]
+    log_v_target = np.log(2 * np.pi * radius * width * 2)
+
+    nell = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, log_v_target,
+        split_threshold=1,
+        neural_network_kwargs=neural_network_kwargs,
+        random_state=np.random.RandomState(0))
+
+    points = nell.sample(10000)
+    log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
+    # The volume should be close to the true volume where log_l > log_l_min.
+    assert np.abs(nell.volume() - log_v_target) < np.log(2)
+    # Most sampled points should have log_l > log_l_min.
+    assert np.mean(log_l > log_l_min) > 0.5

@@ -29,6 +29,7 @@ def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
         prior, likelihood, n_dim=2, use_neural_networks=use_neural_networks,
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
     sampler.run(f_live=0.45, n_eff=0, verbose=True)
+    points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
 
 
 @pytest.mark.parametrize("use_neural_networks", [True, False])

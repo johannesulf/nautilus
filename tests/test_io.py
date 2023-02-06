@@ -77,7 +77,8 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
     assert np.all(bound_write.contains(points) == bound_read.contains(points))
 
 
-def test_sampler_io():
+@pytest.mark.parametrize("blobs", [True, False])
+def test_sampler_io(blobs):
     # Test that we can write and read a sampler correctly. In particular, also
     # test that the random state is correctly set after writing and reading.
 
@@ -85,7 +86,10 @@ def test_sampler_io():
         return x
 
     def likelihood(x):
-        return -np.linalg.norm(x - 0.5) * 0.001, x[0]
+        if blobs:
+            return -np.linalg.norm(x - 0.5) * 0.001, x[0]
+        else:
+            return -np.linalg.norm(x - 0.5) * 0.001
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             filepath='test.hdf5', resume=False)

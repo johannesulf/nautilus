@@ -643,11 +643,7 @@ class Sampler():
             Index of the shell.
 
         """
-        if isinstance(self.log_l[index], list):
-            log_l = np.concatenate(self.log_l[index])
-        else:
-            log_l = self.log_l[index]
-
+        log_l = self.log_l[index]
         self.shell_n[index] = len(log_l)
 
         if self.shell_n[index] > 0:

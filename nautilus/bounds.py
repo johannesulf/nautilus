@@ -1015,7 +1015,7 @@ class NautilusBound():
                 points_test = mell.sample(10000)
                 log_v = mell.volume() + np.log(
                     np.mean(cube.contains(points_test)))
-            if log_v - log_v_target > np.log(100 * enlarge):
+            if log_v - log_v_target > np.log(split_threshold * enlarge):
                 if not mell.split_ellipsoid():
                     break
             else:
