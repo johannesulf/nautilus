@@ -103,3 +103,5 @@ def test_sampler_io():
         assert np.all(arr_write == arr_read)
 
     assert sampler_write.evidence() == sampler_read.evidence()
+
+    Path('test.hdf5').unlink()

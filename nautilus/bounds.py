@@ -1082,11 +1082,11 @@ class NautilusBound():
             n_sample = 10000
             points = self.sample_bounds[0].sample(n_sample)
             points = points[self.sample_bounds[1].contains(points)]
-            in_nbound = np.zeros(len(points), dtype=bool)
             if len(self.nbounds) > 0:
-                for bound in self.nbounds:
-                    in_nbound = in_nbound | bound.contains(points)
-            points = points[in_nbound]
+                in_bound = np.any(np.vstack(
+                    [bound.contains(points) for bound in self.nbounds]),
+                    axis=0)
+                points = points[in_bound]
             self.points_sample = np.vstack([self.points_sample, points])
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)

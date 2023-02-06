@@ -766,7 +766,8 @@ class Sampler():
             shell_t = np.concatenate(shell_t)
             points_t = np.concatenate(points_t)
             log_l_t = np.concatenate(log_l_t)
-            blobs_t = np.concatenate(blobs_t)
+            if self.blobs_dtype is not None:
+                blobs_t = np.concatenate(blobs_t)
 
         log_l_min = self.shell_log_l_min[-1]
         n_update = 0
@@ -998,7 +999,7 @@ class Sampler():
             :math:`i` and otherwise it is the absolute number.
 
         """
-        m = np.zeros((len(self.bounds), len(self.bounds)), dtype=np.int)
+        m = np.zeros((len(self.bounds), len(self.bounds)), dtype=int)
 
         for i, points in enumerate(self.points):
             for k, bound in enumerate(self.bounds):
