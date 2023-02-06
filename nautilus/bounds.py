@@ -561,7 +561,7 @@ class MultiEllipsoid():
             Whether it was possible to split any ellipsoid.
 
         """
-        split_possible = (np.array([len(points) for points in self.points]) >
+        split_possible = (np.array([len(points) for points in self.points]) >=
                           2 * self.n_points_min)
 
         if not np.any(split_possible):

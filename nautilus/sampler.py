@@ -5,11 +5,12 @@ try:
 except ImportError:
     pass
 import numpy as np
-from tqdm import tqdm
-from pathlib import Path
+
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
 from scipy.special import logsumexp
+from tqdm import tqdm
 
 from .bounds import UnitCube, NautilusBound
 
