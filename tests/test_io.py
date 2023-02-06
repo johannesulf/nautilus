@@ -4,6 +4,7 @@ import pytest
 
 from pathlib import Path
 
+from nautilus import Sampler
 from nautilus.bounds import (UnitCube, Ellipsoid, MultiEllipsoid, NeuralBound,
                              NautilusBound)
 from nautilus.neural import NeuralNetworkEmulator
@@ -74,3 +75,31 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
 
     points = np.random.random((10000, n_dim))
     assert np.all(bound_write.contains(points) == bound_read.contains(points))
+
+
+def test_sampler_io():
+    # Test that we can write and read a sampler correctly. In particular, also
+    # test that the random state is correctly set after writing and reading.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5) * 0.001, x[0]
+
+    sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
+                            filepath='test.hdf5', resume=False)
+    sampler_write.run(f_live=0.45, n_eff=0)
+    sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
+                           filepath='test.hdf5', resume=True)
+
+    sampler_write.run(n_eff=1000)
+    sampler_read.run(n_eff=1000)
+
+    posterior_write = sampler_write.posterior()
+    posterior_read = sampler_read.posterior()
+
+    for arr_write, arr_read in zip(posterior_write, posterior_read):
+        assert np.all(arr_write == arr_read)
+
+    assert sampler_write.evidence() == sampler_read.evidence()

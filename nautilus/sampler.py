@@ -557,7 +557,7 @@ class Sampler():
                 points_all.append(points)
                 n_sample += len(points)
 
-        points = np.concatenate(points_all)
+        points = np.vstack(points_all)
 
         if shell_t is None:
             return points, n_bound
