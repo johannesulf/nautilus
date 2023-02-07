@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Nautilus'
-copyright = '2022, Johannes U. Lange'
+copyright = '2023, Johannes U. Lange'
 author = 'Johannes U. Lange'
 
 
@@ -27,7 +27,7 @@ author = 'Johannes U. Lange'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['numpydoc']
+extensions = ['numpydoc', 'sphinx.ext.autosectionlabel']
 numpydoc_show_class_members = False
 autoclass_content = 'init'
 
@@ -46,7 +46,7 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
-html_logo = 'nautilus_text_image.png'
+html_logo = 'nautilus_text_image_lowres.png'
 html_theme_options = {
     'logo_only': True,
     'display_version': False,
