@@ -465,7 +465,7 @@ class MultiEllipsoid():
         List of ellipsoids.
     log_v : list
         Natural log of the volume of each ellipsoid in the union.
-    points : numpy.ndarray
+    points : list
         The points used to create the union. Used to add more ellipsoids.
     points_sample : numpy.ndarray
         Points that a call to `sample` will return next.
@@ -986,7 +986,7 @@ class NautilusBound():
 
         mell = MultiEllipsoid.compute(
             points[log_l > log_l_min], enlarge=enlarge,
-            random_state=random_state)
+            n_points_min=n_points_min, random_state=random_state)
         cube = UnitCube.compute(points.shape[-1])
 
         while mell.split_ellipsoid(allow_overlap=False):

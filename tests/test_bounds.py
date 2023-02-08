@@ -227,6 +227,18 @@ def test_multi_ellipsoid_split(random_points_from_hypersphere):
     # Check that no new ellipsoid can be added.
     assert not mell.split_ellipsoid()
 
+    # Check that every split leads to ellipsoids with the minimum number of
+    # points.
+    np.random.seed(0)
+    n_points_min = 10
+    for i in range(10):
+        points = np.random.random((2 * n_points_min, 2))
+        mell = bounds.MultiEllipsoid.compute(points, n_points_min=n_points_min)
+        mell.split_ellipsoid()
+        assert len(mell.points) == 2
+        assert len(mell.points[0]) == n_points_min
+        assert len(mell.points[1]) == n_points_min
+
 
 def test_multi_ellipsoid_sample_and_contains(random_points_from_hypersphere):
     # Test whether the multi-ellipsoidal sampling and boundary work as
@@ -341,3 +353,22 @@ def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
     assert np.abs(nell.volume() - log_v_target) < np.log(2)
     # Most sampled points should have log_l > log_l_min.
     assert np.mean(log_l > log_l_min) > 0.5
+    # We should have only one neural network.
+    assert nell.number_of_networks_and_ellipsoids()[0] == 1
+
+
+def test_nautilus_bound_small_target(random_points_from_hypercube,
+                                     neural_network_kwargs):
+    # Test that nothing catastrophic happens if we set the target volume to
+    # effectively 0. This should just result in very aggresive ellipsoid
+    # splitting and make the boundary miss a small part of the parameter space.
+
+    points = random_points_from_hypercube
+    log_l = -np.linalg.norm(points - 0.5, axis=1)
+    log_l_min = np.amin(log_l)
+    nell = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, -np.inf,
+        neural_network_kwargs=neural_network_kwargs, n_points_min=20)
+    assert nell.volume() > -1
+    assert nell.number_of_networks_and_ellipsoids()[0] == 1
+    assert nell.number_of_networks_and_ellipsoids()[1] > 10

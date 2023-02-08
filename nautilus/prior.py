@@ -81,7 +81,7 @@ class Prior():
                    self.dists)
 
     def unit_to_physical(self, points):
-        """Transfer points from the unit hypercube to the prior volume.
+        """Convert points from the unit hypercube to physical parameters.
 
         Parameters
         ----------
@@ -100,6 +100,7 @@ class Prior():
         ------
         ValueError
             If dimensionality of `points` does not match the prior.
+
         """
         phys_points = np.zeros_like(points)
 
@@ -117,13 +118,13 @@ class Prior():
         return phys_points
 
     def physical_to_dictionary(self, phys_points):
-        """Express points in the prior volume as a dictionary.
+        """Convert points in the physical parameter space as a dictionary.
 
         Parameters
         ----------
         phys_points : numpy.ndarray
-            Points in the prior volume. If more than one-dimensional, each
-            row represents a point.
+            Points in the physical parameter space. If more than
+            one-dimensional, each row represents a point.
 
         Returns
         -------
@@ -134,7 +135,7 @@ class Prior():
         Raises
         ------
         ValueError
-            If dimensionality of `points` does not match the prior.
+            If dimensionality of `phys_points` does not match the prior.
 
         """
         try:
@@ -157,3 +158,22 @@ class Prior():
                 param_dict[key] = param_dict[dist]
 
         return param_dict
+
+    def unit_to_dictionary(self, points):
+        """Convert points from the unit hypercube to a dictionary.
+
+        Parameters
+        ----------
+        points : numpy.ndarray
+            A 1-D or 2-D array containing single point or a collection of
+            points in the unit hypercube. If more than one-dimensional, each
+            row represents a point.
+
+        Returns
+        -------
+        param_dict : dict
+            Points as a dictionary. Each model parameter, including fixed ones,
+            can be accessed via their key.
+
+        """
+        return self.physical_to_dictionary(self.unit_to_physical(points))

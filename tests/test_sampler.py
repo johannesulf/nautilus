@@ -32,6 +32,39 @@ def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
 
 
+@pytest.mark.parametrize("custom_prior", [True, False])
+@pytest.mark.parametrize("vectorized", [True, False])
+@pytest.mark.parametrize("pass_dict", [True, False])
+def test_sampler_prior(custom_prior, vectorized, pass_dict):
+    # Test that the sampler can handle all prior defintions.
+
+    if custom_prior:
+        if pass_dict:
+            def prior(x):
+                return dict(a=x[..., 0], b=x[..., 1])
+        else:
+            def prior(x):
+                return x
+    else:
+        prior = Prior()
+        prior.add_parameter('a')
+        prior.add_parameter('b')
+
+    def likelihood(x):
+        if isinstance(x, dict):
+            x = np.squeeze(np.column_stack([x['a'], x['b']]))
+        return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+
+    sampler = Sampler(
+        prior, likelihood, n_dim=2, use_neural_networks=False,
+        vectorized=vectorized, pass_dict=pass_dict, n_live=500)
+    sampler.run(f_live=0.45, n_eff=0, verbose=True)
+    points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
+    if custom_prior and pass_dict:
+        with pytest.raises(ValueError):
+            points, log_w, log_l = sampler.posterior(return_as_dict=False)
+
+
 @pytest.mark.parametrize("use_neural_networks", [True, False])
 @pytest.mark.parametrize("discard_exploration", [True, False])
 def test_sampler_accuracy(use_neural_networks, discard_exploration):

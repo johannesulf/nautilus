@@ -210,9 +210,6 @@ class Sampler():
             self.n_dim = n_dim
             if pass_dict is None:
                 pass_dict = False
-            elif pass_dict:
-                raise ValueError("When passing a function as the 'prior' " +
-                                 "argument, 'pass_dict' cannot be True.")
         else:
             self.n_dim = prior.dimensionality()
             if pass_dict is None:
@@ -383,14 +380,15 @@ class Sampler():
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
 
-    def posterior(self, return_as_dict=False, equal_weight=False,
+    def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
         """Return the posterior sample estimate.
 
         Parameters
         ----------
-        return_as_dict : bool, optional
-            If True, return `points` as a dictionary. Default is False.
+        return_as_dict : bool or None, optional
+            If True, return `points` as a dictionary. If None, follow what is
+            passed to the likelihood function. Default is None.
         equal_weight : bool, optional
             If True, return an equal weighted posterior. Default is False.
         return_blobs : bool, optional
@@ -415,6 +413,9 @@ class Sampler():
             not been run in a way that that's possible.
 
         """
+        if return_as_dict is None:
+            return_as_dict = self.pass_dict
+
         points = np.concatenate(self.points)
         log_v = np.repeat(self.shell_log_v -
                           np.log(np.maximum(self.shell_n, 1)), self.shell_n)
@@ -426,21 +427,22 @@ class Sampler():
             blobs = np.concatenate(self.blobs)
 
         if callable(self.prior):
-            unit_to_physical = self.prior
+            transform = self.prior
         else:
-            unit_to_physical = self.prior.unit_to_physical
+            if return_as_dict:
+                transform = self.prior.unit_to_dictionary
+            else:
+                transform = self.prior.unit_to_dictionary
 
         if not self.vectorized and callable(self.prior):
-            points = np.array(list(map(unit_to_physical, points)))
+            points = np.array(list(map(transform, points)))
         else:
-            points = unit_to_physical(points)
+            points = transform(points)
 
-        if return_as_dict:
-            if callable(self.prior):
-                raise ValueError(
-                    'Cannot return points as dictionary. The prior passed ' +
-                    'to the sampler must have been a nautilus.Prior object.')
-            points = self.prior.physical_to_dictionary(points)
+        if not return_as_dict and callable(self.prior) and self.pass_dict:
+            raise ValueError(
+                'Cannot return points as numpy array. The prior function' +
+                ' only returns dictionaries.')
 
         if equal_weight:
             select = (self.random_state.random(len(log_w)) <
@@ -586,28 +588,28 @@ class Sampler():
             not return blobs.
 
         """
+        # Transform points from the unit cube to the input arguments of the
+        # likelihood function.
         if callable(self.prior):
-            unit_to_physical = self.prior
+            transform = self.prior
         else:
-            unit_to_physical = self.prior.unit_to_physical
-
-        if not self.vectorized and callable(self.prior):
-            args = np.array(list(map(unit_to_physical, points)))
-        else:
-            args = unit_to_physical(points)
-
-        if self.pass_dict:
-            if self.vectorized:
-                args = self.prior.physical_to_dictionary(args)
+            if self.pass_dict:
+                transform = self.prior.unit_to_dictionary
             else:
-                args = [self.prior.physical_to_dictionary(arg) for arg in args]
+                transform = self.prior.unit_to_dictionary
 
+        if not self.vectorized:
+            args = list(map(transform, points))
+        else:
+            args = transform(points)
+
+        # Evaluate the likelihood.
         if self.vectorized:
             result = self.likelihood(args)
             if isinstance(result, tuple):
                 result = list(zip(*result))
         elif self.pool is not None:
-            result = self.pool.map(self.likelihood, args)
+            result = list(self.pool.map(self.likelihood, args))
         else:
             result = list(map(self.likelihood, args))
 
