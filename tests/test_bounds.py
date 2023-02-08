@@ -291,14 +291,14 @@ def test_neural_bound_contains(random_points_from_hypercube,
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nell = bounds.NeuralBound.compute(
+    nbound = bounds.NeuralBound.compute(
         points, log_l, log_l_min, neural_network_kwargs=neural_network_kwargs)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
     points = np.random.random(size=(n_points, n_dim))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
-    in_bound = nell.contains(points)
+    in_bound = nbound.contains(points)
     assert np.mean(log_l[in_bound] > log_l_min) >= 0.9
 
 
@@ -309,7 +309,7 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube,
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nell = bounds.NautilusBound.compute(
+    nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, np.log(0.5),
         neural_network_kwargs=neural_network_kwargs)
 
@@ -317,13 +317,13 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube,
     n_dim = random_points_from_hypercube.shape[1]
     points = np.random.random(size=(n_points, n_dim))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
-    in_bound = nell.contains(points)
+    in_bound = nbound.contains(points)
     assert np.mean(log_l[in_bound] > log_l_min) >= 0.9
 
-    points = nell.sample(n_points)
+    points = nbound.sample(n_points)
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     assert np.mean(log_l > log_l_min) >= 0.9
-    assert np.all(nell.contains(points))
+    assert np.all(nbound.contains(points))
 
 
 def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
@@ -341,20 +341,20 @@ def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
     log_l = log_l[log_l > -100]
     log_v_target = np.log(2 * np.pi * radius * width * 2)
 
-    nell = bounds.NautilusBound.compute(
+    nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, log_v_target,
         split_threshold=1,
         neural_network_kwargs=neural_network_kwargs,
         random_state=np.random.RandomState(0))
 
-    points = nell.sample(10000)
+    points = nbound.sample(10000)
     log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
     # The volume should be close to the true volume where log_l > log_l_min.
-    assert np.abs(nell.volume() - log_v_target) < np.log(2)
+    assert np.isclose(nbound.volume(), log_v_target, rtol=0, atol=np.log(2))
     # Most sampled points should have log_l > log_l_min.
     assert np.mean(log_l > log_l_min) > 0.5
     # We should have only one neural network.
-    assert nell.number_of_networks_and_ellipsoids()[0] == 1
+    assert nbound.number_of_networks_and_ellipsoids()[0] == 1
 
 
 def test_nautilus_bound_small_target(random_points_from_hypercube,
@@ -366,9 +366,39 @@ def test_nautilus_bound_small_target(random_points_from_hypercube,
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.amin(log_l)
-    nell = bounds.NautilusBound.compute(
+    nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, -np.inf,
         neural_network_kwargs=neural_network_kwargs, n_points_min=20)
-    assert nell.volume() > -1
-    assert nell.number_of_networks_and_ellipsoids()[0] == 1
-    assert nell.number_of_networks_and_ellipsoids()[1] > 10
+    assert nbound.volume() > -1
+    assert nbound.number_of_networks_and_ellipsoids()[0] == 1
+    assert nbound.number_of_networks_and_ellipsoids()[1] > 10
+
+
+def test_nautilus_bound_two_peaks(neural_network_kwargs):
+    # Test that the nautilus bound can identify and sample efficienctly from
+    # two peaks with wide separations.
+
+    np.random.seed(0)
+    radius = 1e-5
+    points = np.vstack([np.random.normal(size=(1000, 2)) * radius + 0.1,
+                        np.random.normal(size=(1000, 2)) * radius + 0.9])
+
+    def likelihood(x):
+        return - np.minimum(
+            np.linalg.norm(x - 0.1, axis=-1),
+            np.linalg.norm(x - 0.9, axis=-1)) / radius
+
+    log_l = likelihood(points)
+    log_l_min = -1
+    log_v_target = np.log(2 * np.pi * radius**2)
+    nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
+                                          log_v_target)
+
+    points = nbound.sample(10000)
+    log_l = likelihood(points)
+    # The volume should be close to the true volume where log_l > log_l_min.
+    assert np.isclose(nbound.volume(), log_v_target, rtol=0, atol=0.1)
+    # Most sampled points should have log_l > log_l_min.
+    assert np.mean(log_l > log_l_min) > 0.9
+    # We should have two neural networks.
+    assert nbound.number_of_networks_and_ellipsoids()[0] == 2

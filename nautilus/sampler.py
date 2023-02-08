@@ -353,9 +353,14 @@ class Sampler():
                     self.bounds.pop(shell)
                     self.points.pop(shell)
                     self.log_l.pop(shell)
-                    self.shell_n = np.delete(self.shell_n, shell)
-                    self.shell_log_l = np.delete(self.shell_log_l, shell)
-                    self.shell_log_v = np.delete(self.shell_log_v, shell)
+                    if self.blobs_dtype is not None:
+                        self.blobs.pop(shell)
+                    for key in ['shell_n', 'shell_n_sample_shell',
+                                'shell_n_sample_bound', 'shell_n_eff',
+                                'shell_log_l_min', 'shell_log_l',
+                                'shell_log_v']:
+                        setattr(self, key, np.delete(
+                            getattr(self, key), shell))
 
             self.explored = True
             if self.filepath is not None:
@@ -485,7 +490,8 @@ class Sampler():
             Estimate the global evidence :math:`\log \mathcal{Z}`.
 
         """
-        return logsumexp(self.shell_log_l + self.shell_log_v)
+        select = ~np.isnan(self.shell_log_l)
+        return logsumexp(self.shell_log_l[select] + self.shell_log_v[select])
 
     def sample_shell(self, index, shell_t=None):
         """Sample a batch of points uniformly from a shell.

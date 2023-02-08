@@ -102,3 +102,30 @@ def test_sampler_accuracy(use_neural_networks, discard_exploration):
     shell_bound_occupation = sampler.shell_bound_occupation()
     assert np.all(shell_bound_occupation ==
                   np.tril(np.ones_like(shell_bound_occupation)))
+
+
+def test_sampler_enlarge():
+    # Test that the enlarge keyword is passed correctly. In this example, we
+    # choose an enlargment factor so big that every bound should be the same if
+    # we don't use neural networks. This also tests that shells with 0 volume
+    # are removed after the exploration phase, as intended.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5)**2 * 0.001
+
+    sampler = Sampler(prior, likelihood, n_dim=2, enlarge=100,
+                      use_neural_networks=False, random_state=0)
+    sampler.run(f_live=0.1, n_eff=0)
+
+    # The effective sample size should be very close to the number of calls
+    # since the likelihood is extremely flat.
+    assert np.isclose(sampler.n_like, sampler.effective_sample_size(), rtol=0,
+                      atol=1)
+    # Only one bound should be left.
+    assert len(sampler.bounds) == 1
+    # Check evidence accuracy.
+    assert np.isclose(sampler.evidence(), -4 * 0.5**3 / 3 * 0.001, rtol=0,
+                      atol=1e-4)
