@@ -987,7 +987,7 @@ class NautilusBound():
         mell = MultiEllipsoid.compute(
             points[log_l > log_l_min], enlarge=enlarge,
             n_points_min=n_points_min, random_state=random_state)
-        cube = UnitCube.compute(points.shape[-1])
+        cube = UnitCube.compute(points.shape[-1], random_state=random_state)
 
         while mell.split_ellipsoid(allow_overlap=False):
             pass

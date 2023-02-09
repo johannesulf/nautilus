@@ -437,7 +437,7 @@ class Sampler():
             if return_as_dict:
                 transform = self.prior.unit_to_dictionary
             else:
-                transform = self.prior.unit_to_dictionary
+                transform = self.prior.unit_to_physical
 
         if not self.vectorized and callable(self.prior):
             points = np.array(list(map(transform, points)))
@@ -532,7 +532,8 @@ class Sampler():
         points_all = []
 
         while n_sample < self.n_batch:
-            points = self.bounds[index].sample(self.n_batch - n_sample)
+            points = np.atleast_2d(self.bounds[index].sample(
+                self.n_batch - n_sample))
             n_bound += self.n_batch - n_sample
 
             # Remove points that are actually in another shell.
@@ -565,7 +566,7 @@ class Sampler():
                 points_all.append(points)
                 n_sample += len(points)
 
-        points = np.vstack(points_all)
+        points = np.concatenate(points_all)
 
         if shell_t is None:
             return points, n_bound
@@ -797,7 +798,7 @@ class Sampler():
 
             if len(idx_t) > 0:
                 self.points[-1].append(points_t[idx_t])
-                points_t = np.delete(points_t, idx_t)
+                points_t = np.delete(points_t, idx_t, axis=0)
                 self.log_l[-1].append(log_l_t[idx_t])
                 log_l_t = np.delete(log_l_t, idx_t)
                 if self.blobs_dtype is not None:
