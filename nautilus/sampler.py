@@ -392,8 +392,9 @@ class Sampler():
         Parameters
         ----------
         return_as_dict : bool or None, optional
-            If True, return `points` as a dictionary. If None, follow what is
-            passed to the likelihood function. Default is None.
+            If True, return `points` as a dictionary. If None, will default to
+            False unless one uses custom prior that only returns dictionaries.
+            Default is None.
         equal_weight : bool, optional
             If True, return an equal weighted posterior. Default is False.
         return_blobs : bool, optional
@@ -419,7 +420,10 @@ class Sampler():
 
         """
         if return_as_dict is None:
-            return_as_dict = self.pass_dict
+            if callable(self.prior) and self.pass_dict:
+                return_as_dict = True
+            else:
+                return_as_dict = False
 
         points = np.concatenate(self.points)
         log_v = np.repeat(self.shell_log_v -
@@ -1115,7 +1119,7 @@ class Sampler():
 
         del group['points_{}'.format(shell)]
         group.create_dataset(
-                'points_{}'.format(shell), data=self.points[shell])
+            'points_{}'.format(shell), data=self.points[shell])
         del group['log_l_{}'.format(shell)]
         group.create_dataset('log_l_{}'.format(shell), data=self.log_l[shell])
         if self.blobs_dtype is not None:
