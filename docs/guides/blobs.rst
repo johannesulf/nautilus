@@ -1,7 +1,7 @@
 Blobs
 =====
 
-Nautilus supports saving ancillary information returned from the likelihood function. This feature is called "blobs" and closely follows the implementation in emcee.
+Nautilus supports saving ancillary information returned from the likelihood function. This feature is called "blobs" and its implementation in nautilus closely follows `emcee <https://emcee.readthedocs.io/en/stable/user/blobs/>`_.
 
 Here's a demonstration of how we can use this feature to track the amount of time each likelihood evaluation takes.
 

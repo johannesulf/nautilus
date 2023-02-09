@@ -1,7 +1,7 @@
 Checkpointing
 =============
 
-Nautilus supports application checkpointing. This means that sampling runs can be interrupted and continued later. Checkpointing is an excellent way to guard against extensive data loss from interruptions and compute node failures. To use checkpointing, h5py must be installed. To enable checkpointing, specify a file path via the ``filepath`` keyword argument when creating a sampler.
+Nautilus supports application checkpointing. This means that sampling runs can be interrupted and continued later. Checkpointing is an excellent way to guard against extensive data loss from interruptions and compute node failures. To use checkpointing, h5py must be installed. To enable checkpointing, specify a file path via the ``filepath`` keyword argument when initializing :py:meth:`nautilus.Sampler`.
 
 .. code-block:: python
 

@@ -25,6 +25,7 @@ Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evide
     :caption: Discussion
 
     discussion/nested_sampling
+    discussion/convergence
 
 .. toctree::
     :maxdepth: 1
