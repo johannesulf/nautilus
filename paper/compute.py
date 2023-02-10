@@ -147,7 +147,7 @@ def main():
             elif algorithm == 'nautilus':
 
                 sampler = nautilus.Sampler(
-                    prior, likelihood, n_dim, pass_struct=False,
+                    prior, likelihood, n_dim, pass_dict=False,
                     n_live=args.nautilus)
                 sampler.run(verbose=args.verbose)
 
