@@ -1,5 +1,5 @@
-Prior Distribution
-==================
+Priors
+======
 
 In Bayesian statistics, one needs to specify a prior probability :math:`p(\theta)` of model parameters :math:`\theta` where :math:`\theta = (\theta_1, \theta_2, ..., \theta_n)`. However, nested sampling algorithms generally assume that model parameters :math:`u` are uniformly distributed in the unit hypercube. Thus, one needs to perform a variable transformation :math:`\theta = f(u)`. A general recipe for separable priors, i.e. :math:`p(\theta) = p_1(\theta_1) \times ... \times p_n(\theta_n)`, is to use
 
@@ -58,10 +58,10 @@ If one wants to use a distribution function not available in SciPy, one can manu
 Note that this is the same way that dynesty, UltraNest and PyMultiNest pass the prior to the sampler.
 
 
-Last Resort
------------
+Without Transformations
+-----------------------
 
-If one has a prior :math:`p(x)` and does or cannot express this as a transformation from the unit cube, one can also absorb this prior into the likelihood, i.e. :math:`\mathcal{L}(x) \rightarrow \mathcal{L}(x) p(x)`. However, one still needs to define integration ranges :math:`x_{\rm min}` and :math:`x_{\rm max}`, and make sure that they cover (practically) all of the probability mass of the prior. Additionally, the estimate of the evidence will be biased by :math:`\int_{x_{\rm min}}^{x_{\rm max}} dx / \int_{x_{\rm min}}^{x_{\rm max}} p(x) dx`. Fortunately, this factor can be estimated with nautilus by analyzing the prior as if it was the likelihood. Here's an example application of a two-dimensional model where we can compute the evidence using the recommended way to express the prior and the method described here.
+If one has a prior :math:`p(x)` and does not want to or cannot express this as a transformation from the unit cube, one can run nautilus by absorbing the prior into the likelihood, i.e. :math:`\mathcal{L}(x) \rightarrow \mathcal{L}(x) p(x)`. However, one still needs to define integration ranges :math:`x_{\rm min}` and :math:`x_{\rm max}`, and make sure that they cover (practically) all of the probability mass of the prior. Additionally, the estimate of the evidence will be biased by :math:`\int_{x_{\rm min}}^{x_{\rm max}} dx / \int_{x_{\rm min}}^{x_{\rm max}} p(x) dx`. Fortunately, this factor can be estimated with nautilus by analyzing the prior as if it was the likelihood. Here's an example application of a two-dimensional model where we can compute the evidence using the recommended way to express the prior and the method described here.
 
 .. code-block:: python
 

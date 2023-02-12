@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+import warnings
 
-from scipy.stats import multivariate_normal
+from scipy.stats import multivariate_normal, norm
 
 from nautilus import Prior, Sampler
 
@@ -129,3 +130,35 @@ def test_sampler_enlarge():
     # Check evidence accuracy.
     assert np.isclose(sampler.evidence(), -4 * 0.5**3 / 3 * 0.001, rtol=0,
                       atol=1e-4)
+
+
+def test_sampler_funnel():
+    # Test the sampler on a funnel distribution. This is a great, challenging
+    # distribution. Also, the nature of the likelihood leads to nautilus
+    # boundaries that are not strictly nested, unlike for simpler
+    # distributions.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return (norm.logpdf(x[0], loc=0.5, scale=0.1) +
+                norm.logpdf(x[1], loc=0.5, scale=np.exp(20 * (x[0] - 0.5)) /
+                            100))
+
+    # Determine the true evidence. The likelihood is normalized so it should be
+    # close to 1 minus a correction for the fraction of points falling outside
+    # the unit cube.
+    np.random.seed(0)
+    x_0 = np.random.normal(loc=0.5, scale=0.1, size=1000000)
+    x_1 = np.random.normal(loc=0.5, scale=np.exp(20 * (x_0 - 0.5)) / 100)
+    log_z_true = np.log(np.mean((x_0 > 0) & (x_0 < 1) & (x_1 > 0) & (x_1 < 1)))
+
+    sampler = Sampler(prior, likelihood, n_dim=2, random_state=0)
+    sampler.run()
+    assert np.isclose(log_z_true, sampler.evidence(), rtol=0, atol=0.1)
+    # Check whether the boundaries nautilus drew are strictly nested.
+    shell_bound_occupation = sampler.shell_bound_occupation()
+    if np.all(shell_bound_occupation ==
+              np.tril(np.ones_like(shell_bound_occupation))):
+        warnings.warn('The funnel distribution was too easy.', RuntimeWarning)

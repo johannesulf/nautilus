@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2023-02-12
+
 ### Changed
 - Likelihood functions will now never be passed structured numpy arrays. In case they previously received structured numpy arrays, they will now receive dictionaries. Similarly, `nautilus.Prior.physical_to_structure` has been renamed to `nautilus.Prior.physical_to_dictionary` and the keyword argument of `nautilus.Sampler` from `pass_struct` to `pass_dict`.
 - The `n_like_update` keyword argument for `nautilus.Sampler` has been renamed to `n_like_new_bound`.

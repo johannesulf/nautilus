@@ -15,7 +15,7 @@ Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evide
 
     guides/installation
     guides/crash_course
-    guides/prior_distribution
+    guides/priors
     guides/checkpointing
     guides/blobs
 
