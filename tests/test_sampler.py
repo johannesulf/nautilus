@@ -22,7 +22,7 @@ def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
             return x
 
     def likelihood(x):
-        if isinstance(x, dict):
+        if pass_dict:
             x = np.squeeze(np.column_stack([x['a'], x['b']]))
         return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
 
