@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2023-02-13
+
+### Fixed
+- Likelihood function now receives array with `pass_dict=False` when using `nautilus.Prior`.
+
 ## [0.4.0] - 2023-02-12
 
 ### Changed

@@ -607,7 +607,7 @@ class Sampler():
             if self.pass_dict:
                 transform = self.prior.unit_to_dictionary
             else:
-                transform = self.prior.unit_to_dictionary
+                transform = self.prior.unit_to_physical
 
         if not self.vectorized:
             args = list(map(transform, points))
