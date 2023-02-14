@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+from matplotlib.ticker import MultipleLocator
 from nautilus import Sampler
 from scipy.spatial import ConvexHull
 from scipy.stats import multivariate_normal
@@ -18,7 +19,7 @@ def likelihood(x):
     return multivariate_normal.logpdf(x, mean=[mean, mean], cov=sigma**2)
 
 
-sampler = Sampler(prior, likelihood, 2)
+sampler = Sampler(prior, likelihood, 2, random_state=0)
 
 points = []
 
@@ -42,6 +43,21 @@ for bound in sampler.bounds:
     y_bound.append(points_sample[hull.vertices, 1])
     y_bound[-1] = np.append(y_bound[-1], y_bound[-1][0])
 
+
+shells = np.arange(len(sampler.bounds)) + 1
+plt.plot(shells, sampler.shell_log_v, label=r'$\log V$')
+plt.plot(shells, sampler.shell_log_l,
+         label=r'$\log \langle \mathcal{L} \rangle$')
+plt.plot(shells, sampler.shell_log_v + sampler.shell_log_l,
+         label=r'$\log \mathcal{Z}$')
+plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1))
+plt.minorticks_off()
+plt.xlabel('Shell')
+plt.legend(loc='upper right', frameon=False)
+plt.tight_layout(pad=0.3)
+plt.savefig('animation_shells.png', dpi=300)
+plt.close()
+
 # %%
 
 fig = plt.figure(figsize=(8, 6))
@@ -55,11 +71,22 @@ plt.contourf(-np.sqrt(-Z), extent=[0, 1, 0, 1],
 plt.tick_params(axis='both', which='both', bottom=False, left=False,
                 right=False, top=False, labelbottom=False, labelleft=False)
 plt.tight_layout(pad=0.1)
+plt.savefig('animation_likelihood.png', dpi=300)
 
-length = 30
+for i in range(len(x_bound)):
+    plt.plot(x_bound[i], y_bound[i], color='white')
+
+plt.savefig('animation_likelihood_explored.png', dpi=300)
+
+for i in range(len(x_bound)):
+    plt.gca().lines.pop()
+
+# %%
+
+length = 15
 frames_points = 50
-frames_wait = 10
-frames_zoom = 10
+frames_wait = 25
+frames_zoom = 25
 frames_iteration = (frames_points + frames_wait + frames_zoom)
 frames = len(points) * frames_iteration
 
