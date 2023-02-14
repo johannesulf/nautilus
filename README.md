@@ -4,6 +4,7 @@
 [![Code Coverage](https://img.shields.io/coverallsCoverage/github/johannesulf/nautilus)](https://coveralls.io/github/johannesulf/nautilus?branch=main)
 [![Documentation Status](https://img.shields.io/readthedocs/nautilus-sampler)](https://nautilus-sampler.readthedocs.io/en/latest/)
 [![PyPI](https://img.shields.io/pypi/v/nautilus-sampler?color=blue)](https://pypi.org/project/nautilus-sampler/)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/nautilus-sampler?color=blue)](https://anaconda.org/conda-forge/nautilus-sampler)
 [![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus?color=blue)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
 ![Language: Python](https://img.shields.io/github/languages/top/johannesulf/nautilus)
 
