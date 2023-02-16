@@ -10,6 +10,7 @@ from scipy.stats import percentileofscore, multivariate_normal
 
 path = Path('figures')
 
+
 def prior(x):
     return x
 
@@ -39,6 +40,7 @@ plt.savefig(path / 'non-nested.pdf')
 plt.close()
 
 # %%
+
 
 def likelihood(x):
     return multivariate_normal.logpdf(
@@ -108,8 +110,8 @@ plt.close()
 # %%
 
 sampler = Sampler(
-    prior, rosenbrock_likelihood, n_dim=2, vectorized=True,
-    pass_struct=False, n_live=3000)
+    prior, rosenbrock_likelihood, n_dim=2, vectorized=True, pass_dict=False,
+    n_live=3000, random_state=0)
 for i in range(6):
     sampler.add_bound(verbose=True)
     sampler.fill_bound(verbose=True)
@@ -123,9 +125,9 @@ fig, axarr = plt.subplots(figsize=(7, 4), ncols=3, nrows=2)
 ax = axarr[0, 0]
 ax.text(0.05, 0.95, '1', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-points = np.vstack(sampler.points) * 10 - 5
+points = np.vstack(sampler.points[:-1]) * 10 - 5
 log_l = np.concatenate(sampler.log_l)
-log_l_min = sampler.shell_info['log_l_min_iteration'][-1]
+log_l_min = sampler.shell_log_l_min[-1]
 img = ax.scatter(points[::3, 0], points[::3, 1], s=1, c=log_l[::3], vmin=-1e5,
                  vmax=0, rasterized=True, lw=0, cmap='viridis')
 use = log_l > log_l_min
@@ -144,7 +146,7 @@ ax.set_ylabel(r'$x_2$')
 ax = axarr[0, 1]
 ax.text(0.05, 0.95, '2', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-points = np.vstack(sampler.points)
+points = np.vstack(sampler.points[:-1])
 use = sampler.bounds[-1].nbounds[0].ellipsoid.contains(points)
 points = points[use]
 log_l = log_l[use]
@@ -225,4 +227,4 @@ ax.set_ylabel(r'$x_2$')
 
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'bounds.pdf')
-plt.savefig(path / 'bounds.png', dpi=300)
+plt.savefig(path / 'bounds.png', dpi=300, transparent=True)
