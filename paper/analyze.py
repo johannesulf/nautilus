@@ -136,6 +136,8 @@ for path in (Path('.') / 'results').iterdir():
     plt.close()
 
 summary = Table(summary)
+summary['sampler'] = np.where(summary['sampler'] == 'UltraNest', 'UltraNest-m',
+                              summary['sampler'])
 path = Path('.') / 'figures'
 
 # %%
@@ -183,7 +185,7 @@ likelihood_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
                    'galaxy', 'exoplanet']
 label_list = [r'LogGamma$_{30}$', r'Funnel$_{20}$', r'Rosenbrock$_{10}$',
               'Cosmology', 'Galaxy', 'Exoplanet']
-sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
+sampler_list = ['nautilus', 'nautilus-r', 'UltraNest-m', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 color_list = ['purple', 'purple', 'darkblue', 'orange', 'orange', 'orange',
               'royalblue']
@@ -220,6 +222,8 @@ ax1.set_yscale('log')
 ax2.set_yscale('log')
 ax1.set_ylabel('Likelihood Evaluations')
 ax2.set_ylabel('Sampling Efficiency')
+ax2.yaxis.tick_right()
+ax2.yaxis.set_label_position("right")
 ax1.set_xticks(np.arange(len(label_list)))
 ax2.set_xticks(np.arange(len(label_list)))
 ax1.set_xticklabels(label_list, rotation=45)
@@ -234,7 +238,7 @@ plt.close()
 
 # %%
 
-plt.figure(figsize=(7, 3.0))
+plt.figure(figsize=(7, 2.5))
 ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
 ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
 ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
@@ -261,8 +265,9 @@ for k, (sampler, color, ls) in enumerate(
     if len(x) > 0:
         ax1.plot(x, n_like, color=color, marker='o', label=sampler, ls=ls,
                  zorder=k)
-        ax2.errorbar(x, log_z, yerr=log_z_err, color=color, marker='o', ls=ls,
-                     zorder=k)
+        plotline, cap, barlinecols = ax2.errorbar(
+            x, log_z, yerr=log_z_err, color=color, marker='o', ls=ls, zorder=k)
+        plt.setp(barlinecols[0], capstyle="round", color="orange")
 
 handles, labels = ax1.get_legend_handles_labels()
 ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
@@ -273,20 +278,22 @@ ax2.set_ylim(-3.5, +3.5)
 ax2.axhline(0, ls='--', color='black')
 ax1.set_xlabel(r'Dimensionality $N_{\rm dim}$')
 ax2.set_xlabel(r'Dimensionality $N_{\rm dim}$')
+ax2.yaxis.tick_right()
+ax2.yaxis.set_label_position("right")
 ax1.set_yscale('log')
 ax1.set_ylabel('Likelihood Evaluations')
 ax2.set_ylabel(r'Evidence $\log \mathcal{Z}$')
 ax1.set_xticks([], minor=True)
 ax2.set_xticks([], minor=True)
 plt.tight_layout(pad=0.1)
-plt.subplots_adjust(hspace=0)
+plt.subplots_adjust(hspace=0, wspace=0.1)
 plt.savefig(path / 'scaling.pdf')
 plt.savefig(path / 'scaling.png', dpi=300)
 plt.close()
 
 # %%
 
-sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
+sampler_list = ['nautilus', 'nautilus-r', 'UltraNest-m', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 
 for likelihood in likelihood_list:
@@ -419,9 +426,9 @@ plt.close()
 # %%
 
 likelihood_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
-                'galaxy', 'exoplanet']
+                   'galaxy', 'exoplanet']
 sampler_list = ['nautilus', 'nautilus-r', 'dynesty-u', 'dynesty-r',
-                'dynesty-s', 'pocoMC', 'UltraNest']
+                'dynesty-s', 'pocoMC', 'UltraNest-m']
 
 key_list = ['log Z', 'bmd']
 name_list = ['evidence', 'bmd']
@@ -437,7 +444,8 @@ for key, name, template in zip(key_list, name_list, template_list):
             if np.sum(select) == 1:
                 y = summary[select][key][0]
                 y_error = summary[select]['{} error'.format(key)][0]
-                table_tex_row[likelihood] = template.format(mean=y, err=y_error)
+                table_tex_row[likelihood] = template.format(
+                    mean=y, err=y_error)
             else:
                 table_tex_row[likelihood] = r'--'
 
