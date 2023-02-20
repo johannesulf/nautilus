@@ -267,7 +267,7 @@ for k, (sampler, color, ls) in enumerate(
                  zorder=k)
         plotline, cap, barlinecols = ax2.errorbar(
             x, log_z, yerr=log_z_err, color=color, marker='o', ls=ls, zorder=k)
-        plt.setp(barlinecols[0], capstyle="round", color="orange")
+        plt.setp(barlinecols[0], capstyle='round')
 
 handles, labels = ax1.get_legend_handles_labels()
 ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
