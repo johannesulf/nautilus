@@ -234,6 +234,58 @@ plt.close()
 
 # %%
 
+plt.figure(figsize=(7, 3.0))
+ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
+ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
+ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
+n_dim_list = [5, 10, 15, 20, 25, 30]
+
+
+for k, (sampler, color, ls) in enumerate(
+        zip(sampler_list, color_list, ls_list)):
+
+    x = []
+    n_like = []
+    log_z = []
+    log_z_err = []
+
+    for i, n_dim in enumerate(n_dim_list):
+        select = ((summary['likelihood'] == 'loggamma-{}'.format(n_dim)) &
+                  (summary['sampler'] == sampler))
+        if np.any(select):
+            x.append(n_dim)
+            n_like.append(summary['N_like'][select][0])
+            log_z.append(summary['log Z'][select][0])
+            log_z_err.append(summary['log Z error'][select][0])
+
+    if len(x) > 0:
+        ax1.plot(x, n_like, color=color, marker='o', label=sampler, ls=ls,
+                 zorder=k)
+        ax2.errorbar(x, log_z, yerr=log_z_err, color=color, marker='o', ls=ls,
+                     zorder=k)
+
+handles, labels = ax1.get_legend_handles_labels()
+ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
+           ncol=len(sampler_list), frameon=False, handletextpad=0.3,
+           columnspacing=0.8, borderpad=0, markerscale=0, handlelength=1.5)
+ax3.axis('off')
+ax2.set_ylim(-3.5, +3.5)
+ax2.axhline(0, ls='--', color='black')
+ax1.set_xlabel(r'Dimensionality $N_{\rm dim}$')
+ax2.set_xlabel(r'Dimensionality $N_{\rm dim}$')
+ax1.set_yscale('log')
+ax1.set_ylabel('Likelihood Evaluations')
+ax2.set_ylabel(r'Evidence $\log \mathcal{Z}$')
+ax1.set_xticks([], minor=True)
+ax2.set_xticks([], minor=True)
+plt.tight_layout(pad=0.1)
+plt.subplots_adjust(hspace=0)
+plt.savefig(path / 'scaling.pdf')
+plt.savefig(path / 'scaling.png', dpi=300)
+plt.close()
+
+# %%
+
 sampler_list = ['nautilus', 'nautilus-r', 'UltraNest', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 
