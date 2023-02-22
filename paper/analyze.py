@@ -293,6 +293,40 @@ plt.close()
 
 # %%
 
+for k, (sampler, color, ls) in enumerate(
+        zip(sampler_list, color_list, ls_list)):
+
+    x = []
+    n_like = []
+
+    for i, n_dim in enumerate(n_dim_list):
+        select = ((summary['likelihood'] == 'loggamma-{}'.format(n_dim)) &
+                  (summary['sampler'] == sampler))
+        if np.any(select):
+            x.append(n_dim)
+            n_like.append(summary['N_like'][select][0])
+
+    if len(x) > 0:
+        plt.plot(x, n_like, color=color, marker='o', label=sampler, ls=ls,
+                 zorder=k)
+
+plt.legend(handles, labels, loc='upper left', ncol=2, frameon=False,
+           handletextpad=0.3, columnspacing=0.8, markerscale=0,
+           handlelength=1.5)
+plt.xlabel(r'Dimensionality $N_{\rm dim}$')
+plt.yscale('log')
+plt.ylabel('Likelihood Evaluations')
+y_min, y_max = plt.gca().get_ylim()
+y_max = y_max * np.exp(0.4 * np.log(y_max / y_min))
+plt.ylim(y_min, y_max)
+plt.xticks(n_dim_list)
+plt.tight_layout(pad=0.1)
+plt.savefig(path / 'scaling_only.pdf')
+plt.savefig(path / 'scaling_only.png', dpi=300)
+plt.close()
+
+# %%
+
 sampler_list = ['nautilus', 'nautilus-r', 'UltraNest-m', 'dynesty-u',
                 'dynesty-r', 'dynesty-s', 'pocoMC']
 
