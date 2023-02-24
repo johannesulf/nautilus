@@ -15,6 +15,7 @@ all:
 	cp ../figures/rosenbrock-10_x8_posterior.pdf ./
 	cp ../figures/rosenbrock-10_full_posterior.pdf ./
 	cp ../figures/exoplanet_x5_posterior.pdf ./
+	cp ../figures/scaling_only.pdf ./
 	bibm pdflatex ms.tex
 
 clean:
