@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2023-02-24
+
+### Changed
+- Checkpointing file sizes are much smaller in the sampling phase.
+
+### Fixed
+- When sampling from likelihoods with negative infinities, no warnings will appear.
+
 ## [0.4.1] - 2023-02-13
 
 ### Fixed

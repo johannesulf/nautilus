@@ -862,9 +862,12 @@ class Sampler():
         if len(self.bounds) == 0:
             return 1.0
         else:
-            points, log_w, log_l = self.posterior()
-            log_v = log_w + self.evidence() - log_l
+            log_l = np.concatenate(self.log_l)
+            log_v = np.repeat(
+                self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
+                self.shell_n)
             log_v_live = log_v[np.argsort(log_l)][-self.n_live:]
+
             return logsumexp(log_v_live)
 
     def add_samples_to_shell(self, shell):
@@ -1071,12 +1074,17 @@ class Sampler():
 
         for shell in range(len(self.bounds)):
             group.create_dataset(
-                'points_{}'.format(shell), data=self.points[shell])
+                'points_{}'.format(shell), data=self.points[shell],
+                maxshape=(None, self.n_dim))
             group.create_dataset(
-                'log_l_{}'.format(shell), data=self.log_l[shell])
+                'log_l_{}'.format(shell), data=self.log_l[shell],
+                maxshape=(None, ))
             if self.blobs_dtype is not None:
+                maxshape = list(self.blobs[shell].shape)
+                maxshape[0] = None
                 group.create_dataset(
-                    'blobs_{}'.format(shell), data=self.blobs[shell])
+                    'blobs_{}'.format(shell), data=self.blobs[shell],
+                    maxshape=tuple(maxshape))
 
         for i, bound in enumerate(self.bounds):
             bound.write(fstream.create_group('bound_{}'.format(i)))
@@ -1117,14 +1125,12 @@ class Sampler():
             group.attrs['neural_network_{}'.format(key)] =\
                 self.neural_network_kwargs[key]
 
-        del group['points_{}'.format(shell)]
-        group.create_dataset(
-            'points_{}'.format(shell), data=self.points[shell])
-        del group['log_l_{}'.format(shell)]
-        group.create_dataset('log_l_{}'.format(shell), data=self.log_l[shell])
+        group['points_{}'.format(shell)].resize(self.points[shell].shape)
+        group['points_{}'.format(shell)][...] = self.points[shell]
+        group['log_l_{}'.format(shell)].resize(self.log_l[shell].shape)
+        group['log_l_{}'.format(shell)][...] = self.log_l[shell]
         if self.blobs_dtype is not None:
-            del group['blobs_{}'.format(shell)]
-            group.create_dataset('blobs_{}'.format(shell),
-                                 data=self.blobs[shell])
+            group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
+            group['blobs_{}'.format(shell)][...] = self.blobs[shell]
 
         fstream.close()
