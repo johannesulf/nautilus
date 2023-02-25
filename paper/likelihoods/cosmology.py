@@ -36,7 +36,7 @@ gal_prior.add_parameter('mean_occupation_satellites_assembias_param1',
 def likelihood(x):
 
     model.param_dict.update(
-        gal_prior.physical_to_structure(gal_prior.unit_to_physical(x)))
+        gal_prior.physical_to_dictionary(gal_prior.unit_to_physical(x)))
 
     n_mod, wp_mod = halotab.predict(model)
 

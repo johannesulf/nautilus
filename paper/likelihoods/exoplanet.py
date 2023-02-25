@@ -110,7 +110,8 @@ def likelihood(x):
     if np.any(x < 0) or np.any(x > 1):
         return -np.inf
 
-    param_dict = exo_prior.physical_to_structure(exo_prior.unit_to_physical(x))
+    param_dict = exo_prior.physical_to_dictionary(
+        exo_prior.unit_to_physical(x))
     p = [param_dict['P_a'], param_dict['P_b']]
     t0 = [param_dict['t_0_a'], param_dict['t_0_b']]
     ecc = [param_dict['ecc_a'], param_dict['ecc_b']]
