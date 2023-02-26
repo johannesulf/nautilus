@@ -17,6 +17,7 @@ all:
 	cp ../figures/exoplanet_x5_posterior.pdf ./
 	cp ../figures/scaling_only.pdf ./
 	bibm pdflatex ms.tex
+	zip source.zip *.tex ms.bbl bibliography.bib *.pdf
 
 clean:
 	rm -f *.log
