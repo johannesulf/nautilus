@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed warnings when sampling from likelihoods with so many negative infinities that certain shells have 0 probability.
+
 ## [0.4.2] - 2023-02-24
 
 ### Changed

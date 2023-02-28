@@ -665,8 +665,11 @@ class Sampler():
                 np.log(self.shell_n_sample_shell[index] /
                        self.shell_n_sample_bound[index]))
             self.shell_log_l[index] = logsumexp(log_l) - np.log(len(log_l))
-            self.shell_n_eff[index] = np.exp(2 * logsumexp(log_l) -
-                                             logsumexp(2 * log_l))
+            if not np.all(log_l == -np.inf):
+                self.shell_n_eff[index] = np.exp(2 * logsumexp(log_l) -
+                                                 logsumexp(2 * log_l))
+            else:
+                self.shell_n_eff[index] = len(log_l)
         else:
             self.shell_log_v[index] = -np.inf
             self.shell_log_l[index] = np.nan
