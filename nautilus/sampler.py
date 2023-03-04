@@ -95,7 +95,7 @@ class Sampler():
                  n_update=None, enlarge=None, neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
-                     'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20},
+                     'random_state': 0, 'tol': 1e-5, 'n_iter_no_change': 20},
                  prior_args=[], prior_kwargs={}, likelihood_args=[],
                  likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,

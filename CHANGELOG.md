@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2023-03-03
+
+### Changed
+- By default, the neural network is now trained longer. This led to better sampling performance in all problems tested.
+
 ### Fixed
 - Fixed warnings when sampling from likelihoods with so many negative infinities that certain shells have 0 probability.
 
