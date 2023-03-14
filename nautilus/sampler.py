@@ -810,7 +810,7 @@ class Sampler():
                 log_l_t = np.delete(log_l_t, idx_t)
                 if self.blobs_dtype is not None:
                     self.blobs[-1].append(blobs_t[idx_t])
-                    blobs_t = np.delete(blobs_t, idx_t)
+                    blobs_t = np.delete(blobs_t, idx_t, axis=0)
                 shell_t = np.delete(shell_t, idx_t)
 
             self.shell_n[-1] += n_bound

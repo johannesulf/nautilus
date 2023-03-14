@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2023-03-14
+
+### Fixed
+- Fixe a potential crash when more than one blob is returned per likelihood call.
+
+
 ## [0.4.3] - 2023-03-03
 
 ### Changed
