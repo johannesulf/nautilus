@@ -538,7 +538,7 @@ class MultiEllipsoid():
         return bound
 
     def split_ellipsoid(self, allow_overlap=True):
-        """Split the largest ellipsoid to the ellipsoid union.
+        """Split the largest ellipsoid in the ellipsoid union.
 
         Parameters
         ----------
