@@ -4,6 +4,8 @@ import pytest
 from scipy.special import gamma
 
 from nautilus import bounds
+from nautilus.bounds.basic import minimum_volume_enclosing_ellipsoid
+from nautilus.bounds.basic import invert_symmetric_positive_semidefinite_matrix
 
 
 @pytest.fixture
@@ -54,11 +56,6 @@ def test_unit_cube():
     n_dim, n_points = 3, 200
     cube = bounds.UnitCube.compute(n_dim)
 
-    point = cube.sample()
-    assert point.shape == (n_dim, )
-    assert np.all((point >= 0) & (point <= 1))
-    assert cube.contains(point)
-
     points = cube.sample(n_points)
     assert points.shape == (n_points, n_dim)
     assert np.all((points >= 0) & (points < 1))
@@ -94,7 +91,7 @@ def test_invert_symmetric_positive_semidefinite_matrix():
     points = np.random.normal(size=(1000, 10))
     m = np.cov(points, rowvar=False)
     assert np.allclose(
-        bounds.invert_symmetric_positive_semidefinite_matrix(m),
+        invert_symmetric_positive_semidefinite_matrix(m),
         np.linalg.inv(m))
 
 
@@ -111,8 +108,8 @@ def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary,
     # first iteration.
     points = np.concatenate([points_on_hypersphere_boundary,
                              np.atleast_2d(c_true + np.random.random() - 0.5)])
-    c, A = bounds.minimum_volume_enclosing_ellipsoid(
-        points, tol=tol, max_iterations=1000)
+    c, A = minimum_volume_enclosing_ellipsoid(points, tol=tol,
+                                              max_iterations=1000)
     assert np.allclose(c, c_true, rtol=0, atol=1e-3) or tol > 0
     assert np.allclose(A, A_true, rtol=0, atol=1e-2) or tol > 0
 
@@ -124,21 +121,17 @@ def test_ellipsoid_construction():
         bounds.Ellipsoid.compute(np.random.random(size=(10, 10)))
 
     with pytest.raises(ValueError):
-        bounds.Ellipsoid.compute(np.random.random(size=(100, 10)), enlarge=0.9)
+        bounds.Ellipsoid.compute(np.random.random(size=(100, 10)),
+                                 enlarge_per_dim=0.9)
 
 
 def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
     # Test that the ellipsoidal sampling and boundary work as expected.
 
     ell = bounds.Ellipsoid.compute(
-        points_on_hypersphere_boundary, enlarge=1.0,
+        points_on_hypersphere_boundary, enlarge_per_dim=1.0,
         random_state=np.random.RandomState(0))
     c = np.mean(points_on_hypersphere_boundary)
-
-    point = ell.sample()
-    assert point.shape == (points_on_hypersphere_boundary.shape[1], )
-    assert np.linalg.norm(point - c) < 1 + 1e-9
-    assert ell.contains(point)
 
     n_points = 100
     points = ell.sample(n_points)
@@ -147,7 +140,7 @@ def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
     assert np.all(ell.contains(points))
 
     ell = bounds.Ellipsoid.compute(
-        points, enlarge=2.0, random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.1, random_state=np.random.RandomState(0))
     points = ell.sample(n_points)
     assert not np.all(np.linalg.norm(points - c, axis=1) < 1)
     assert np.all(ell.contains(points))
@@ -156,12 +149,12 @@ def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
 def test_ellipsoid_volume(points_on_hypersphere_boundary):
     # Test that the volume of the ellipsoid is accurate.
 
-    for enlarge in [1.0, 2.0, np.pi]:
+    for enlarge_per_dim in [1.0, 1.1, np.pi / 2.0]:
         ell = bounds.Ellipsoid.compute(
-            points_on_hypersphere_boundary, enlarge=enlarge)
+            points_on_hypersphere_boundary, enlarge_per_dim=enlarge_per_dim)
         n_dim = points_on_hypersphere_boundary.shape[1]
         assert np.isclose(
-            ell.volume(), np.log(enlarge * np.pi**(n_dim / 2) /
+            ell.volume(), np.log(enlarge_per_dim**n_dim * np.pi**(n_dim / 2) /
                                  gamma(n_dim / 2 + 1)))
 
 
@@ -208,7 +201,8 @@ def test_multi_ellipsoid_split(random_points_from_hypersphere):
                              random_points_from_hypersphere + 100])
 
     mell = bounds.MultiEllipsoid.compute(
-        points, enlarge=1.0 + 1e-9, random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.0 + 1e-9,
+        random_state=np.random.RandomState(0))
 
     # When not allowing overlaps, only 2 ellipsoids should be possible.
     while mell.split_ellipsoid(allow_overlap=False):
@@ -245,14 +239,10 @@ def test_multi_ellipsoid_sample_and_contains(random_points_from_hypersphere):
     # expected.
 
     mell = bounds.MultiEllipsoid.compute(
-        random_points_from_hypersphere + 50, enlarge=1.0,
+        random_points_from_hypersphere + 50, enlarge_per_dim=1.0,
         random_state=np.random.RandomState(0))
     for i in range(4):
         mell.split_ellipsoid()
-
-    point = mell.sample()
-    assert point.shape == (random_points_from_hypersphere.shape[1], )
-    assert mell.contains(point)
 
     n_points = 100
     points = mell.sample(n_points)
@@ -260,7 +250,7 @@ def test_multi_ellipsoid_sample_and_contains(random_points_from_hypersphere):
     assert np.all(mell.contains(points))
 
     mell_large = bounds.MultiEllipsoid.compute(
-        points, enlarge=2.0, random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.1, random_state=np.random.RandomState(0))
     points = mell_large.sample(n_points)
     assert not np.all(mell.contains(points))
 
