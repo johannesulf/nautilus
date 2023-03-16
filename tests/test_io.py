@@ -6,7 +6,7 @@ from pathlib import Path
 
 from nautilus import Sampler
 from nautilus.bounds import (
-    UnitCube, Ellipsoid, MultiEllipsoid, UnitCubeEllipsoidMixture, NeuralBound,
+    UnitCube, Ellipsoid, Union, UnitCubeEllipsoidMixture, NeuralBound,
     NautilusBound)
 from nautilus.neural import NeuralNetworkEmulator
 
@@ -30,7 +30,7 @@ def test_neural_io(h5py_group):
                   emulator_read.predict(points))
 
 
-@pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, MultiEllipsoid,
+@pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, Union,
                                          UnitCubeEllipsoidMixture, NeuralBound,
                                          NautilusBound])
 @pytest.mark.parametrize("random_state_sync", [True, False])
@@ -46,7 +46,7 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
 
     if bound_class == UnitCube:
         args = (n_dim, )
-    elif bound_class in [Ellipsoid, MultiEllipsoid, UnitCubeEllipsoidMixture]:
+    elif bound_class in [Ellipsoid, Union, UnitCubeEllipsoidMixture]:
         args = (points, )
     else:
         log_l = -np.linalg.norm(points - 0.5, axis=1)
@@ -57,8 +57,8 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
             args = (points, log_l, log_l_min, np.log(0.5))
 
     bound_write = bound_class.compute(*args, random_state=random_state)
-    if bound_class == MultiEllipsoid:
-        bound_write.split_ellipsoid()
+    if bound_class == Union:
+        bound_write.split_bound()
 
     bound_write.write(h5py_group)
     if random_state_sync:

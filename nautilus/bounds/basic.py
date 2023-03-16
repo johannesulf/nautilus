@@ -6,7 +6,7 @@ from scipy.linalg.lapack import dpotrf, dpotri
 
 
 class UnitCube():
-    r"""Unit (hyper)cube bound in :math:`n_{\rm dim}` dimensions.
+    r"""Unit (hyper)cube bound.
 
     The :math:`n`-dimensional unit hypercube has :math:`n_{\rm dim}` parameters
     :math:`x_i` with :math:`0 \leq x_i < 1` for all :math:`x_i`.
@@ -159,9 +159,8 @@ def invert_symmetric_positive_semidefinite_matrix(m):
 def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
     r"""Find an approximation to the minimum volume enclosing ellipsoid (MVEE).
 
-    This functions finds an approximation to the MVEE for
-    :math:`n_{\rm points}` points in :math:`n_{\rm dim}`-dimensional space
-    using the Khachiyan algorithm.
+    This functions finds an approximation to the MVEE using the Khachiyan
+    algorithm.
 
     This function is based on
     http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.116.7691 but
@@ -219,7 +218,7 @@ def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
 
 
 class Ellipsoid():
-    r"""Ellipsoid in :math:`n_{\rm dim}` dimensions.
+    r"""Ellipsoid bound.
 
     Attributes
     ----------
@@ -311,7 +310,7 @@ class Ellipsoid():
 
         Returns
         -------
-        points_transformed : numpy.ndarray
+        points_t : numpy.ndarray
             Transformed points.
 
         """
@@ -528,16 +527,16 @@ class UnitCubeEllipsoidMixture():
 
         Returns
         -------
-        points_transformed: numpy.ndarray
+        points_t: numpy.ndarray
             Transformed points.
 
         """
-        points_transformed = np.copy(points)
+        points_t = np.copy(points)
         if self.ellipsoid is not None:
             idx = np.arange(self.n_dim)[~self.dim_cube]
-            points_transformed[:, idx] = self.ellipsoid.transform(
+            points_t[:, idx] = self.ellipsoid.transform(
                 points[:, idx], inverse=inverse)
-        return points_transformed
+        return points_t
 
     def contains(self, points):
         """Check whether points are contained in the bound.

@@ -5,7 +5,6 @@ import pytest
 import time
 
 from multiprocessing import Pool
-from sys import platform
 
 from nautilus import Sampler
 

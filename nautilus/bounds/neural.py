@@ -4,13 +4,13 @@ import numpy as np
 from scipy.special import logsumexp
 from scipy.stats import percentileofscore
 
-from .basic import UnitCube, Ellipsoid
+from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
 from ..neural import NeuralNetworkEmulator
 
 
 class NeuralBound():
-    r"""Neural network-based bound in :math:`n_{\rm dim}` dimensions.
+    """Neural network-based bound.
 
     Attributes
     ----------
@@ -18,8 +18,8 @@ class NeuralBound():
         Number of dimensions.
     random_state : numpy.random or numpy.random.RandomState instance
         Determines random number generation.
-    ellipsoid : Ellipsoid
-        Bounding ellipsoid drawn around the live points.
+    outer_bound : UnitCubeEllipsoidMixture
+        Outer bound around the points above the likelihood threshold.
     emulator : object
         Emulator based on `sklearn.neural_network.MLPRegressor` used to fit and
         predict likelihood scores.
@@ -29,7 +29,7 @@ class NeuralBound():
     """
 
     @classmethod
-    def compute(cls, points, log_l, log_l_min, ellipsoid=None, enlarge=2.0,
+    def compute(cls, points, log_l, log_l_min, enlarge_per_dim,
                 neural_network_kwargs={}, neural_network_thread_limit=1,
                 random_state=None):
         """Compute a neural network-based bound.
@@ -42,14 +42,9 @@ class NeuralBound():
             Likelihood of each point.
         log_l_min : float
             Target likelihood threshold of the bound.
-        ellipsoid : Ellipsoid or None, optional
-            If given, use the provided ellipsoid to enclose the points. If
-            None, determine a bounding ellipsoid from the given points. Default
-            is None.
-        enlarge : float, optional
-            The volume of the minimum enclosing ellipsoid around the points
-            with likelihood larger than the target likelihood is increased by
-            this factor. Default is 2.0.
+        enlarge_per_dim : float, optional
+            Along each dimension, the ellipsoid of the outer bound is enlarged
+            by this factor. Default is 1.1.
         neural_network_kwargs : dict, optional
             Keyword arguments passed to the constructor of
             `sklearn.neural_network.MLPRegressor`. By default, no keyword
@@ -75,20 +70,16 @@ class NeuralBound():
             bound.random_state = random_state
 
         # Determine the outer bound.
-        if ellipsoid is None:
-            bound.ellipsoid = Ellipsoid.compute(
-                points[log_l >
-                       log_l_min], enlarge_per_dim=enlarge**(1 / bound.n_dim),
-                random_state=bound.random_state)
-        else:
-            bound.ellipsoid = ellipsoid
+        bound.outer_bound = UnitCubeEllipsoidMixture.compute(
+            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            random_state=bound.random_state)
 
         # Train the network.
-        select = bound.ellipsoid.contains(points)
+        select = bound.outer_bound.contains(points)
         points = points[select]
         log_l = log_l[select]
 
-        points_t = bound.ellipsoid.transform(points)
+        points_t = bound.outer_bound.transform(points)
         perc = np.argsort(np.argsort(log_l)) / float(len(log_l))
         perc_min = percentileofscore(log_l, log_l_min) / 100
         score = np.zeros(len(points))
@@ -123,10 +114,10 @@ class NeuralBound():
         """
         points = np.atleast_2d(points)
 
-        points = self.ellipsoid.transform(points)
-        in_bound = np.sum(points**2, axis=-1) < 1
+        in_bound = self.outer_bound.contains(points)
         if np.any(in_bound):
-            in_bound[in_bound] = (self.emulator.predict(points[in_bound]) >
+            points_t = self.ellipsoid.transform(points)
+            in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
 
         return np.squeeze(in_bound)
@@ -142,7 +133,7 @@ class NeuralBound():
         """
         group.attrs['n_dim'] = self.n_dim
         group.attrs['score_predict_min'] = self.score_predict_min
-        self.ellipsoid.write(group.create_group('ellipsoid'))
+        self.outer_bound.write(group.create_group('outer_bound'))
         self.emulator.write(group.create_group('emulator'))
 
     @classmethod
@@ -171,7 +162,7 @@ class NeuralBound():
 
         bound.n_dim = group.attrs['n_dim']
         bound.score_predict_min = group.attrs['score_predict_min']
-        bound.ellipsoid = Ellipsoid.read(group['ellipsoid'])
+        bound.outer_bound = UnitCubeEllipsoidMixture.read(group['outer_bound'])
         bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
 
         return bound
