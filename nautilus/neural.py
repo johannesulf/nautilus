@@ -47,8 +47,11 @@ class NeuralNetworkEmulator():
 
         emulator.neural_network = MLPRegressor(**neural_network_kwargs)
         emulator.neural_network_thread_limit = neural_network_thread_limit
+        emulator.mean = np.mean(x, axis=0)
+        emulator.scale = np.std(x, axis=0)
         with threadpool_limits(limits=emulator.neural_network_thread_limit):
-            emulator.neural_network.fit(x, y)
+            emulator.neural_network.fit(
+                (x - emulator.mean) / emulator.scale, y)
 
         return emulator
 
@@ -91,6 +94,9 @@ class NeuralNetworkEmulator():
             except TypeError:
                 pass
 
+        group.create_dataset('mean', data=self.mean)
+        group.create_dataset('scale', data=self.scale)
+
         for i in range(self.neural_network.n_layers_ - 1):
             group.create_dataset('coefs_{}'.format(i),
                                  data=self.neural_network.coefs_[i])
@@ -122,6 +128,9 @@ class NeuralNetworkEmulator():
         for key in group.attrs:
             if key != 'neural_network_thread_limit':
                 setattr(emulator.neural_network, key, group.attrs[key])
+
+        group.mean = np.array(group['mean'])
+        group.scale = np.array(group['scale'])
 
         emulator.neural_network.coefs_ = [
             np.array(group['coefs_{}'.format(i)]) for i in
