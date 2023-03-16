@@ -178,13 +178,10 @@ class NautilusBound():
     ----------
     log_v : list
         Natural log of the volume of the sampling bound.
-    n_networks : int
-        Number of neural networks.
-    nbounds : list
+    neural_bounds : list
         List of the individual neural network-based bounds.
-    sample_bounds : tuple
-        Outer bounds used for sampling. The first one is used for sampling
-        while any points must lie in both to be part of the bound.
+    outer_bound : Union
+        Outer bound used for sampling.
     random_state : None or numpy.random.RandomState instance
         Determines random number generation.
     points_sample : numpy.ndarray
@@ -196,8 +193,8 @@ class NautilusBound():
     """
 
     @classmethod
-    def compute(cls, points, log_l, log_l_min, log_v_target, enlarge=2.0,
-                n_points_min=None, split_threshold=100,
+    def compute(cls, points, log_l, log_l_min, log_v_target,
+                enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
                 use_neural_networks=True, neural_network_kwargs={},
                 neural_network_thread_limit=1, random_state=None):
         """Compute a union of multiple neural network-based bounds.
@@ -213,10 +210,9 @@ class NautilusBound():
         log_v_target : float
             Expected volume of the bound. Used for multi-ellipsoidal
             decomposition.
-        enlarge : float, optional
-            The volume of the minimum enclosing ellipsoid around the points
-            with likelihood larger than the target likelihood is increased by
-            this factor. Default is 2.0.
+        enlarge_per_dim : float, optional
+            Along each dimension, the ellipsoid of the outer bound is enlarged
+            by this factor. Default is 1.1.
         n_points_min : int or None, optional
             The minimum number of points each ellipsoid should have.
             Effectively, ellipsoids with less than twice that number will not
