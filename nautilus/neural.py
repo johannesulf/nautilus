@@ -49,6 +49,7 @@ class NeuralNetworkEmulator():
         emulator.neural_network_thread_limit = neural_network_thread_limit
         emulator.mean = np.mean(x, axis=0)
         emulator.scale = np.std(x, axis=0)
+
         with threadpool_limits(limits=emulator.neural_network_thread_limit):
             emulator.neural_network.fit(
                 (x - emulator.mean) / emulator.scale, y)
@@ -70,7 +71,7 @@ class NeuralNetworkEmulator():
 
         """
         with threadpool_limits(limits=self.neural_network_thread_limit):
-            return self.neural_network.predict(x)
+            return self.neural_network.predict((x - self.mean) / self.scale)
 
     def write(self, group):
         """Write the emulator to an HDF5 group.
