@@ -554,15 +554,14 @@ class UnitCubeEllipsoidMixture():
             contained in the bound.
 
         """
-        points = np.atleast_2d(points)
-        in_bound = np.ones(len(points), dtype=bool)
+        in_bound = np.ones(points.shape[:-1], dtype=bool)
         if self.cube is not None:
             idx = np.arange(self.n_dim)[self.dim_cube]
-            in_bound = in_bound & self.cube.contains(points[:, idx])
+            in_bound = in_bound & self.cube.contains(points[..., idx])
         if self.ellipsoid is not None:
             idx = np.arange(self.n_dim)[~self.dim_cube]
-            in_bound = in_bound & self.ellipsoid.contains(points[:, idx])
-        return np.squeeze(in_bound)
+            in_bound = in_bound & self.ellipsoid.contains(points[..., idx])
+        return in_bound
 
     def sample(self, n_points=100):
         """Sample points from the bound.
