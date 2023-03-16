@@ -116,7 +116,7 @@ class NeuralBound():
 
         in_bound = self.outer_bound.contains(points)
         if np.any(in_bound):
-            points_t = self.ellipsoid.transform(points)
+            points_t = self.outer_bound.transform(points)
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
 
