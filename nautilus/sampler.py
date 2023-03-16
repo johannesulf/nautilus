@@ -92,7 +92,8 @@ class Sampler():
     """
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
-                 n_update=None, enlarge=None, neural_network_kwargs={
+                 n_update=None, enlarge=None, enlarge_per_dim=1.1,
+                 neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
                      'random_state': 0, 'tol': 1e-5, 'n_iter_no_change': 20},
@@ -235,6 +236,8 @@ class Sampler():
             self.enlarge = 1.1**self.n_dim
         else:
             self.enlarge = enlarge
+
+        self.enlarge_per_dim = enlarge_per_dim
 
         self.use_neural_networks = use_neural_networks
         self.neural_network_kwargs = neural_network_kwargs
@@ -714,7 +717,7 @@ class Sampler():
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
             bound = NautilusBound.compute(
                 points, log_l, log_l_min, self.live_volume(),
-                enlarge=self.enlarge,
+                enlarge_per_dim=self.enlarge_per_dim,
                 use_neural_networks=self.use_neural_networks,
                 neural_network_kwargs=self.neural_network_kwargs,
                 neural_network_thread_limit=self.neural_network_thread_limit,
