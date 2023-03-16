@@ -4,7 +4,8 @@ import numpy as np
 from scipy.special import logsumexp
 from scipy.stats import percentileofscore
 
-from .basic import UnitCube, Ellipsoid, MultiEllipsoid
+from .basic import UnitCube, Ellipsoid
+from .union import Union
 from ..neural import NeuralNetworkEmulator
 
 
@@ -256,20 +257,20 @@ class NautilusBound():
         """
         bound = cls()
 
-        mell = MultiEllipsoid.compute(
+        mell = Union.compute(
             points[log_l >
                    log_l_min], enlarge_per_dim=enlarge**(1 / points.shape[1]),
             n_points_min=n_points_min, random_state=random_state)
         cube = UnitCube.compute(points.shape[-1], random_state=random_state)
 
-        while mell.split_ellipsoid(allow_overlap=False):
+        while mell.split_bound(allow_overlap=False):
             pass
 
-        bound.n_networks = len(mell.ells)
+        bound.n_networks = len(mell.bounds)
         bound.nbounds = []
 
         if use_neural_networks:
-            for ell in mell.ells:
+            for ell in mell.bounds:
                 select = ell.contains(points)
                 bound.nbounds.append(NeuralBound.compute(
                     points[select], log_l[select], log_l_min, ellipsoid=ell,
@@ -289,7 +290,7 @@ class NautilusBound():
                 log_v = mell.volume() + np.log(
                     np.mean(cube.contains(points_test)))
             if log_v - log_v_target > np.log(split_threshold * enlarge):
-                if not mell.split_ellipsoid():
+                if not mell.split_bound():
                     break
             else:
                 break
@@ -460,9 +461,9 @@ class NautilusBound():
             group['nbound_{}'.format(i)], random_state=bound.random_state) for
             i in range(bound.n_networks)]
         if group['sample_bound_0'].attrs['type'] == 'UnitCube':
-            classes = [UnitCube, MultiEllipsoid]
+            classes = [UnitCube, Union]
         else:
-            classes = [MultiEllipsoid, UnitCube]
+            classes = [Union, UnitCube]
         bound.sample_bounds = tuple(
             classes[i].read(group['sample_bound_{}'.format(i)],
                             random_state=bound.random_state) for i in range(2))

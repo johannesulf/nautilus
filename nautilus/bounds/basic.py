@@ -1,12 +1,8 @@
 """Module implementing basic multi-dimensional bounds."""
 
-import itertools
 import numpy as np
 from scipy.special import gammaln
-from scipy.special import logsumexp
 from scipy.linalg.lapack import dpotrf, dpotri
-from scipy.optimize import minimize
-from sklearn.cluster import KMeans
 
 
 class UnitCube():
@@ -310,7 +306,8 @@ class Ellipsoid():
             By default, the coordinates are transformed from the regular
             coordinates to the coordinates in the ellipsoid. If `inverse` is
             set to true, this function does the inverse operation, i.e.
-            transform from the ellipsoidal to the regular coordinates.
+            transform from the ellipsoidal to the regular coordinates. Default
+            is False.
 
         Returns
         -------
@@ -373,12 +370,26 @@ class Ellipsoid():
         """
         return self.log_v
 
+    def extent(self):
+        """Determine the maximum extent along each dimension.
+
+        Returns
+        -------
+        x_min : numpy.ndarray
+            The minimum extent along each dimension.
+        x_max : numpy.ndarray
+            The maximum extent along each dimension.
+
+        """
+        dx = np.sqrt(np.diag(np.dot(self.B, self.B.T)))
+        return self.c - dx, self.c + dx
+
     def write(self, group):
         """Write the bound to an HDF5 group.
 
         Parameters
         ----------
-        group : h5py.Group
+        group: h5py.Group
             HDF5 group to write to.
 
         """
@@ -392,14 +403,14 @@ class Ellipsoid():
 
         Parameters
         ----------
-        group : h5py.Group
+        group: h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        random_state: None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
         Returns
         -------
-        bound : Ellipsoid
+        bound: Ellipsoid
             The bound.
 
         """
@@ -416,240 +427,165 @@ class Ellipsoid():
         return bound
 
 
-def ellipsoids_overlap(ells):
-    """Determine if ellipsoids overlap.
+class UnitCubeEllipsoidMixture():
+    """Mixture of a unit cube and an ellipsoid.
 
-    This functions is based on ieeexplore.ieee.org/document/6289830.
-
-    Parameters
-    ----------
-    ells : list
-        List of ellipsoids.
-
-    Returns
-    -------
-    overlapping : bool
-        True, if there is overlap between ellipoids and False otherwise.
-
-    """
-    c = [ell.c for ell in ells]
-    A_inv = [np.linalg.inv(ell.A) for ell in ells]
-
-    for i_1, i_2 in itertools.combinations(range(len(ells)), 2):
-        d = c[i_1] - c[i_2]
-        def k(s): return (1 - np.dot(np.dot(
-            d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d))
-        if minimize(k, 0.5, bounds=[(1e-9, 1-1e-9)]).fun > 0:
-            return True
-
-    return False
-
-
-class MultiEllipsoid():
-    r"""Union of multiple ellipsoids in :math:`n_{\rm dim}` dimensions.
+    Dimensions along which an ellipsoid has a smaller volume than a unit cube
+    are defined via ellipsoids and vice versa.
 
     Attributes
     ----------
-    n_dim : int
+    n_dim: int
         Number of dimensions.
-    ells : list
-        List of ellipsoids.
-    log_v : list
-        Natural log of the volume of each ellipsoid in the union.
-    points : list
-        The points used to create the union. Used to add more ellipsoids.
-    points_sample : numpy.ndarray
-        Points that a call to `sample` will return next.
-    n_sample : int
-        Number of points sampled from all ellipsoids.
-    n_reject : int
-        Number of points rejected due to overlap.
-    enlarge_per_dim : float
-        Along each dimension, the ellipsoid is enlarged by this factor.
-    n_points_min : int or None
-        The minimum number of points each ellipsoid should have. Effectively,
-        ellipsoids with less than twice that number will not be split further.
-    random_state : numpy.random.RandomState instance
+    dim_cube: numpy.ndarray
+        Whether the boundary in each dimension is defined via the unit cube.
+    cube: UnitCube or None
+        Unit cube defining the boundary along certain dimensions.
+    ellipsoid: Ellipsoid or None
+        Ellipsoid defining the boundary along certain dimensions.
+    random_state: numpy.random.RandomState instance
         Determines random number generation.
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, n_points_min=None,
-                random_state=None):
+    def compute(cls, points, enlarge_per_dim=1.1, random_state=None):
         """Compute the bound.
-
-        Upon creation, the bound consists of a single ellipsoid.
 
         Parameters
         ----------
-        points : numpy.ndarray with shape (n_points, n_dim)
+        points: numpy.ndarray with shape(n_points, n_dim)
             A 2-D array where each row represents a point.
-        enlarge_per_dim : float, optional
+        enlarge_per_dim: float, optional
             Along each dimension, the ellipsoid is enlarged by this factor.
             Default is 1.1.
-        n_points_min : int or None, optional
-            The minimum number of points each ellipsoid should have.
-            Effectively, ellipsoids with less than twice that number will not
-            be split further. If None, uses `n_points_min = n_dim + 1`. Default
-            is None.
-        random_state : None or numpy.random.RandomState instance, optional
+        random_state: None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
-
-        Raises
-        ------
-        ValueError
-            If `n_points_min` is smaller than the number of dimensions plus
-            one.
 
         Returns
         -------
-        bound : MultiEllipsoid
+        bound: UnitCubeEllipsoidMixture
             The bound.
 
         """
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        bound.points = [points]
-        bound.ells = [Ellipsoid.compute(
-            points, enlarge_per_dim=enlarge_per_dim,
-            random_state=random_state)]
-        bound.log_v = np.array([bound.ells[0].volume()])
+        kwargs = dict(enlarge_per_dim=enlarge_per_dim,
+                      random_state=random_state)
 
-        bound.points_sample = np.zeros((0, points.shape[1]))
-        bound.n_sample = 0
-        bound.n_reject = 0
+        # First, calculate a bounding ellipsoid along all dimensions.
+        ellipsoid_all = Ellipsoid.compute(points, **kwargs)
+        bound.dim_cube = np.zeros(bound.n_dim, dtype=bool)
+        # Now, determine which dimensions have a smaller volume when using the
+        # cube.
+        x_min, x_max = ellipsoid_all.extent()
+        for dim in range(bound.n_dim):
+            # If the ellipsoid doesn't extent outside the unit cube, an
+            # ellipsoid is better.
+            if x_min[dim] < 0 or x_max[dim] > 1:
+                ellipsoid_dim = Ellipsoid.compute(
+                    np.delete(points, dim, axis=1), **kwargs)
+                if ellipsoid_all.volume() > ellipsoid_dim.volume():
+                    bound.dim_cube[dim] = True
 
-        bound.enlarge_per_dim = enlarge_per_dim
-        if n_points_min is None:
-            n_points_min = bound.n_dim + 1
-
-        if n_points_min < bound.n_dim + 1:
-            raise ValueError('The number of points per ellipsoid cannot be ' +
-                             'smaller than the number of dimensions plus one.')
-
-        bound.n_points_min = n_points_min
+        if not np.any(bound.dim_cube):
+            bound.ellipsoid = ellipsoid_all
+            bound.cube = None
+        elif np.all(bound.dim_cube):
+            bound.ellipsoid = None
+            bound.cube = UnitCube.compute(
+                bound.n_dim, random_state=random_state)
+        else:
+            bound.ellipsoid = Ellipsoid.compute(
+                points[:, np.arange(bound.n_dim)[~bound.dim_cube]], **kwargs)
+            bound.cube = UnitCube.compute(
+                np.sum(bound.dim_cube), random_state=random_state)
 
         if random_state is None:
-            bound.random_state = np.random.RandomState()
+            bound.random_state = np.random
         else:
             bound.random_state = random_state
 
         return bound
 
-    def split_ellipsoid(self, allow_overlap=True):
-        """Split the largest ellipsoid in the ellipsoid union.
+    def transform(self, points, inverse=False):
+        """Transform points into the frame of the cube-ellipsoid mixture.
+
+        Along dimensions where the boundary is not defined via ellipsoids, the
+        coordinates are not transformed. Along all other dimensions, they are
+        transformed into the coordinate system of the bounding ellipsoid.
 
         Parameters
         ----------
-        allow_overlap : bool, optional
-            Whether to allow splitting the largest ellipsoid if doing so
-            creates overlaps between any ellipsoids. Default is True.
+        points: numpy.ndarray
+            A 1-D or 2-D array containing single point or a collection of
+            points. If more than one-dimensional, each row represents a point.
+        inverse: bool, optional
+            By default, the coordinates are transformed from the regular
+            coordinates to the coordinates in the ellipsoid. If `inverse` is
+            set to true, this function does the inverse operation, i.e.
+            transform from the ellipsoidal to the regular coordinates.
 
         Returns
         -------
-        success : bool
-            Whether it was possible to split any ellipsoid.
+        points_transformed: numpy.ndarray
+            Transformed points.
 
         """
-        split_possible = (np.array([len(points) for points in self.points]) >=
-                          2 * self.n_points_min)
-
-        if not np.any(split_possible):
-            return False
-
-        index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
-        points = self.ells[index].transform(self.points[index])
-
-        if self.random_state != np.random:
-            random_state = self.random_state
-        else:
-            random_state = None
-        d = KMeans(
-            n_clusters=2, n_init=10, random_state=random_state).fit_transform(
-            points)
-
-        labels = np.argmin(d, axis=1)
-        if not np.all(np.bincount(labels) >= self.n_points_min):
-            label = np.argmin(np.bincount(labels))
-            labels[np.argsort(d[:, label] - d[:, label - 1])[
-                :self.n_points_min]] = label
-
-        new_ells = self.ells.copy()
-        new_ells.pop(index)
-        points = self.points[index]
-        for label in [0, 1]:
-            new_ells.append(Ellipsoid.compute(
-                points[labels == label], enlarge_per_dim=self.enlarge_per_dim,
-                random_state=self.random_state))
-
-        if not allow_overlap and ellipsoids_overlap(new_ells):
-            return False
-
-        self.ells = new_ells
-        self.log_v = np.array([ell.volume() for ell in self.ells])
-        self.points.pop(index)
-        self.points.append(points[labels == 0])
-        self.points.append(points[labels == 1])
-
-        # Reset the sampling.
-        self.points_sample = np.zeros((0, points.shape[1]))
-        self.n_sample = 0
-        self.n_reject = 0
-
-        return True
+        points_transformed = np.copy(points)
+        if self.ellipsoid is not None:
+            idx = np.arange(self.n_dim)[~self.dim_cube]
+            points_transformed[:, idx] = self.ellipsoid.transform(
+                points[:, idx], inverse=inverse)
+        return points_transformed
 
     def contains(self, points):
         """Check whether points are contained in the bound.
 
         Parameters
         ----------
-        points : numpy.ndarray
+        points: numpy.ndarray
             A 1-D or 2-D array containing single point or a collection of
             points. If more than one-dimensional, each row represents a point.
 
         Returns
         -------
-        in_bound : bool or numpy.ndarray
+        in_bound: bool or numpy.ndarray
             Bool or array of bools describing for each point whether it is
             contained in the bound.
 
         """
-        return np.sum([ell.contains(points) for ell in self.ells], axis=0) >= 1
+        points = np.atleast_2d(points)
+        in_bound = np.ones(len(points), dtype=bool)
+        if self.cube is not None:
+            idx = np.arange(self.n_dim)[self.dim_cube]
+            in_bound = in_bound & self.cube.contains(points[:, idx])
+        if self.ellipsoid is not None:
+            idx = np.arange(self.n_dim)[~self.dim_cube]
+            in_bound = in_bound & self.ellipsoid.contains(points[:, idx])
+        return np.squeeze(in_bound)
 
     def sample(self, n_points=100):
         """Sample points from the bound.
 
         Parameters
         ----------
-        n_points : int, optional
+        n_points: int, optional
             How many points to draw.
 
         Returns
         -------
-        points : numpy.ndarray
-            Points as two-dimensional array of shape (n_points, n_dim).
+        points: numpy.ndarray
+            Points as two-dimensional array of shape(n_points, n_dim).
 
         """
-        while len(self.points_sample) < n_points:
-            n_sample = 10000
-
-            p = np.exp(np.array(self.log_v) - logsumexp(self.log_v))
-            n_per_ell = self.random_state.multinomial(n_sample, p)
-
-            points = np.vstack([ell.sample(n) for ell, n in
-                                zip(self.ells, n_per_ell)])
-            self.random_state.shuffle(points)
-            n_ell = np.sum([ell.contains(points) for ell in self.ells], axis=0)
-            p = 1 - 1.0 / n_ell
-            points = points[self.random_state.random(size=n_sample) > p]
-            self.points_sample = np.vstack([self.points_sample, points])
-
-            self.n_sample += n_sample
-            self.n_reject += n_sample - len(points)
-
-        points = self.points_sample[:n_points]
-        self.points_sample = self.points_sample[n_points:]
+        points = np.zeros((n_points, self.n_dim))
+        if self.cube is not None:
+            idx = np.arange(self.n_dim)[self.dim_cube]
+            points[:, idx] = self.cube.sample(n_points)
+        if self.ellipsoid is not None:
+            idx = np.arange(self.n_dim)[~self.dim_cube]
+            points[:, idx] = self.ellipsoid.sample(n_points)
         return points
 
     def volume(self):
@@ -657,36 +593,32 @@ class MultiEllipsoid():
 
         Returns
         -------
-        log_v : float
+        log_v: float
             The natural log of the volume.
 
         """
-        if self.n_sample == 0:
-            self.sample()
-
-        return logsumexp(self.log_v) + np.log(
-            1.0 - self.n_reject / self.n_sample)
+        if self.ellipsoid is None:
+            return 0
+        else:
+            return self.ellipsoid.volume()
 
     def write(self, group):
         """Write the bound to an HDF5 group.
 
         Parameters
         ----------
-        group : h5py.Group
+        group: h5py.Group
             HDF5 group to write to.
 
         """
-        group.attrs['type'] = 'MultiEllipsoid'
-        for key in ['n_dim', 'log_v', 'n_sample', 'n_reject',
-                    'enlarge_per_dim', 'n_points_min']:
-            group.attrs[key] = getattr(self, key)
+        group.attrs['type'] = 'UnitCubeEllipsoidMixture'
+        group.attrs['n_dim'] = self.n_dim
 
-        for i, ell in enumerate(self.ells):
-            ell.write(group.create_group('ellipsoid_{}'.format(i)))
-
-        for i in range(len(self.points)):
-            group.create_dataset('points_{}'.format(i), data=self.points[i])
-        group.create_dataset('points_sample', data=self.points_sample)
+        group.create_dataset('dim_cube', data=self.dim_cube)
+        if self.cube is not None:
+            self.cube.write(group.create_group('cube'))
+        if self.ellipsoid is not None:
+            self.ellipsoid.write(group.create_group('ellipsoid'))
 
     @classmethod
     def read(cls, group, random_state=None):
@@ -694,14 +626,14 @@ class MultiEllipsoid():
 
         Parameters
         ----------
-        group : h5py.Group
+        group: h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        random_state: None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
         Returns
         -------
-        bound : MultiEllipsoid
+        bound: UnitCubeEllipsoidMixture
             The bound.
 
         """
@@ -712,15 +644,19 @@ class MultiEllipsoid():
         else:
             bound.random_state = random_state
 
-        for key in ['n_dim', 'log_v', 'n_sample', 'n_reject',
-                    'enlarge_per_dim', 'n_points_min']:
-            setattr(bound, key, group.attrs[key])
+        bound.n_dim = group.attrs['n_dim']
+        bound.dim_cube = np.array(group['dim_cube'])
 
-        bound.ells = [Ellipsoid.read(
-            group['ellipsoid_{}'.format(i)], random_state=bound.random_state)
-            for i in range(len(bound.log_v))]
-        bound.points = [np.array(group['points_{}'.format(i)]) for i in
-                        range(len(bound.log_v))]
-        bound.points_sample = np.array(group['points_sample'])
+        if np.any(bound.dim_cube):
+            bound.cube = UnitCube.read(
+                group['cube'], random_state=bound.random_state)
+        else:
+            bound.cube = None
+
+        if not np.all(bound.dim_cube):
+            bound.ellipsoid = Ellipsoid.read(
+                group['ellipsoid'], random_state=bound.random_state)
+        else:
+            bound.ellipsoid = None
 
         return bound
