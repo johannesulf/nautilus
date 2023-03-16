@@ -1,7 +1,6 @@
 """Module implementing multi-dimensional neural network-based bounds."""
 
 import numpy as np
-from scipy.special import logsumexp
 from scipy.stats import percentileofscore
 
 from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
@@ -176,8 +175,6 @@ class NautilusBound():
 
     Attributes
     ----------
-    log_v : list
-        Natural log of the volume of the sampling bound.
     neural_bounds : list
         List of the individual neural network-based bounds.
     outer_bound : Union
@@ -244,50 +241,34 @@ class NautilusBound():
         """
         bound = cls()
 
-        mell = Union.compute(
-            points[log_l >
-                   log_l_min], enlarge_per_dim=enlarge**(1 / points.shape[1]),
-            n_points_min=n_points_min, random_state=random_state)
-        cube = UnitCube.compute(points.shape[-1], random_state=random_state)
-
-        while mell.split_bound(allow_overlap=False):
-            pass
-
-        bound.n_networks = len(mell.bounds)
-        bound.nbounds = []
+        bound.neural_bounds = []
 
         if use_neural_networks:
-            for ell in mell.bounds:
-                select = ell.contains(points)
-                bound.nbounds.append(NeuralBound.compute(
-                    points[select], log_l[select], log_l_min, ellipsoid=ell,
-                    enlarge=enlarge,
+            multi_ellipsoid = Union.compute(
+                points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+                n_points_min=n_points_min, bound_class=Ellipsoid,
+                random_state=random_state)
+
+            while multi_ellipsoid.split_bound(allow_overlap=False):
+                pass
+
+            for ellipsoid in multi_ellipsoid.bounds:
+                select = ellipsoid.contains(points)
+                bound.neural_bounds.append(NeuralBound.compute(
+                    points[select], log_l[select], log_l_min,
+                    enlarge_per_dim=enlarge_per_dim,
                     neural_network_kwargs=neural_network_kwargs,
                     neural_network_thread_limit=neural_network_thread_limit,
                     random_state=random_state))
 
-        while min(mell.volume(), 0.0) - log_v_target > np.log(
-                split_threshold * enlarge):
-            if mell.volume() >= 0:
-                points_test = cube.sample(10000)
-                log_v = cube.volume() + np.log(
-                    np.mean(mell.contains(points_test)))
-            else:
-                points_test = mell.sample(10000)
-                log_v = mell.volume() + np.log(
-                    np.mean(cube.contains(points_test)))
-            if log_v - log_v_target > np.log(split_threshold * enlarge):
-                if not mell.split_bound():
-                    break
-            else:
-                break
+        bound.outer_bound = Union.compute(
+            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            n_points_min=n_points_min, bound_class=UnitCubeEllipsoidMixture,
+            random_state=random_state)
 
-        if mell.volume() >= 0:
-            bound.sample_bounds = (cube, mell)
-        else:
-            bound.sample_bounds = (mell, cube)
-
-        bound.log_v = bound.sample_bounds[0].volume()
+        while bound.outer_bound.volume() - log_v_target > np.log(
+                split_threshold * enlarge_per_dim**points.shape[1]):
+            bound.outer_bound.split_bound()
 
         if random_state is None:
             bound.random_state = np.random.RandomState()
@@ -301,7 +282,7 @@ class NautilusBound():
         return bound
 
     def contains(self, points):
-        """Check whether points are contained in the ellipsoid.
+        """Check whether points are contained in the bound.
 
         Parameters
         ----------
@@ -316,14 +297,14 @@ class NautilusBound():
             the bound.
 
         """
-        in_bound = (self.sample_bounds[0].contains(points) &
-                    self.sample_bounds[1].contains(points))
-        if len(self.nbounds) > 0:
-            in_bound = in_bound & np.any(np.vstack(
-                [bound.contains(points) for bound in self.nbounds]), axis=0)
+        in_bound = self.outer_bound.contains(points)
+        if len(self.neural_bounds) > 0:
+            in_bound = in_bound & np.any(
+                [bound.contains(points) for bound in self.neural_bounds],
+                axis=0)
         return in_bound
 
-    def sample(self, n_points=1):
+    def sample(self, n_points=100):
         """Sample points from the the bound.
 
         Parameters
@@ -341,19 +322,14 @@ class NautilusBound():
         """
         while len(self.points_sample) < n_points:
             n_sample = 10000
-            points = self.sample_bounds[0].sample(n_sample)
-            points = points[self.sample_bounds[1].contains(points)]
-            if len(self.nbounds) > 0:
-                in_bound = np.any(np.vstack(
-                    [bound.contains(points) for bound in self.nbounds]),
-                    axis=0)
+            points = self.outer_bound.sample(n_sample)
+            if len(self.neural_bounds) > 0:
+                in_bound = np.any([bound.contains(points) for bound in
+                                   self.neural_bounds], axis=0)
                 points = points[in_bound]
             self.points_sample = np.vstack([self.points_sample, points])
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)
-
-        # Update volumes since they might have gotten more accurate.
-        self.log_v = self.sample_bounds[0].volume()
 
         points = self.points_sample[:n_points]
         self.points_sample = self.points_sample[n_points:]
@@ -372,7 +348,7 @@ class NautilusBound():
         if self.n_sample == 0:
             self.sample()
 
-        return logsumexp(self.log_v) + np.log(
+        return self.outer_bound.volume() + np.log(
             1.0 - self.n_reject / self.n_sample)
 
     def number_of_networks_and_ellipsoids(self):
@@ -382,18 +358,16 @@ class NautilusBound():
         -------
         n_neural : int
             The number of neural networks.
-        n_sample : int
+        n_ellipsoid : int
             The number of sample ellipsoids.
         """
-        n_neural = len(self.nbounds)
+        n_neural = len(self.neural_bounds)
 
-        if isinstance(self.sample_bounds[0], UnitCube):
-            i = 1
-        else:
-            i = 0
-        n_sample = len(self.sample_bounds[i].ells)
+        n_ellipsoid = 0
+        for bound in self.outer_bound.bounds:
+            n_ellipsoid += np.any(~bound.dim_cube)
 
-        return n_neural, n_sample
+        return n_neural, n_ellipsoid
 
     def write(self, group):
         """Write the bound to an HDF5 group.
