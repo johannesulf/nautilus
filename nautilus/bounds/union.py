@@ -119,7 +119,7 @@ class Union():
                                  'larger than the number of dimensions.')
             bound.n_points_min = n_points_min
 
-        if unit is None:
+        if not unit:
             bound.cube = None
         else:
             bound.cube = UnitCube.compute(

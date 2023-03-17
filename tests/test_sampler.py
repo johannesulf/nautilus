@@ -105,11 +105,11 @@ def test_sampler_accuracy(use_neural_networks, discard_exploration):
                   np.tril(np.ones_like(shell_bound_occupation)))
 
 
-def test_sampler_enlarge():
-    # Test that the enlarge keyword is passed correctly. In this example, we
-    # choose an enlargment factor so big that every bound should be the same if
-    # we don't use neural networks. This also tests that shells with 0 volume
-    # are removed after the exploration phase, as intended.
+def test_sampler_enlarge_per_dim():
+    # Test that the enlarge_per_dim keyword is passed correctly. In this
+    # example, we choose an enlargment factor so big that every bound should be
+    # the same if we don't use neural networks. Thus, after the exploration
+    # phase, all but one bound should be left.
 
     def prior(x):
         return x
@@ -117,7 +117,7 @@ def test_sampler_enlarge():
     def likelihood(x):
         return -np.linalg.norm(x - 0.5)**2 * 0.001
 
-    sampler = Sampler(prior, likelihood, n_dim=2, enlarge=100,
+    sampler = Sampler(prior, likelihood, n_dim=2, enlarge_per_dim=100,
                       use_neural_networks=False, random_state=0)
     sampler.run(f_live=0.1, n_eff=0)
 

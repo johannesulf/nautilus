@@ -28,7 +28,7 @@ class NeuralBound():
     """
 
     @classmethod
-    def compute(cls, points, log_l, log_l_min, enlarge_per_dim,
+    def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
                 neural_network_kwargs={}, neural_network_thread_limit=1,
                 random_state=None):
         """Compute a neural network-based bound.
@@ -381,16 +381,14 @@ class NautilusBound():
         """
         group.attrs['type'] = 'NautilusBound'
 
-        for key in ['n_networks', 'log_v', 'n_sample', 'n_reject']:
-            group.attrs[key] = getattr(self, key)
+        for i, neural_bound in enumerate(self.neural_bounds):
+            neural_bound.write(group.create_group('neural_bound_{}'.format(i)))
 
-        for i, nbound in enumerate(self.nbounds):
-            nbound.write(group.create_group('nbound_{}'.format(i)))
-
-        self.sample_bounds[0].write(group.create_group('sample_bound_0'))
-        self.sample_bounds[1].write(group.create_group('sample_bound_1'))
+        self.outer_bound.write(group.create_group('outer_bound'))
 
         group.create_dataset('points_sample', data=self.points_sample)
+        group.attrs['n_sample'] = self.n_sample
+        group.attrs['n_reject'] = self.n_reject
 
     @classmethod
     def read(cls, group, random_state=None):
@@ -416,19 +414,19 @@ class NautilusBound():
         else:
             bound.random_state = random_state
 
-        for key in ['n_networks', 'log_v', 'n_sample', 'n_reject']:
-            setattr(bound, key, group.attrs[key])
+        bound.neural_bounds = []
+        i = 0
+        while 'neural_bound_{}'.format(i) in group:
+            bound.neural_bounds.append(NeuralBound.read(
+                group['neural_bound_{}'.format(i)],
+                random_state=bound.random_state))
+            i += 1
 
-        bound.nbounds = [NeuralBound.read(
-            group['nbound_{}'.format(i)], random_state=bound.random_state) for
-            i in range(bound.n_networks)]
-        if group['sample_bound_0'].attrs['type'] == 'UnitCube':
-            classes = [UnitCube, Union]
-        else:
-            classes = [Union, UnitCube]
-        bound.sample_bounds = tuple(
-            classes[i].read(group['sample_bound_{}'.format(i)],
-                            random_state=bound.random_state) for i in range(2))
+        bound.outer_bound = Union.read(
+            group['outer_bound'], random_state=random_state)
+
         bound.points_sample = np.array(group['points_sample'])
+        bound.n_sample = group.attrs['n_sample']
+        bound.n_reject = group.attrs['n_reject']
 
         return bound

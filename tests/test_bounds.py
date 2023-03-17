@@ -199,26 +199,27 @@ def test_union_split(random_points_from_hypersphere):
     points = np.concatenate([random_points_from_hypersphere,
                              random_points_from_hypersphere + 100])
 
-    mell = bounds.Union.compute(
+    union = bounds.Union.compute(
         points, enlarge_per_dim=1.0 + 1e-9,
-        random_state=np.random.RandomState(0))
+        unit=False, random_state=np.random.RandomState(0))
 
     # When not allowing overlaps, only 2 ellipsoids should be possible.
-    while mell.split_ellipsoid(allow_overlap=False):
+    while union.split_bound(allow_overlap=False):
         pass
-    assert len(mell.ells) == 2
-    assert np.all(mell.contains(points))
+    assert len(union.bounds) == 2
+    print(np.all(union.contains(points)))
+    assert np.all(union.contains(points))
 
     # It should be possible to add 3 more ellipoids when overlaps are allowed.
     for i in range(3):
-        assert mell.split_ellipsoid(allow_overlap=True)
-    assert len(mell.ells) == 5
-    assert np.all(mell.contains(points))
+        assert union.split_bound(allow_overlap=True)
+    assert len(union.bounds) == 5
+    assert np.all(union.contains(points))
 
     points = np.random.random((20, 10))
-    mell = bounds.Union.compute(points)
+    union = bounds.Union.compute(points)
     # Check that no new ellipsoid can be added.
-    assert not mell.split_ellipsoid()
+    assert not union.split_bound()
 
     # Check that every split leads to ellipsoids with the minimum number of
     # points.
@@ -226,50 +227,54 @@ def test_union_split(random_points_from_hypersphere):
     n_points_min = 10
     for i in range(10):
         points = np.random.random((2 * n_points_min, 2))
-        mell = bounds.Union.compute(points, n_points_min=n_points_min)
-        mell.split_ellipsoid()
-        assert len(mell.points) == 2
-        assert len(mell.points[0]) == n_points_min
-        assert len(mell.points[1]) == n_points_min
+        union = bounds.Union.compute(points, n_points_min=n_points_min)
+        union.split_bound()
+        assert len(union.points) == 2
+        assert len(union.points[0]) == n_points_min
+        assert len(union.points[1]) == n_points_min
 
 
 def test_union_sample_and_contains(random_points_from_hypersphere):
     # Test whether the union sampling and boundary work as expected.
 
-    mell = bounds.Union.compute(
+    union = bounds.Union.compute(
         random_points_from_hypersphere + 50, enlarge_per_dim=1.0,
-        random_state=np.random.RandomState(0))
+        unit=False, random_state=np.random.RandomState(0))
     for i in range(4):
-        mell.split_ellipsoid()
+        union.split_bound()
 
     n_points = 100
-    points = mell.sample(n_points)
+    points = union.sample(n_points)
     assert points.shape == (n_points, random_points_from_hypersphere.shape[1])
-    assert np.all(mell.contains(points))
+    assert np.all(union.contains(points))
 
-    mell_large = bounds.Union.compute(
-        points, enlarge_per_dim=1.1, random_state=np.random.RandomState(0))
-    points = mell_large.sample(n_points)
-    assert not np.all(mell.contains(points))
+    union_large = bounds.Union.compute(
+        points, enlarge_per_dim=1.1, unit=False,
+        random_state=np.random.RandomState(0))
+    points = union_large.sample(n_points)
+    assert not np.all(union.contains(points))
 
 
 def test_union_random_state(random_points_from_hypersphere):
     # Test that passing a random state leads to reproducible results.
 
-    mell = bounds.Union.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(0))
-    mell.split_ellipsoid()
-    mell_same = bounds.Union.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(0))
-    mell_same.split_ellipsoid()
-    mell_diff = bounds.Union.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(1))
-    mell_diff.split_ellipsoid()
+    union = bounds.Union.compute(
+        random_points_from_hypersphere, unit=False,
+        random_state=np.random.RandomState(0))
+    union.split_bound()
+    union_same = bounds.Union.compute(
+        random_points_from_hypersphere, unit=False,
+        random_state=np.random.RandomState(0))
+    union_same.split_bound()
+    union_diff = bounds.Union.compute(
+        random_points_from_hypersphere, unit=False,
+        random_state=np.random.RandomState(1))
+    union_diff.split_bound()
     n_points = 100
-    points = mell.sample(n_points)
-    assert np.all(points == mell_same.sample(n_points))
-    assert not np.all(points == mell_diff.sample(n_points))
-    assert not np.all(points == mell.sample(n_points))
+    points = union.sample(n_points)
+    assert np.all(points == union_same.sample(n_points))
+    assert not np.all(points == union_diff.sample(n_points))
+    assert not np.all(points == union.sample(n_points))
 
 
 def test_neural_bound_contains(random_points_from_hypercube,

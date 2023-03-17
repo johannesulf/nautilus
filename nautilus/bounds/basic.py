@@ -151,12 +151,11 @@ def invert_symmetric_positive_semidefinite_matrix(m):
         Inverse of the matrix.
 
     """
-    m_inv = dpotri(dpotrf(m, False, False)[0])[0]
-    m_inv = np.triu(m_inv) + np.triu(m_inv, k=1).T
-    return m_inv
+    m_inv_triangle = dpotri(dpotrf(m)[0])[0]
+    return m_inv_triangle + m_inv_triangle.T - np.diag(np.diag(m_inv_triangle))
 
 
-def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
+def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=500):
     r"""Find an approximation to the minimum volume enclosing ellipsoid (MVEE).
 
     This functions finds an approximation to the MVEE using the Khachiyan
@@ -479,9 +478,9 @@ class UnitCubeEllipsoidMixture():
         # cube.
         x_min, x_max = ellipsoid_all.extent()
         for dim in range(bound.n_dim):
-            # If the ellipsoid doesn't extent outside the unit cube, an
-            # ellipsoid is better.
-            if x_min[dim] < 0 or x_max[dim] > 1:
+            # If the ellipsoid doesn't extent outside the unit cube in both
+            # directions, an ellipsoid most likely has a smaller volume.
+            if x_min[dim] < 0 and x_max[dim] > 1:
                 ellipsoid_dim = Ellipsoid.compute(
                     np.delete(points, dim, axis=1), **kwargs)
                 if ellipsoid_all.volume() > ellipsoid_dim.volume():

@@ -130,8 +130,8 @@ class NeuralNetworkEmulator():
             if key != 'neural_network_thread_limit':
                 setattr(emulator.neural_network, key, group.attrs[key])
 
-        group.mean = np.array(group['mean'])
-        group.scale = np.array(group['scale'])
+        emulator.mean = np.array(group['mean'])
+        emulator.scale = np.array(group['scale'])
 
         emulator.neural_network.coefs_ = [
             np.array(group['coefs_{}'.format(i)]) for i in
