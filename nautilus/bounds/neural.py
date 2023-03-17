@@ -268,7 +268,8 @@ class NautilusBound():
 
         while bound.outer_bound.volume() - log_v_target > np.log(
                 split_threshold * enlarge_per_dim**points.shape[1]):
-            bound.outer_bound.split_bound()
+            if not bound.outer_bound.split_bound():
+                break
 
         if random_state is None:
             bound.random_state = np.random.RandomState()
