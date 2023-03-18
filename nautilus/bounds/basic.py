@@ -240,7 +240,7 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, fast=True,
+    def compute(cls, points, enlarge_per_dim=1.1, fast=False,
                 random_state=None):
         """Compute the bound.
 
