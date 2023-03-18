@@ -240,7 +240,8 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, random_state=None):
+    def compute(cls, points, enlarge_per_dim=1.1, fast=True,
+                random_state=None):
         """Compute the bound.
 
         Parameters
@@ -250,6 +251,11 @@ class Ellipsoid():
         enlarge_per_dim : float, optional
             Along each dimension, the ellipsoid is enlarged by this factor.
             Default is 1.1.
+        fast : bool, optional
+            If True, calculate the bounding ellipsoid from the mean and
+            covariance of the points. If False, the ellipsoid (ignoring
+            `enlarge_per_dim` is an approximation to a minimum volume enclosing
+            ellipsoid. Default is False.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -276,7 +282,16 @@ class Ellipsoid():
             raise ValueError('Number of points must be larger than number ' +
                              'dimensions.')
 
-        bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+        if not fast:
+            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+        else:
+            bound.c = np.mean(points, axis=0)
+            bound.A = np.linalg.inv(np.atleast_2d(np.cov(
+                points, rowvar=False)))
+            scale = np.amax(np.einsum(
+                '...i,ij,...j', points - bound.c, bound.A, points - bound.c))
+            bound.A /= scale
+
         bound.A /= enlarge_per_dim**2.0
         bound.B = np.linalg.cholesky(np.linalg.inv(bound.A))
         bound.B_inv = np.linalg.inv(bound.B)
@@ -368,20 +383,6 @@ class Ellipsoid():
         """
         return self.log_v
 
-    def extent(self):
-        """Determine the maximum extent along each dimension.
-
-        Returns
-        -------
-        x_min : numpy.ndarray
-            The minimum extent along each dimension.
-        x_max : numpy.ndarray
-            The maximum extent along each dimension.
-
-        """
-        dx = np.sqrt(np.diag(np.dot(self.B, self.B.T)))
-        return self.c - dx, self.c + dx
-
     def write(self, group):
         """Write the bound to an HDF5 group.
 
@@ -472,32 +473,27 @@ class UnitCubeEllipsoidMixture():
                       random_state=random_state)
 
         # First, calculate a bounding ellipsoid along all dimensions.
-        ellipsoid_all = Ellipsoid.compute(points, **kwargs)
+        ellipsoid = Ellipsoid.compute(points, fast=True, **kwargs)
         bound.dim_cube = np.zeros(bound.n_dim, dtype=bool)
         # Now, determine which dimensions have a smaller volume when using the
         # cube.
-        x_min, x_max = ellipsoid_all.extent()
         for dim in range(bound.n_dim):
-            # If the ellipsoid doesn't extent outside the unit cube in both
-            # directions, an ellipsoid most likely has a smaller volume.
-            if x_min[dim] < 0 and x_max[dim] > 1:
-                ellipsoid_dim = Ellipsoid.compute(
-                    np.delete(points, dim, axis=1), **kwargs)
-                if ellipsoid_all.volume() > ellipsoid_dim.volume():
-                    bound.dim_cube[dim] = True
+            ellipsoid_dim = Ellipsoid.compute(
+                np.delete(points, dim, axis=1), fast=True, **kwargs)
+            if ellipsoid.volume() > ellipsoid_dim.volume():
+                bound.dim_cube[dim] = True
 
-        if not np.any(bound.dim_cube):
-            bound.ellipsoid = ellipsoid_all
-            bound.cube = None
-        elif np.all(bound.dim_cube):
-            bound.ellipsoid = None
+        if np.any(bound.dim_cube):
             bound.cube = UnitCube.compute(
-                bound.n_dim, random_state=random_state)
+                np.sum(bound.dim_cube), random_state=random_state)
+        else:
+            bound.cube = None
+
+        if np.all(bound.dim_cube):
+            bound.ellipsoid = None
         else:
             bound.ellipsoid = Ellipsoid.compute(
                 points[:, np.arange(bound.n_dim)[~bound.dim_cube]], **kwargs)
-            bound.cube = UnitCube.compute(
-                np.sum(bound.dim_cube), random_state=random_state)
 
         if random_state is None:
             bound.random_state = np.random

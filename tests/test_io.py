@@ -39,7 +39,7 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
     # test that the random state is correctly set after writing and reading.
 
     n_dim = 5
-    n_points = 100
+    n_points = 200
     np.random.seed(0)
     points = np.random.random((n_points, n_dim))
     random_state = np.random.RandomState()
