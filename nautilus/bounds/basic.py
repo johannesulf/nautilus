@@ -502,23 +502,19 @@ class UnitCubeEllipsoidMixture():
 
         return bound
 
-    def transform(self, points, inverse=False):
+    def transform(self, points):
         """Transform points into the frame of the cube-ellipsoid mixture.
 
-        Along dimensions where the boundary is not defined via ellipsoids, the
-        coordinates are not transformed. Along all other dimensions, they are
-        transformed into the coordinate system of the bounding ellipsoid.
+        Along dimensions where the boundary is not defined via the unit range,
+        the coordinates are transformed into the range [-1, +1]. Along all
+        other dimensions, they are transformed into the coordinate system of
+        the bounding ellipsoid.
 
         Parameters
         ----------
         points: numpy.ndarray
             A 1-D or 2-D array containing single point or a collection of
             points. If more than one-dimensional, each row represents a point.
-        inverse: bool, optional
-            By default, the coordinates are transformed from the regular
-            coordinates to the coordinates in the ellipsoid. If `inverse` is
-            set to true, this function does the inverse operation, i.e.
-            transform from the ellipsoidal to the regular coordinates.
 
         Returns
         -------
@@ -527,10 +523,12 @@ class UnitCubeEllipsoidMixture():
 
         """
         points_t = np.copy(points)
+        if self.cube is not None:
+            idx = np.arange(self.n_dim)[self.dim_cube]
+            points_t[:, idx] = points[:, idx] * 2 - 1
         if self.ellipsoid is not None:
             idx = np.arange(self.n_dim)[~self.dim_cube]
-            points_t[:, idx] = self.ellipsoid.transform(
-                points[:, idx], inverse=inverse)
+            points_t[:, idx] = self.ellipsoid.transform(points[:, idx])
         return points_t
 
     def contains(self, points):
