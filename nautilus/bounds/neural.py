@@ -69,7 +69,7 @@ class NeuralBound():
             bound.random_state = random_state
 
         # Determine the outer bound.
-        bound.outer_bound = UnitCubeEllipsoidMixture.compute(
+        bound.outer_bound = Ellipsoid.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
             random_state=bound.random_state)
 
