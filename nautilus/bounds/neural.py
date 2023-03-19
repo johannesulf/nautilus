@@ -161,7 +161,7 @@ class NeuralBound():
 
         bound.n_dim = group.attrs['n_dim']
         bound.score_predict_min = group.attrs['score_predict_min']
-        bound.outer_bound = UnitCubeEllipsoidMixture.read(group['outer_bound'])
+        bound.outer_bound = Ellipsoid.read(group['outer_bound'])
         bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
 
         return bound
