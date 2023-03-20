@@ -3,7 +3,7 @@
 import numpy as np
 from scipy.stats import percentileofscore
 
-from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
+from .basic import Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
 from ..neural import NeuralNetworkEmulator
 
