@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Introduced new bounds that lead to lower overhead for high-dimensional problems. The number of likelihood calls should be close to unaffected.
+
+### Fixed
+- Previously, the sampler would sometimes reject new bounds because their volume was estimated to be larger than the previous bound. However, this was based on very noisy volume estimates in certain situations. The sampler now uses more precise volume estimates, which can increase sampling performance for high-dimensional problems since bounds are updated more often.
+
+### Deprecated
+- The `enlarge` keyword argument for the sampler has been deprecated in favor of the new keyword `enlarge_per_dim`. Specifying `enlarge` will be ignored but not raise an error.
+
 ## [0.4.4] - 2023-03-14
 
 ### Fixed
-- Fixe a potential crash when more than one blob is returned per likelihood call.
-
+- Fixed a potential crash when more than one blob is returned per likelihood call.
 
 ## [0.4.3] - 2023-03-03
 

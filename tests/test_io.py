@@ -5,15 +5,16 @@ import pytest
 from pathlib import Path
 
 from nautilus import Sampler
-from nautilus.bounds import (UnitCube, Ellipsoid, MultiEllipsoid, NeuralBound,
-                             NautilusBound)
+from nautilus.bounds import (
+    UnitCube, Ellipsoid, Union, UnitCubeEllipsoidMixture, NeuralBound,
+    NautilusBound)
 from nautilus.neural import NeuralNetworkEmulator
 
 
 @pytest.fixture
 def h5py_group():
-    with h5py.File('test.hdf5', 'w') as file:
-        yield file.create_group('test')
+    with h5py.File('test.hdf5', 'w') as filepath:
+        yield filepath.create_group('test')
     Path('test.hdf5').unlink()
 
 
@@ -29,8 +30,9 @@ def test_neural_io(h5py_group):
                   emulator_read.predict(points))
 
 
-@pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, MultiEllipsoid,
-                                         NeuralBound, NautilusBound])
+@pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, Union,
+                                         UnitCubeEllipsoidMixture, NeuralBound,
+                                         NautilusBound])
 @pytest.mark.parametrize("random_state_sync", [True, False])
 def test_bounds_io(h5py_group, bound_class, random_state_sync):
     # Test that we can write and read a bound correctly. In particular, also
@@ -40,10 +42,11 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
     n_points = 100
     np.random.seed(0)
     points = np.random.random((n_points, n_dim))
+    random_state = np.random.RandomState()
 
     if bound_class == UnitCube:
         args = (n_dim, )
-    elif bound_class in [Ellipsoid, MultiEllipsoid]:
+    elif bound_class in [Ellipsoid, Union, UnitCubeEllipsoidMixture]:
         args = (points, )
     else:
         log_l = -np.linalg.norm(points - 0.5, axis=1)
@@ -53,9 +56,9 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
         else:
             args = (points, log_l, log_l_min, np.log(0.5))
 
-    bound_write = bound_class.compute(*args)
-    if bound_class == MultiEllipsoid:
-        bound_write.split_ellipsoid()
+    bound_write = bound_class.compute(*args, random_state=random_state)
+    if bound_class == Union:
+        bound_write.split_bound()
 
     bound_write.write(h5py_group)
     if random_state_sync:

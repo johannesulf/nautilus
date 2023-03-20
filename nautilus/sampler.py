@@ -11,6 +11,7 @@ from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
 from tqdm import tqdm
+import warnings
 
 from .bounds import UnitCube, NautilusBound
 
@@ -92,7 +93,8 @@ class Sampler():
     """
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
-                 n_update=None, enlarge=None, neural_network_kwargs={
+                 n_update=None, enlarge=None, enlarge_per_dim=1.1,
+                 neural_network_kwargs={
                      'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
                      'learning_rate_init': 1e-2, 'max_iter': 10000,
                      'random_state': 0, 'tol': 1e-5, 'n_iter_no_change': 20},
@@ -122,9 +124,10 @@ class Sampler():
             The maximum number of additions to the live set before a new bound
             is created. If None, use `n_live`. Default is None.
         enlarge : float, optional
-            Factor by which the volume of ellipsoidal bounds is increased.
-            Default is 1.1 to the power of `n_dim`, i.e. the ellipsoidal bounds
-            are increased by 10% in every dimension.
+            Deprecated.
+        enlarge_per_dim : float, optional
+            Along each dimension, outer ellipsoidal bounds are enlarged by this
+            factor. Default is 1.1.
         neural_network_kwargs : dict, optional
             Keyword arguments passed to the constructor of
             `sklearn.neural_network.MLPRegressor`.
@@ -231,10 +234,12 @@ class Sampler():
         else:
             self.n_like_new_bound = n_like_new_bound
 
-        if enlarge is None:
-            self.enlarge = 1.1**self.n_dim
-        else:
-            self.enlarge = enlarge
+        if enlarge is not None:
+            warnings.warn("The 'enlarge' keyword argument has been " +
+                          "deprecated. Use 'enlarge_per_dim', instead.",
+                          DeprecationWarning, stacklevel=2)
+
+        self.enlarge_per_dim = enlarge_per_dim
 
         self.use_neural_networks = use_neural_networks
         self.neural_network_kwargs = neural_network_kwargs
@@ -714,7 +719,7 @@ class Sampler():
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
             bound = NautilusBound.compute(
                 points, log_l, log_l_min, self.live_volume(),
-                enlarge=self.enlarge,
+                enlarge_per_dim=self.enlarge_per_dim,
                 use_neural_networks=self.use_neural_networks,
                 neural_network_kwargs=self.neural_network_kwargs,
                 neural_network_thread_limit=self.neural_network_thread_limit,
@@ -1061,9 +1066,9 @@ class Sampler():
         group = fstream.create_group('sampler')
 
         for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
-                    'enlarge', 'use_neural_networks', 'n_batch', 'vectorized',
-                    'pass_dict', 'neural_network_thread_limit', 'n_like',
-                    'explored', 'shell_n', 'shell_n_sample_shell',
+                    'enlarge_per_dim', 'use_neural_networks', 'n_batch',
+                    'vectorized', 'pass_dict', 'neural_network_thread_limit',
+                    'n_like', 'explored', 'shell_n', 'shell_n_sample_shell',
                     'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
                     'shell_log_l', 'shell_log_v']:
             group.attrs[key] = getattr(self, key)
