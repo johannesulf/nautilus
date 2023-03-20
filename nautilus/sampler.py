@@ -854,7 +854,11 @@ class Sampler():
         if len(self.bounds) == 0:
             return 1.0
         else:
-            points, log_w, log_l = self.posterior()
+            log_v = np.repeat(
+                self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
+                self.shell_n)
+            log_l = np.concatenate(self.log_l)
+            log_w = log_v + log_l
             log_w_live = log_w[np.argsort(log_l)][-self.n_live:]
             return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
 
