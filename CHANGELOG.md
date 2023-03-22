@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Previously, the sampler would sometimes reject new bounds because their volume was estimated to be larger than the previous bound. However, this was based on very noisy volume estimates in certain situations. The sampler now uses more precise volume estimates, which can increase sampling performance for high-dimensional problems since bounds are updated more often.
 - The sampler now doesn't perform unnecessary prior transformations when calculating the fraction of the evidence in the live set.
+- When discarding points in the exploration phase, blobs are now also correctly removed.
 
 ### Deprecated
 - The `enlarge` keyword argument for the sampler has been deprecated in favor of the new keyword `enlarge_per_dim`. Specifying `enlarge` will be ignored but not raise an error.

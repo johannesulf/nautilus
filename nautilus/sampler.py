@@ -912,6 +912,8 @@ class Sampler():
             self.shell_n_sample_bound[i] = 0
             self.points[i] = np.zeros((0, self.n_dim))
             self.log_l[i] = np.zeros(0)
+            if self.blobs_dtype is not None:
+                self.blobs[i] = np.zeros(0, dtype=self.blobs_dtype)
             self.update_shell_info(i)
 
     def add_points(self, n_eff=0, n_shell=0, verbose=False):
