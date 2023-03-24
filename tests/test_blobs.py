@@ -97,8 +97,6 @@ def test_blobs_single_dtype(prior, vectorized, discard_exploration):
                       vectorized=vectorized, blobs_dtype=float)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
-    print(points.shape, blobs.shape)
-    print(points, blobs)
     assert len(points) == len(blobs)
     assert np.all(points[:, 0] == blobs[:, 0])
     assert np.all(points[:, 1] == blobs[:, 1])
