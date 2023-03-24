@@ -40,10 +40,10 @@ def test_blobs_multi(prior, vectorized, discard_exploration):
 
     def likelihood(x):
         if vectorized:
-            return (np.ones(len(x)), x[:, 0].astype(np.float64),
+            return (np.ones(len(x)), x[:, 0].astype(np.float32),
                     x[:, 1].astype(np.float32))
         else:
-            return 1, np.float64(x[0]), np.float32(x[1])
+            return 1, np.float32(x[0]), np.float32(x[1])
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
                       vectorized=vectorized)
@@ -51,9 +51,9 @@ def test_blobs_multi(prior, vectorized, discard_exploration):
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
     assert len(points) == len(blobs)
-    assert blobs['blob_0'].dtype == np.float64
+    assert blobs['blob_0'].dtype == np.float32
     assert blobs['blob_1'].dtype == np.float32
-    assert np.all(points[:, 0].astype(np.float64) == blobs['blob_0'])
+    assert np.all(points[:, 0].astype(np.float32) == blobs['blob_0'])
     assert np.all(points[:, 1].astype(np.float32) == blobs['blob_1'])
 
 
@@ -79,3 +79,26 @@ def test_blobs_dtype(prior, vectorized, discard_exploration):
     assert blobs['b'].dtype == blobs_dtype[1][1]
     assert np.all(points[:, 0].astype(blobs_dtype[0][1]) == blobs['a'])
     assert np.all(points[:, 1].astype(blobs_dtype[1][1]) == blobs['b'])
+
+
+@pytest.mark.parametrize("vectorized", [True, False])
+@pytest.mark.parametrize("discard_exploration", [True, False])
+def test_blobs_single_dtype(prior, vectorized, discard_exploration):
+    # Test that blobs work even when returning specyfing a single dtype like
+    # CosmoSIS does.
+
+    def likelihood(x):
+        if vectorized:
+            return np.ones(len(x)), x[:, 0], x[:, 1]
+        else:
+            return 1, x[0], x[1]
+
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
+                      vectorized=vectorized, blobs_dtype=float)
+    sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
+    points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
+    print(points.shape, blobs.shape)
+    print(points, blobs)
+    assert len(points) == len(blobs)
+    assert np.all(points[:, 0] == blobs[:, 0])
+    assert np.all(points[:, 1] == blobs[:, 1])
