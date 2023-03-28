@@ -23,7 +23,7 @@ class NeuralNetworkEmulator():
     """
 
     @classmethod
-    def train(cls, x, y, neural_network_kwargs={}):
+    def train(cls, x, y, n_networks=4, neural_network_kwargs={}):
         """Initialize and train the likelihood neural network emulator.
 
         Parameters
@@ -58,7 +58,7 @@ class NeuralNetworkEmulator():
             with Pool(4) as pool:
                 emulator.neural_networks = pool.map(partial(
                     train_network, (x - emulator.mean) / emulator.scale, y,
-                    neural_network_kwargs), range(4))
+                    neural_network_kwargs), range(n_networks))
 
         return emulator
 
