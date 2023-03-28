@@ -94,15 +94,13 @@ class Sampler():
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
                  n_update=None, enlarge=None, enlarge_per_dim=1.1,
-                 neural_network_kwargs={
-                     'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
-                     'learning_rate_init': 1e-2, 'max_iter': 10000,
-                     'random_state': 0, 'tol': 1e-5, 'n_iter_no_change': 20},
-                 prior_args=[], prior_kwargs={}, likelihood_args=[],
-                 likelihood_kwargs={}, n_batch=100, use_neural_networks=True,
-                 n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, neural_network_thread_limit=1, random_state=None,
-                 blobs_dtype=None, filepath=None, resume=True):
+                 neural_network_kwargs=dict(), prior_args=[],
+                 prior_kwargs=dict(), likelihood_args=[],
+                 likelihood_kwargs=dict(), n_batch=100,
+                 use_neural_networks=True, n_like_new_bound=None,
+                 vectorized=False, pass_dict=None, pool=None,
+                 random_state=None, blobs_dtype=None, filepath=None,
+                 resume=True):
         r"""
         Initialize the sampler.
 
@@ -173,8 +171,7 @@ class Sampler():
             If it is an integer, it determines the number of workers in the
             Pool. Default is None.
         neural_network_thread_limit : int or None, optional
-            Maximum number of threads used by `sklearn`. If None, no limits
-            are applied. Default is 1.
+            Deprecated.
         random_state : int or np.random.RandomState, optional
             Determines random number generation. Pass an int for reproducible
             results accross different runs. Default is None.
@@ -246,7 +243,6 @@ class Sampler():
         self.n_batch = n_batch
         self.vectorized = vectorized
         self.pass_dict = pass_dict
-        self.neural_network_thread_limit = neural_network_thread_limit
 
         if isinstance(pool, int):
             self.pool = Pool(pool)
@@ -722,7 +718,6 @@ class Sampler():
                 enlarge_per_dim=self.enlarge_per_dim,
                 use_neural_networks=self.use_neural_networks,
                 neural_network_kwargs=self.neural_network_kwargs,
-                neural_network_thread_limit=self.neural_network_thread_limit,
                 random_state=self.random_state)
             if bound.volume() > self.bounds[-1].volume():
                 bound = self.bounds[-1]
@@ -1073,10 +1068,10 @@ class Sampler():
 
         for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
                     'enlarge_per_dim', 'use_neural_networks', 'n_batch',
-                    'vectorized', 'pass_dict', 'neural_network_thread_limit',
-                    'n_like', 'explored', 'shell_n', 'shell_n_sample_shell',
-                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
-                    'shell_log_l', 'shell_log_v']:
+                    'vectorized', 'pass_dict', 'n_like', 'explored', 'shell_n',
+                    'shell_n_sample_shell', 'shell_n_sample_bound',
+                    'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                    'shell_log_v']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():

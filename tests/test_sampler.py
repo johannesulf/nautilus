@@ -29,7 +29,7 @@ def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
     sampler = Sampler(
         prior, likelihood, n_dim=2, use_neural_networks=use_neural_networks,
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
-    sampler.run(f_live=0.45, n_eff=0, verbose=True)
+    sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
 
 
@@ -59,7 +59,7 @@ def test_sampler_prior(custom_prior, vectorized, pass_dict):
     sampler = Sampler(
         prior, likelihood, n_dim=2, use_neural_networks=False,
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
-    sampler.run(f_live=0.45, n_eff=0, verbose=True)
+    sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     if custom_prior and pass_dict:
         with pytest.raises(ValueError):
@@ -85,7 +85,7 @@ def test_sampler_accuracy(use_neural_networks, discard_exploration):
                       use_neural_networks=use_neural_networks,
                       random_state=0)
     sampler.run(discard_exploration=discard_exploration, f_live=0.1,
-                verbose=True)
+                verbose=False)
 
     assert np.abs(sampler.evidence()) < 0.05
 

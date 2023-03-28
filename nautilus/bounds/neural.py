@@ -29,8 +29,7 @@ class NeuralBound():
 
     @classmethod
     def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
-                neural_network_kwargs={}, neural_network_thread_limit=1,
-                random_state=None):
+                neural_network_kwargs={}, random_state=None):
         """Compute a neural network-based bound.
 
         Parameters
@@ -48,9 +47,6 @@ class NeuralBound():
             Keyword arguments passed to the constructor of
             `sklearn.neural_network.MLPRegressor`. By default, no keyword
             arguments are passed to the constructor.
-        neural_network_thread_limit : int or None, optional
-            Maximum number of threads used by `sklearn`. If None, no limits
-            are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -87,8 +83,7 @@ class NeuralBound():
             score[select] = 0.5 * (perc[select] / perc_min)
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
         bound.emulator = NeuralNetworkEmulator.train(
-            points_t, score, neural_network_kwargs=neural_network_kwargs,
-            neural_network_thread_limit=neural_network_thread_limit)
+            points_t, score, neural_network_kwargs=neural_network_kwargs)
 
         bound.score_predict_min = np.polyval(np.polyfit(
             score, bound.emulator.predict(points_t), 3), 0.5)
@@ -193,7 +188,7 @@ class NautilusBound():
     def compute(cls, points, log_l, log_l_min, log_v_target,
                 enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
                 use_neural_networks=True, neural_network_kwargs={},
-                neural_network_thread_limit=1, random_state=None):
+                random_state=None):
         """Compute a union of multiple neural network-based bounds.
 
         Parameters
@@ -227,9 +222,6 @@ class NautilusBound():
             Keyword arguments passed to the constructor of
             `sklearn.neural_network.MLPRegressor`. By default, no keyword
             arguments are passed to the constructor.
-        neural_network_thread_limit : int or None, optional
-            Maximum number of threads used by `sklearn`. If None, no limits
-            are applied. Default is 1.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -258,7 +250,6 @@ class NautilusBound():
                     points[select], log_l[select], log_l_min,
                     enlarge_per_dim=enlarge_per_dim,
                     neural_network_kwargs=neural_network_kwargs,
-                    neural_network_thread_limit=neural_network_thread_limit,
                     random_state=random_state))
 
         bound.outer_bound = Union.compute(
