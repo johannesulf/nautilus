@@ -138,8 +138,8 @@ class NeuralNetworkEmulator():
             network = MLPRegressor()
 
             for key in group.attrs:
-                if key[-2:] == '_{}'.format(i):
-                    setattr(network, key[:-2], group.attrs[key])
+                if key.rsplit('_', 1)[1] == '{}'.format(i):
+                    setattr(network, key.rsplit('_', 1)[0], group.attrs[key])
 
             network.coefs_ = [
                 np.array(group['coefs_{}_{}'.format(k, i)]) for k in
