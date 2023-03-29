@@ -29,7 +29,8 @@ class NeuralBound():
 
     @classmethod
     def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
-                neural_network_kwargs={}, random_state=None):
+                n_networks=4, neural_network_kwargs={}, n_jobs='max',
+                random_state=None):
         """Compute a neural network-based bound.
 
         Parameters
@@ -43,10 +44,14 @@ class NeuralBound():
         enlarge_per_dim : float, optional
             Along each dimension, the ellipsoid of the outer bound is enlarged
             by this factor. Default is 1.1.
+        n_networks : int, optional
+            Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
-            Keyword arguments passed to the constructor of
-            `sklearn.neural_network.MLPRegressor`. By default, no keyword
-            arguments are passed to the constructor.
+            Non-default keyword arguments passed to the constructor of
+            MLPRegressor.
+        n_jobs : int or string, optional
+            Number of parallel jobs to use for training. If the string 'max' is
+            passed, all available networks are used.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -83,7 +88,8 @@ class NeuralBound():
             score[select] = 0.5 * (perc[select] / perc_min)
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
         bound.emulator = NeuralNetworkEmulator.train(
-            points_t, score, neural_network_kwargs=neural_network_kwargs)
+            points_t, score, n_networks=n_networks,
+            neural_network_kwargs=neural_network_kwargs, n_jobs='max')
 
         bound.score_predict_min = np.polyval(np.polyfit(
             score, bound.emulator.predict(points_t), 3), 0.5)
