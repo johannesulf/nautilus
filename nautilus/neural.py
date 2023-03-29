@@ -1,6 +1,7 @@
 """Module implementing neural network emulators."""
 
 import numpy as np
+import warnings
 from functools import partial
 from multiprocessing import Pool
 from threadpoolctl import threadpool_limits
@@ -8,6 +9,25 @@ from sklearn.neural_network import MLPRegressor
 
 
 def train_network(x, y, neural_network_kwargs, random_state):
+    """Train a network.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Input coordinates.
+    y : numpy.ndarray
+        Target values.
+    neural_network_kwargs : dict
+        Keyword arguments passed to the constructor of MLPRegressor.
+    random_state : int
+        Determines random number generation.
+
+    Returns
+    -------
+    network : MLPRegressor
+        The trained network.
+
+    """
     return MLPRegressor(
         random_state=random_state, **neural_network_kwargs).fit(x, y)
 
@@ -29,13 +49,14 @@ class NeuralNetworkEmulator():
         Parameters
         ----------
         x : numpy.ndarray
-            Normalized coordinates of the training points.
+            Input coordinates.
         y : numpy.ndarray
-            Normalized likelihood value of the training points.
+            Target values.
+        n_networks : int, optional
+            Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
-            Keyword arguments passed to the constructor of
-            `sklearn.neural_network.MLPRegressor`. By default, no keyword
-            arguments are passed to the constructor.
+            Non-default keyword arguments passed to the constructor of
+            MLPRegressor.
 
         Returns
         -------
@@ -53,6 +74,11 @@ class NeuralNetworkEmulator():
             validation_fraction=0.1)
         default_neural_network_kwargs.update(neural_network_kwargs)
         neural_network_kwargs = default_neural_network_kwargs
+
+        if 'random_state' in neural_network_kwargs:
+            warnings.warn("The 'random_state' keyword argument passed to the" +
+                          " neural network is ignored.", Warning, stacklevel=2)
+            del neural_network_kwargs['random_state']
 
         with threadpool_limits(limits=1):
             with Pool(4) as pool:
