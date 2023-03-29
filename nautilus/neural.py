@@ -93,7 +93,7 @@ class NeuralNetworkEmulator():
             del neural_network_kwargs['random_state']
 
         with threadpool_limits(limits=1):
-            with Pool(4) as pool:
+            with Pool(n_jobs) as pool:
                 emulator.neural_networks = pool.map(partial(
                     train_network, (x - emulator.mean) / emulator.scale, y,
                     neural_network_kwargs), range(n_networks))

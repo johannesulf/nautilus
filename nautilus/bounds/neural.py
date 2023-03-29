@@ -74,6 +74,10 @@ class NeuralBound():
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
             random_state=bound.random_state)
 
+        if n_networks == 0:
+            bound.emulator = None
+            bound.score_predict_min = 0
+
         # Train the network.
         select = bound.outer_bound.contains(points)
         points = points[select]
@@ -115,7 +119,7 @@ class NeuralBound():
         points = np.atleast_2d(points)
 
         in_bound = self.outer_bound.contains(points)
-        if np.any(in_bound):
+        if np.any(in_bound) and self.emulator is not None:
             points_t = self.outer_bound.transform(points)
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
@@ -134,7 +138,8 @@ class NeuralBound():
         group.attrs['n_dim'] = self.n_dim
         group.attrs['score_predict_min'] = self.score_predict_min
         self.outer_bound.write(group.create_group('outer_bound'))
-        self.emulator.write(group.create_group('emulator'))
+        if self.emulator is not None:
+            self.emulator.write(group.create_group('emulator'))
 
     @classmethod
     def read(cls, group, random_state=None):
@@ -163,7 +168,10 @@ class NeuralBound():
         bound.n_dim = group.attrs['n_dim']
         bound.score_predict_min = group.attrs['score_predict_min']
         bound.outer_bound = Ellipsoid.read(group['outer_bound'])
-        bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
+        if 'emulator' in group:
+            bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
+        else:
+            bound.emulator = None
 
         return bound
 
@@ -221,13 +229,14 @@ class NautilusBound():
             sampling. If the volume of the bound is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
-        use_neural_networks : bool, optional
-            Whether to use neural network emulators in the construction of the
-            bound. Default is True.
+        n_networks : int, optional
+            Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
-            Keyword arguments passed to the constructor of
-            `sklearn.neural_network.MLPRegressor`. By default, no keyword
-            arguments are passed to the constructor.
+            Non-default keyword arguments passed to the constructor of
+            MLPRegressor.
+        n_jobs : int or string, optional
+            Number of parallel jobs to use for training. If the string 'max' is
+            passed, all available networks are used.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
