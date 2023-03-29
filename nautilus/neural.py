@@ -3,7 +3,7 @@
 import numpy as np
 import warnings
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing import cpu_count, Pool
 from threadpoolctl import threadpool_limits
 from sklearn.neural_network import MLPRegressor
 
@@ -37,13 +37,18 @@ class NeuralNetworkEmulator():
 
     Attributes
     ----------
+    mean : numpy.ndarray
+        Mean of input coordinates used for normalizing coordinates.
+    mean : numpy.ndarray
+        Standard deviation of input coordinates used for normalizing
+        coordinates.
     network : sklearn.neural_network.MLPRegressor
         Artifical neural network used for emulation.
 
     """
 
     @classmethod
-    def train(cls, x, y, n_networks=4, neural_network_kwargs={}):
+    def train(cls, x, y, n_networks=4, n_jobs='max', neural_network_kwargs={}):
         """Initialize and train the likelihood neural network emulator.
 
         Parameters
@@ -54,6 +59,9 @@ class NeuralNetworkEmulator():
             Target values.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
+        n_jobs : int or string, optional
+            Number of parallel jobs to use for training. If the string 'max' is
+            passed, all available networks are used.
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
@@ -68,12 +76,16 @@ class NeuralNetworkEmulator():
 
         emulator.mean = np.mean(x, axis=0)
         emulator.scale = np.std(x, axis=0)
+
+        if n_jobs == 'max':
+            n_jobs = cpu_count()
+
         default_neural_network_kwargs = dict(
             hidden_layer_sizes=(100, 50, 20), alpha=0, learning_rate_init=1e-2,
             max_iter=10000, tol=0, n_iter_no_change=10,
             validation_fraction=0.1)
-        default_neural_network_kwargs.update(neural_network_kwargs)
-        neural_network_kwargs = default_neural_network_kwargs
+        neural_network_kwargs = (
+            default_neural_network_kwargs | neural_network_kwargs)
 
         if 'random_state' in neural_network_kwargs:
             warnings.warn("The 'random_state' keyword argument passed to the" +
