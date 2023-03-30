@@ -103,7 +103,7 @@ def test_sampler_io(blobs):
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             n_networks=1, n_jobs=1, filepath='test.hdf5',
                             resume=False, random_state=0)
-    sampler_write.run(f_live=0.45, n_eff=0)
+    sampler_write.run(f_live=0.45, n_eff=0, verbose=True)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=1, n_jobs=1,  filepath='test.hdf5',
                            resume=True)
