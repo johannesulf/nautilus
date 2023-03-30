@@ -8,16 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Introduced new bounds that lead to lower overhead for high-dimensional problems. The number of likelihood calls should be close to unaffected.
+- Introduced neural network ensembles. Instead of relying on a single network, the sampler now uses 4 networks by default. This should lead to better sampling performance. The training of the networks is done in parallel, by default. Which means that on multi-core systems, time spent on neural network training shouldn't increase dramatically. The number of networks and training parallelization can be adjusted by the user.
+- Introduced new bounds that lead to lower overhead for high-dimensional problems. The number of likelihood calls should be close to unaffected by this change.
 
 ### Fixed
 - Previously, the sampler would sometimes reject new bounds because their volume was estimated to be larger than the previous bound. However, this was based on very noisy volume estimates in certain situations. The sampler now uses more precise volume estimates, which can increase sampling performance for high-dimensional problems since bounds are updated more often.
-- The sampler now doesn't perform unnecessary prior transformations when calculating the fraction of the evidence in the live set.
+- The sampler now doesn't perform unnecessary prior transformations when calculating the fraction of the evidence in the live set. This helps lower the computational overhead when using the sampler in CosmoSIS.
 - When discarding points in the exploration phase, blobs are now also correctly removed.
 - Fixed a crash when `blobs_dtype` is a single elementary dtype and multiple blobs are returned.
 
 ### Deprecated
 - The `enlarge` keyword argument for the sampler has been deprecated in favor of the new keyword `enlarge_per_dim`. Specifying `enlarge` will be ignored but not raise an error.
+- The `use_neural_network` keyword argument for the sampler has been deprecated. To not use neural networks, set the new keyword argument `n_networks` to 0.
 
 ## [0.4.4] - 2023-03-14
 
@@ -99,8 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed TensorFlow backend in favor of only using scikit-learn.
 
 ### Fixed
-- `nautilus` now raises an error if sampling with less than 2 parameters. (#2)
-- `nautilus` now correctly passes a dictionary as input to the likelihood function if `pass_struct` is True and `vectorized` is False.
+- The sampler now raises an error if sampling with less than 2 parameters. (#2)
+- The sampler now correctly passes a dictionary as input to the likelihood function if `pass_struct` is True and `vectorized` is False.
 
 ## [0.1.0] - 2022-06-28
 
