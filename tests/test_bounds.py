@@ -9,14 +9,6 @@ from nautilus.bounds.basic import invert_symmetric_positive_semidefinite_matrix
 
 
 @pytest.fixture
-def neural_network_kwargs():
-    return {
-        'hidden_layer_sizes': (100, 50, 20), 'alpha': 0,
-        'learning_rate_init': 1e-2, 'max_iter': 10000,
-        'random_state': 0, 'tol': 1e-4, 'n_iter_no_change': 20}
-
-
-@pytest.fixture
 def points_on_hypersphere_boundary():
     # 2 * n_dim points on the boundary of a unit hypersphere centered on 0.5.
 
@@ -277,15 +269,14 @@ def test_union_random_state(random_points_from_hypersphere):
     assert not np.all(points == union.sample(n_points))
 
 
-def test_neural_bound_contains(random_points_from_hypercube,
-                               neural_network_kwargs):
+def test_neural_bound_contains(random_points_from_hypercube):
     # Test whether the neural sampling and boundary work as expected.
 
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nbound = bounds.NeuralBound.compute(
-        points, log_l, log_l_min, neural_network_kwargs=neural_network_kwargs)
+    nbound = bounds.NeuralBound.compute(points, log_l, log_l_min, n_networks=1,
+                                        n_jobs=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
@@ -295,16 +286,14 @@ def test_neural_bound_contains(random_points_from_hypercube,
     assert np.mean(log_l[in_bound] > log_l_min) >= 0.9
 
 
-def test_nautilus_bound_sample_and_contains(random_points_from_hypercube,
-                                            neural_network_kwargs):
+def test_nautilus_bound_sample_and_contains(random_points_from_hypercube):
     # Test whether the nautilus sampling and boundary work as expected.
 
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, np.log(0.5),
-        neural_network_kwargs=neural_network_kwargs)
+    nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
+                                          np.log(0.5), n_networks=1, n_jobs=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
@@ -319,7 +308,7 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube,
     assert np.all(nbound.contains(points))
 
 
-def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
+def test_nautilus_bound_gaussian_shell():
     # Test nautilus sampling on the classic gaussian shell problem. In this
     # problem, the likelihood is high on a thin two-dimensional shell.
 
@@ -336,8 +325,7 @@ def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
 
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, log_v_target,
-        split_threshold=1,
-        neural_network_kwargs=neural_network_kwargs,
+        split_threshold=1, n_networks=1, n_jobs=1,
         random_state=np.random.RandomState(0))
 
     points = nbound.sample(10000)
@@ -350,8 +338,7 @@ def test_nautilus_bound_gaussian_shell(neural_network_kwargs):
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
 
 
-def test_nautilus_bound_small_target(random_points_from_hypercube,
-                                     neural_network_kwargs):
+def test_nautilus_bound_small_target(random_points_from_hypercube):
     # Test that nothing catastrophic happens if we set the target volume to
     # effectively 0. This should just result in very aggresive ellipsoid
     # splitting and make the boundary miss a small part of the parameter space.
@@ -360,14 +347,14 @@ def test_nautilus_bound_small_target(random_points_from_hypercube,
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.amin(log_l)
     nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, -np.inf,
-        neural_network_kwargs=neural_network_kwargs, n_points_min=20)
+        points, log_l, log_l_min, -np.inf, n_points_min=20, n_networks=1,
+        n_jobs=1, random_state=np.random.RandomState(0))
     assert nbound.volume() > -1
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
     assert nbound.number_of_networks_and_ellipsoids()[1] > 10
 
 
-def test_nautilus_bound_two_peaks(neural_network_kwargs):
+def test_nautilus_bound_two_peaks():
     # Test that the nautilus bound can identify and sample efficienctly from
     # two peaks with wide separations.
 
@@ -384,8 +371,9 @@ def test_nautilus_bound_two_peaks(neural_network_kwargs):
     log_l = likelihood(points)
     log_l_min = -1
     log_v_target = np.log(2 * np.pi * radius**2)
-    nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
-                                          log_v_target)
+    nbound = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, log_v_target, n_networks=1, n_jobs=1,
+        random_state=np.random.RandomState(0))
 
     points = nbound.sample(10000)
     log_l = likelihood(points)

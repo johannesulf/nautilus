@@ -24,7 +24,7 @@ def test_blobs_single(prior, dtype, vectorized, discard_exploration):
             return 1, dtype(10 * x[0])
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized)
+                      vectorized=vectorized, n_jobs=1)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
@@ -46,7 +46,7 @@ def test_blobs_multi(prior, vectorized, discard_exploration):
             return 1, np.float32(x[0]), np.float32(x[1])
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized)
+                      vectorized=vectorized, n_jobs=1)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
@@ -70,7 +70,7 @@ def test_blobs_dtype(prior, vectorized, discard_exploration):
 
     blobs_dtype = [('a', '|S10'), ('b', np.int16)]
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized, blobs_dtype=blobs_dtype)
+                      vectorized=vectorized, n_jobs=1, blobs_dtype=blobs_dtype)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
@@ -94,7 +94,7 @@ def test_blobs_single_dtype(prior, vectorized, discard_exploration):
             return 1, x[0], x[1]
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized, blobs_dtype=float)
+                      vectorized=vectorized, n_jobs=1, blobs_dtype=float)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
     assert len(points) == len(blobs)

@@ -24,7 +24,8 @@ def likelihood(x):
 def test_pool(pool):
     # Test that the expected number of processes are run.
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, pool=pool)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, n_networks=1,
+                      pool=pool, n_jobs=1)
     sampler.run(f_live=1.0, n_eff=0)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
