@@ -89,6 +89,7 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
 def test_sampler_io(blobs):
     # Test that we can write and read a sampler correctly. In particular, also
     # test that the random state is correctly set after writing and reading.
+    # Also make sure that the sampler can print out the progress.
 
     def prior(x):
         return x
@@ -101,14 +102,14 @@ def test_sampler_io(blobs):
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             n_networks=1, n_jobs=1, filepath='test.hdf5',
-                            resume=False)
+                            resume=False, random_state=0)
     sampler_write.run(f_live=0.45, n_eff=0)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=1, n_jobs=1,  filepath='test.hdf5',
                            resume=True)
 
-    sampler_write.run(n_eff=1000)
-    sampler_read.run(n_eff=1000)
+    sampler_write.run(n_eff=1000, verbose=True)
+    sampler_read.run(n_eff=1000, verbose=True)
 
     posterior_write = sampler_write.posterior()
     posterior_read = sampler_read.posterior()
