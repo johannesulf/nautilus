@@ -275,7 +275,8 @@ def test_neural_bound_contains(random_points_from_hypercube):
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nbound = bounds.NeuralBound.compute(points, log_l, log_l_min, n_jobs=1)
+    nbound = bounds.NeuralBound.compute(points, log_l, log_l_min, n_networks=1,
+                                        n_jobs=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
@@ -292,7 +293,7 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube):
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
     nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
-                                          np.log(0.5))
+                                          np.log(0.5), n_networks=1, n_jobs=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
