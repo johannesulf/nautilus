@@ -45,13 +45,13 @@ class NeuralBound():
             Along each dimension, the ellipsoid of the outer bound is enlarged
             by this factor. Default is 1.1.
         n_networks : int, optional
-            Number of networks used in the estimator. Default is 4.
+            Number of networks used in the emulator. Default is 4.
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available networks are used.
+            passed, all available cores are used.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -77,6 +77,7 @@ class NeuralBound():
         if n_networks == 0:
             bound.emulator = None
             bound.score_predict_min = 0
+            return bound
 
         # Train the network.
         select = bound.outer_bound.contains(points)
@@ -201,7 +202,7 @@ class NautilusBound():
     @classmethod
     def compute(cls, points, log_l, log_l_min, log_v_target,
                 enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
-                use_neural_networks=True, neural_network_kwargs={},
+                n_networks=4, neural_network_kwargs={}, n_jobs='max',
                 random_state=None):
         """Compute a union of multiple neural network-based bounds.
 
@@ -230,13 +231,13 @@ class NautilusBound():
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
         n_networks : int, optional
-            Number of networks used in the estimator. Default is 4.
+            Number of networks used in the emulator. Default is 4.
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available networks are used.
+            passed, all available cores are used.
         random_state : None or numpy.random.RandomState instance, optional
             Determines random number generation. Default is None.
 
@@ -250,22 +251,21 @@ class NautilusBound():
 
         bound.neural_bounds = []
 
-        if use_neural_networks:
-            multi_ellipsoid = Union.compute(
-                points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
-                n_points_min=n_points_min, bound_class=Ellipsoid,
-                random_state=random_state)
+        multi_ellipsoid = Union.compute(
+            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            n_points_min=n_points_min, bound_class=Ellipsoid,
+            random_state=random_state)
 
-            while multi_ellipsoid.split_bound(allow_overlap=False):
-                pass
+        while multi_ellipsoid.split_bound(allow_overlap=False):
+            pass
 
-            for ellipsoid in multi_ellipsoid.bounds:
-                select = ellipsoid.contains(points)
-                bound.neural_bounds.append(NeuralBound.compute(
-                    points[select], log_l[select], log_l_min,
-                    enlarge_per_dim=enlarge_per_dim,
-                    neural_network_kwargs=neural_network_kwargs,
-                    random_state=random_state))
+        for ellipsoid in multi_ellipsoid.bounds:
+            select = ellipsoid.contains(points)
+            bound.neural_bounds.append(NeuralBound.compute(
+                points[select], log_l[select], log_l_min,
+                enlarge_per_dim=enlarge_per_dim, n_networks=n_networks,
+                neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs,
+                random_state=random_state))
 
         bound.outer_bound = Union.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
@@ -330,10 +330,9 @@ class NautilusBound():
         while len(self.points_sample) < n_points:
             n_sample = 10000
             points = self.outer_bound.sample(n_sample)
-            if len(self.neural_bounds) > 0:
-                in_bound = np.any([bound.contains(points) for bound in
-                                   self.neural_bounds], axis=0)
-                points = points[in_bound]
+            in_bound = np.any([bound.contains(points) for bound in
+                               self.neural_bounds], axis=0)
+            points = points[in_bound]
             self.points_sample = np.vstack([self.points_sample, points])
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)
@@ -363,18 +362,22 @@ class NautilusBound():
 
         Returns
         -------
-        n_neural : int
+        n_networks : int
             The number of neural networks.
-        n_ellipsoid : int
+        n_ellipsoids : int
             The number of sample ellipsoids.
         """
-        n_neural = len(self.neural_bounds)
+        if self.neural_bounds[0].emulator.neural_networks is not None:
+            n_networks = len(self.neural_bounds) * len(
+                self.neural_bounds[0].emulator.neural_networks)
+        else:
+            n_networks = 0
 
-        n_ellipsoid = 0
+        n_ellipsoids = 0
         for bound in self.outer_bound.bounds:
-            n_ellipsoid += np.any(~bound.dim_cube)
+            n_ellipsoids += np.any(~bound.dim_cube)
 
-        return n_neural, n_ellipsoid
+        return n_networks, n_ellipsoids
 
     def write(self, group):
         """Write the bound to an HDF5 group.
@@ -386,6 +389,7 @@ class NautilusBound():
 
         """
         group.attrs['type'] = 'NautilusBound'
+        group.attrs['n_neural_bounds'] = len(self.neural_bounds)
 
         for i, neural_bound in enumerate(self.neural_bounds):
             neural_bound.write(group.create_group('neural_bound_{}'.format(i)))

@@ -11,5 +11,5 @@ def test_neural_network_emulator():
     x = np.random.random((n_points, n_dim))
     y = np.linalg.norm(x - 0.5, axis=1)
     y = np.argsort(np.argsort(y)) / float(len(y))
-    emu = neural.NeuralNetworkEmulator.train(x, y, n_jobs=1)
+    emu = neural.NeuralNetworkEmulator.train(x, y, n_networks=1, n_jobs=1)
     assert np.sqrt(np.mean((y - emu.predict(x))**2)) < 0.3 * np.std(y)

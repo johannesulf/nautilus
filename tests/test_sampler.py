@@ -7,10 +7,10 @@ from scipy.stats import multivariate_normal, norm
 from nautilus import Prior, Sampler
 
 
-@pytest.mark.parametrize("use_neural_networks", [True, False])
+@pytest.mark.parametrize("n_networks", [0, 1, 2])
 @pytest.mark.parametrize("vectorized", [True, False])
 @pytest.mark.parametrize("pass_dict", [True, False])
-def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
+def test_sampler_basic(n_networks, vectorized, pass_dict):
     # Test that the sampler does not crash.
 
     if pass_dict:
@@ -27,8 +27,8 @@ def test_sampler_basic(use_neural_networks, vectorized, pass_dict):
         return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
 
     sampler = Sampler(
-        prior, likelihood, n_dim=2, use_neural_networks=use_neural_networks,
-        vectorized=vectorized, pass_dict=pass_dict, n_live=500)
+        prior, likelihood, n_dim=2, n_networks=n_networks,
+        vectorized=vectorized, pass_dict=pass_dict, n_live=500, n_jobs=1)
     sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
 
@@ -57,8 +57,8 @@ def test_sampler_prior(custom_prior, vectorized, pass_dict):
         return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
 
     sampler = Sampler(
-        prior, likelihood, n_dim=2, use_neural_networks=False,
-        vectorized=vectorized, pass_dict=pass_dict, n_live=500)
+        prior, likelihood, n_dim=2, n_networks=1, vectorized=vectorized,
+        pass_dict=pass_dict, n_live=500, n_jobs=1)
     sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     if custom_prior and pass_dict:
@@ -66,9 +66,9 @@ def test_sampler_prior(custom_prior, vectorized, pass_dict):
             points, log_w, log_l = sampler.posterior(return_as_dict=False)
 
 
-@pytest.mark.parametrize("use_neural_networks", [True, False])
+@pytest.mark.parametrize("n_networks", [0, 1])
 @pytest.mark.parametrize("discard_exploration", [True, False])
-def test_sampler_accuracy(use_neural_networks, discard_exploration):
+def test_sampler_accuracy(n_networks, discard_exploration):
     # Do a basic tests of the sampler accuracy.
 
     n_dim = 2
@@ -82,8 +82,7 @@ def test_sampler_accuracy(use_neural_networks, discard_exploration):
         return multivariate_normal.logpdf(x, mean=mean, cov=cov)
 
     sampler = Sampler(prior, likelihood, n_dim=n_dim, n_live=500,
-                      use_neural_networks=use_neural_networks,
-                      random_state=0)
+                      n_networks=n_networks, n_jobs=1, random_state=0)
     sampler.run(discard_exploration=discard_exploration, f_live=0.1,
                 verbose=False)
 
@@ -118,7 +117,7 @@ def test_sampler_enlarge_per_dim():
         return -np.linalg.norm(x - 0.5)**2 * 0.001
 
     sampler = Sampler(prior, likelihood, n_dim=2, enlarge_per_dim=100,
-                      use_neural_networks=False, random_state=0)
+                      n_networks=0, n_jobs=1, random_state=0)
     sampler.run(f_live=0.1, n_eff=0)
 
     # The effective sample size should be very close to the number of calls
@@ -154,7 +153,8 @@ def test_sampler_funnel():
     x_1 = np.random.normal(loc=0.5, scale=np.exp(20 * (x_0 - 0.5)) / 100)
     log_z_true = np.log(np.mean((x_0 > 0) & (x_0 < 1) & (x_1 > 0) & (x_1 < 1)))
 
-    sampler = Sampler(prior, likelihood, n_dim=2, random_state=0)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_networks=1, n_jobs=1,
+                      random_state=0)
     sampler.run()
     assert np.isclose(log_z_true, sampler.evidence(), rtol=0, atol=0.1)
     # Check whether the boundaries nautilus drew are strictly nested.

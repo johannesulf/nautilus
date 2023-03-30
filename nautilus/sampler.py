@@ -38,9 +38,6 @@ class Sampler():
         The maximum number of likelihood calls before a new bounds is created.
     enlarge : float
         Factor by which the volume of ellipsoidal bounds is increased.
-    use_neural_networks : bool
-        Whether to use neural network emulators in the construction of the
-        bounds.
     neural_network_kwargs : dict
         Keyword arguments passed to the constructor of
         `sklearn.neural_network.MLPRegressor`.
@@ -94,11 +91,11 @@ class Sampler():
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
                  n_update=None, enlarge=None, enlarge_per_dim=1.1,
-                 neural_network_kwargs=dict(), prior_args=[],
+                 n_networks=4, neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
-                 use_neural_networks=True, n_like_new_bound=None,
-                 vectorized=False, pass_dict=None, pool=None,
+                 use_neural_networks=None, n_like_new_bound=None,
+                 vectorized=False, pass_dict=None, pool=None, n_jobs='max',
                  random_state=None, blobs_dtype=None, filepath=None,
                  resume=True):
         r"""
@@ -126,9 +123,11 @@ class Sampler():
         enlarge_per_dim : float, optional
             Along each dimension, outer ellipsoidal bounds are enlarged by this
             factor. Default is 1.1.
+        n_networks : int, optional
+            Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
-            Keyword arguments passed to the constructor of
-            `sklearn.neural_network.MLPRegressor`.
+            Non-default keyword arguments passed to the constructor of
+            MLPRegressor.
         prior_args : list, optional
             List of extra positional arguments for `prior`. Only used if
             `prior` is a function.
@@ -147,8 +146,7 @@ class Sampler():
             the live set have been achieved. This will not cause any bias but
             could reduce efficiency. Default is 100.
         use_neural_networks : bool, optional
-            Whether to use neural network emulators in the construction of the
-            bounds. Default is True.
+            Deprecated.
         n_like_new_bound : None or int, optional
             The maximum number of likelihood calls before a new bounds is
             created. If None, use 10 times `n_live`. Default is None.
@@ -170,6 +168,9 @@ class Sampler():
             calls, e.g. a multiprocessing.Pool object, or a positive integer.
             If it is an integer, it determines the number of workers in the
             Pool. Default is None.
+        n_jobs : int or string, optional
+            Number of parallel jobs to use for neural network training. If the
+            string 'max' is passed, all available cores are used.
         neural_network_thread_limit : int or None, optional
             Deprecated.
         random_state : int or np.random.RandomState, optional
@@ -238,7 +239,13 @@ class Sampler():
 
         self.enlarge_per_dim = enlarge_per_dim
 
-        self.use_neural_networks = use_neural_networks
+        if use_neural_networks is not None:
+            warnings.warn("The 'use_neural_networks' keyword argument has " +
+                          "been deprecated. Set 'n_networks', instead.",
+                          DeprecationWarning, stacklevel=2)
+
+        self.n_networks = n_networks
+
         self.neural_network_kwargs = neural_network_kwargs
         self.n_batch = n_batch
         self.vectorized = vectorized
@@ -250,6 +257,8 @@ class Sampler():
             self.pool = pool
         else:
             self.pool = None
+
+        self.n_jobs = n_jobs
 
         if random_state is None:
             self.random_state = np.random.RandomState()
@@ -716,9 +725,9 @@ class Sampler():
             bound = NautilusBound.compute(
                 points, log_l, log_l_min, self.live_volume(),
                 enlarge_per_dim=self.enlarge_per_dim,
-                use_neural_networks=self.use_neural_networks,
+                n_networks=self.n_networks,
                 neural_network_kwargs=self.neural_network_kwargs,
-                random_state=self.random_state)
+                n_jobs=self.n_jobs, random_state=self.random_state)
             if bound.volume() > self.bounds[-1].volume():
                 bound = self.bounds[-1]
             self.bounds.append(bound)
@@ -1067,8 +1076,8 @@ class Sampler():
         group = fstream.create_group('sampler')
 
         for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
-                    'enlarge_per_dim', 'use_neural_networks', 'n_batch',
-                    'vectorized', 'pass_dict', 'n_like', 'explored', 'shell_n',
+                    'enlarge_per_dim', 'n_networks', 'n_batch', 'vectorized',
+                    'pass_dict', 'n_like', 'explored', 'shell_n',
                     'shell_n_sample_shell', 'shell_n_sample_bound',
                     'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
                     'shell_log_v']:

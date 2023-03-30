@@ -58,13 +58,13 @@ class NeuralNetworkEmulator():
         y : numpy.ndarray
             Target values.
         n_networks : int, optional
-            Number of networks used in the estimator. Default is 4.
+            Number of networks used in the emulator. Default is 4.
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available networks are used.
+            passed, all available cores are used.
 
         Returns
         -------

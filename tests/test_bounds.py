@@ -324,7 +324,8 @@ def test_nautilus_bound_gaussian_shell():
 
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, log_v_target,
-        split_threshold=1, random_state=np.random.RandomState(0))
+        split_threshold=1, n_networks=1, n_jobs=1,
+        random_state=np.random.RandomState(0))
 
     points = nbound.sample(10000)
     log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
@@ -345,7 +346,8 @@ def test_nautilus_bound_small_target(random_points_from_hypercube):
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.amin(log_l)
     nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, -np.inf, n_points_min=20)
+        points, log_l, log_l_min, -np.inf, n_points_min=20, n_networks=1,
+        n_jobs=1, random_state=np.random.RandomState(0))
     assert nbound.volume() > -1
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
     assert nbound.number_of_networks_and_ellipsoids()[1] > 10
@@ -368,8 +370,9 @@ def test_nautilus_bound_two_peaks():
     log_l = likelihood(points)
     log_l_min = -1
     log_v_target = np.log(2 * np.pi * radius**2)
-    nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
-                                          log_v_target)
+    nbound = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, log_v_target, n_networks=1, n_jobs=1,
+        random_state=np.random.RandomState(0))
 
     points = nbound.sample(10000)
     log_l = likelihood(points)

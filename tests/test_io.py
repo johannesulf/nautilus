@@ -23,7 +23,8 @@ def test_neural_io(h5py_group):
 
     points = np.random.random((100, 2))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
-    emulator_write = NeuralNetworkEmulator.train(points, log_l)
+    emulator_write = NeuralNetworkEmulator.train(points, log_l, n_networks=1,
+                                                 n_jobs=1)
     emulator_write.write(h5py_group)
     emulator_read = NeuralNetworkEmulator.read(h5py_group)
     assert np.all(emulator_write.predict(points) ==
@@ -46,8 +47,10 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
 
     if bound_class == UnitCube:
         args = (n_dim, )
+        kwargs = dict()
     elif bound_class in [Ellipsoid, Union, UnitCubeEllipsoidMixture]:
         args = (points, )
+        kwargs = dict()
     else:
         log_l = -np.linalg.norm(points - 0.5, axis=1)
         log_l_min = np.median(log_l)
@@ -55,8 +58,10 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
             args = (points, log_l, log_l_min)
         else:
             args = (points, log_l, log_l_min, np.log(0.5))
+        kwargs = dict(n_networks=1, n_jobs=1)
 
-    bound_write = bound_class.compute(*args, random_state=random_state)
+    bound_write = bound_class.compute(*args, **kwargs,
+                                      random_state=random_state)
     if bound_class == Union:
         bound_write.split_bound()
 
@@ -95,10 +100,12 @@ def test_sampler_io(blobs):
             return -np.linalg.norm(x - 0.5) * 0.001
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                            filepath='test.hdf5', resume=False)
+                            n_networks=1, n_jobs=1, filepath='test.hdf5',
+                            resume=False)
     sampler_write.run(f_live=0.45, n_eff=0)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                           filepath='test.hdf5', resume=True)
+                           n_networks=1, n_jobs=1,  filepath='test.hdf5',
+                           resume=True)
 
     sampler_write.run(n_eff=1000)
     sampler_read.run(n_eff=1000)
