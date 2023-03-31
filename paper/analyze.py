@@ -509,7 +509,7 @@ for i in range(5):
     corner_range_abs.append((np.percentile(x, 50 * (1 - corner_range)),
                              np.percentile(x, 100 - 50 * (1 - corner_range))))
 table = Table.read(Path('.') / 'results' /
-                   'rosenbrock-10_nautilus-15000_posterior.hdf5')
+                   'rosenbrock-10_nautilus-10000_posterior.hdf5')
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=60,

@@ -37,7 +37,7 @@ def write(likelihood, algorithm, n_dim, log_z, n_like, n_eff, points, log_l,
     path = Path('.') / 'results' / likelihood / algorithm
     path.mkdir(parents=True, exist_ok=True)
 
-    path = path /  '{}.hdf5'.format(str(os.getpid()))
+    path = path / '{}.hdf5'.format(str(os.getpid()))
 
     if path.is_file():
         table = vstack([Table.read(path), table])
@@ -164,14 +164,22 @@ def main():
 
                 sampler.discard_points()
                 sampler.run(verbose=args.verbose, n_eff=10000)
-
                 log_z = sampler.evidence()
                 n_like = sampler.n_like
                 n_eff = sampler.effective_sample_size()
                 points, log_w, log_l = sampler.posterior()
                 weights = np.exp(log_w - np.amax(log_w))
-
                 algorithm += '-r'
+                write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
+                      points, log_l, weights, args.full)
+
+                sampler.run(verbose=args.verbose, n_eff=100000)
+                log_z = sampler.evidence()
+                n_like = sampler.n_like
+                n_eff = sampler.effective_sample_size()
+                points, log_w, log_l = sampler.posterior()
+                weights = np.exp(log_w - np.amax(log_w))
+                algorithm += '100k'
                 write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
                       points, log_l, weights, args.full)
 
