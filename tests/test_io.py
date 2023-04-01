@@ -120,3 +120,25 @@ def test_sampler_io(blobs):
     assert sampler_write.evidence() == sampler_read.evidence()
 
     Path('test.hdf5').unlink()
+
+
+def test_sampler_exploration_io():
+    # Test that the sampler correctly creates a backup of the state after the
+    # exploration stage.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5) * 0.001
+
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=100,
+                      n_networks=1, n_jobs=1, filepath='test.hdf5',
+                      resume=False, random_state=0)
+    sampler.run(n_eff=1000, discard_exploration=True)
+
+    assert Path('test.hdf5').is_file()
+    assert Path('test_exp.hdf5').is_file()
+
+    Path('test.hdf5').unlink()
+    Path('test_exp.hdf5').unlink()

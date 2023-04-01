@@ -379,7 +379,12 @@ class Sampler():
             if discard_exploration:
                 self.discard_points()
                 if self.filepath is not None:
-                    self.write(self.filepath, overwrite=True)
+                    # Rename the old checkpoint file containing points in the
+                    # exploration phase and start a new one.
+                    path = Path(self.filepath)
+                    path.rename(Path(path.parent, path.stem + '_exp' +
+                                     path.suffix))
+                    self.write(self.filepath)
 
         if n_shell is None:
             n_shell = self.n_batch
