@@ -89,7 +89,7 @@ class Sampler():
 
     """
 
-    def __init__(self, prior, likelihood, n_dim=None, n_live=1500,
+    def __init__(self, prior, likelihood, n_dim=None, n_live=2000,
                  n_update=None, enlarge=None, enlarge_per_dim=1.1,
                  n_networks=4, neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
