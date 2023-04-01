@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.special import gammaln
 from scipy.linalg.lapack import dpotrf, dpotri
+from threadpoolctl import threadpool_limits
 
 
 class UnitCube():
@@ -283,7 +284,8 @@ class Ellipsoid():
                              'dimensions.')
 
         if not fast:
-            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+            with threadpool_limits(limits=1):
+                bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
         else:
             bound.c = np.mean(points, axis=0)
             bound.A = np.linalg.inv(np.atleast_2d(np.cov(
