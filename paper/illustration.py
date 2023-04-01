@@ -57,7 +57,7 @@ in_bound = np.zeros_like(X)
 cmap = plt.get_cmap('Blues')
 colors = cmap([0.0, 0.3, 0.6])
 
-sampler = Sampler(prior, likelihood, n_dim=2, n_update=3000)
+sampler = Sampler(prior, likelihood, n_dim=2, n_update=4000)
 
 for i, ax in enumerate(axarr):
     sampler.add_bound(verbose=True)
@@ -111,7 +111,7 @@ plt.close()
 
 sampler = Sampler(
     prior, rosenbrock_likelihood, n_dim=2, vectorized=True, pass_dict=False,
-    n_live=3000, random_state=0)
+    random_state=0)
 for i in range(6):
     sampler.add_bound(verbose=True)
     sampler.fill_bound(verbose=True)
@@ -147,7 +147,7 @@ ax = axarr[0, 1]
 ax.text(0.05, 0.95, '2', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 points = np.vstack(sampler.points[:-1])
-use = sampler.bounds[-1].nbounds[0].ellipsoid.contains(points)
+use = sampler.bounds[-1].neural_bounds[0].outer_bound.contains(points)
 points = points[use]
 log_l = log_l[use]
 points = points * 10 - 5
@@ -167,7 +167,7 @@ ax = axarr[0, 2]
 ax.text(0.05, 0.95, '3', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 points = (points + 5) / 10
-points = sampler.bounds[-1].nbounds[0].ellipsoid.transform(points)
+points = sampler.bounds[-1].neural_bounds[0].outer_bound.transform(points)
 p_l = np.argsort(np.argsort(log_l)) / float(len(log_l))
 p_l_min = percentileofscore(log_l, log_l_min) / 100
 s_l = np.where(p_l < p_l_min, p_l / p_l_min / 2,
@@ -198,9 +198,9 @@ ax.axis('off')
 ax = axarr[1, 1]
 ax.text(0.05, 0.95, '5', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
-s_l_pred = sampler.bounds[-1].nbounds[0].emulator.predict(points)
+s_l_pred = sampler.bounds[-1].neural_bounds[0].emulator.predict(points)
 ax.scatter(s_l[::5], s_l_pred[::5], s=1, color='black', rasterized=True, lw=0)
-ax.axhline(sampler.bounds[-1].nbounds[0].score_predict_min, ls='--',
+ax.axhline(sampler.bounds[-1].neural_bounds[0].score_predict_min, ls='--',
            color='black')
 ax.set_xlabel(r'$s_\mathcal{L}$')
 ax.set_ylabel(r'$\hat{s}_\mathcal{L}$')
