@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Introduced neural network ensembles. Instead of relying on a single network, the sampler now uses 4 networks by default. This should lead to better sampling performance. The training of the networks is done in parallel, by default. Which means that on multi-core systems, time spent on neural network training shouldn't increase dramatically. The number of networks and training parallelization can be adjusted by the user.
 - Introduced new bounds that lead to lower overhead for high-dimensional problems. The number of likelihood calls should be close to unaffected by this change.
 - Increased the default number of live points from 1500 to 2000.
-- Limited number of threads to 1 when calculating minimum volume enclosing ellipsoid.
+- Limited number of threads to 1 when calculating minimum volume enclosing ellipsoid and doing K-means clustering. More often than not, thread parallelization would slow things down while increasing CPU usage.
 - When setting the filepath to "filename.hdf5" and discarding points in the exploration stage, the sampler now creates a backup of the end of the exploration stage under "filename_exp.hdf5".
 
 ### Fixed

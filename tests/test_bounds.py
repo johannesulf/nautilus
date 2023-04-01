@@ -199,7 +199,6 @@ def test_union_split(random_points_from_hypersphere):
     while union.split_bound(allow_overlap=False):
         pass
     assert len(union.bounds) == 2
-    print(np.all(union.contains(points)))
     assert np.all(union.contains(points))
 
     # It should be possible to add 3 more ellipoids when overlaps are allowed.

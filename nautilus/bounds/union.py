@@ -5,6 +5,7 @@ import numpy as np
 from scipy.special import logsumexp
 from scipy.optimize import minimize
 from sklearn.cluster import KMeans
+from threadpoolctl import threadpool_limits
 
 from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
 
@@ -181,9 +182,9 @@ class Union():
             random_state = self.random_state
         else:
             random_state = None
-        d = KMeans(
-            n_clusters=2, n_init=10, random_state=random_state).fit_transform(
-            points)
+        with threadpool_limits(limits=1):
+            d = KMeans(n_clusters=2, n_init=10, random_state=random_state
+                       ).fit_transform(points)
 
         labels = np.argmin(d, axis=1)
         if not np.all(np.bincount(labels) >= self.n_points_min):
