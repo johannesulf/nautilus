@@ -335,7 +335,7 @@ class Sampler():
         discard_exploration : bool, optional
             Whether to discard points drawn in the exploration phase. This is
             required for a fully unbiased posterior and evidence estimate.
-            Default is True.
+            Default is False.
         verbose : bool, optional
             If True, print additional information. Default is False.
 
