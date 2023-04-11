@@ -34,16 +34,17 @@ def test_neural_io(h5py_group):
 @pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, Union,
                                          UnitCubeEllipsoidMixture, NeuralBound,
                                          NautilusBound])
-@pytest.mark.parametrize("random_state_sync", [True, False])
-def test_bounds_io(h5py_group, bound_class, random_state_sync):
+@pytest.mark.parametrize("rng_sync", [True, False])
+def test_bounds_io(h5py_group, bound_class, rng_sync):
     # Test that we can write and read a bound correctly. In particular, also
-    # test that the random state is correctly set after writing and reading.
+    # test that the random number generator is correctly set after writing and
+    # reading.
 
     n_dim = 5
     n_points = 100
     np.random.seed(0)
     points = np.random.random((n_points, n_dim))
-    random_state = np.random.RandomState()
+    rng = np.random.default_rng(0)
 
     if bound_class == UnitCube:
         args = (n_dim, )
@@ -60,24 +61,22 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
             args = (points, log_l, log_l_min, np.log(0.5))
         kwargs = dict(n_networks=1, n_jobs=1)
 
-    bound_write = bound_class.compute(*args, **kwargs,
-                                      random_state=random_state)
+    bound_write = bound_class.compute(*args, **kwargs, rng=rng)
     if bound_class == Union:
         bound_write.split_bound()
 
     bound_write.write(h5py_group)
-    if random_state_sync:
-        random_state = np.random.RandomState()
-        random_state.set_state(bound_write.random_state.get_state())
-    else:
-        random_state = None
-    bound_read = bound_class.read(h5py_group, random_state=random_state)
+    rng = np.random.default_rng(1)
+    if rng_sync:
+        rng.bit_generator.state = bound_write.rng.bit_generator.state
+
+    bound_read = bound_class.read(h5py_group, rng=rng)
 
     if bound_class != NeuralBound:
         assert (np.all(bound_write.sample(10000) == bound_read.sample(10000))
-                == random_state_sync)
+                == rng_sync)
 
-    if ((random_state_sync or bound_class in [UnitCube, Ellipsoid]) and not
+    if ((rng_sync or bound_class in [UnitCube, Ellipsoid]) and not
             bound_class == NeuralBound):
         assert bound_write.volume() == bound_read.volume()
 
@@ -88,8 +87,8 @@ def test_bounds_io(h5py_group, bound_class, random_state_sync):
 @pytest.mark.parametrize("blobs", [True, False])
 def test_sampler_io(blobs):
     # Test that we can write and read a sampler correctly. In particular, also
-    # test that the random state is correctly set after writing and reading.
-    # Also make sure that the sampler can print out the progress.
+    # test that the random number generator is correctly set after writing and
+    # reading. Also make sure that the sampler can print out the progress.
 
     def prior(x):
         return x
@@ -102,7 +101,7 @@ def test_sampler_io(blobs):
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             n_networks=1, n_jobs=1, filepath='test.hdf5',
-                            resume=False, random_state=0)
+                            resume=False, seed=0)
     sampler_write.run(f_live=0.45, n_eff=0, verbose=True)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=1, n_jobs=1,  filepath='test.hdf5',
@@ -134,7 +133,7 @@ def test_sampler_exploration_io():
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=100,
                       n_networks=1, n_jobs=1, filepath='test.hdf5',
-                      resume=False, random_state=0)
+                      resume=False, seed=0)
     sampler.run(n_eff=1000, discard_exploration=True)
 
     assert Path('test.hdf5').is_file()

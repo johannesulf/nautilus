@@ -65,13 +65,13 @@ class Union():
         Number of points sampled from all bounds.
     n_reject : int
         Number of points rejected due to overlap.
-    random_state : numpy.random.RandomState instance
+    rng : numpy.random.Generator
         Determines random number generation.
     """
 
     @classmethod
     def compute(cls, points, enlarge_per_dim=1.1, n_points_min=None,
-                unit=True, bound_class=Ellipsoid, random_state=None):
+                unit=True, bound_class=Ellipsoid, rng=None):
         """Compute the bound.
 
         Upon creation, the bound consists of a single individual bound.
@@ -93,7 +93,7 @@ class Union():
         bound_class : class, optional
             Type of the individual bounds, i.e. ellipsoids or unit
             cube-ellipsoid mixtures.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Raises
@@ -124,22 +124,22 @@ class Union():
             bound.cube = None
         else:
             bound.cube = UnitCube.compute(
-                bound.n_dim, random_state=random_state)
+                bound.n_dim, rng=rng)
 
         bound.points = [points]
         bound.bounds = [bound_class.compute(
             points, enlarge_per_dim=enlarge_per_dim,
-            random_state=random_state)]
+            rng=rng)]
         bound.log_v = np.array([bound.bounds[0].volume()])
 
         bound.points_sample = np.zeros((0, points.shape[1]))
         bound.n_sample = 0
         bound.n_reject = 0
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         return bound
 
@@ -178,13 +178,10 @@ class Union():
         index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
         points = self.bounds[index].transform(self.points[index])
 
-        if self.random_state != np.random:
-            random_state = self.random_state
-        else:
-            random_state = None
         with threadpool_limits(limits=1):
-            d = KMeans(n_clusters=2, n_init=10, random_state=random_state
-                       ).fit_transform(points)
+            d = KMeans(
+                n_clusters=2, n_init=10, random_state=self.rng.integers(
+                    2**32 - 1)).fit_transform(points)
 
         labels = np.argmin(d, axis=1)
         if not np.all(np.bincount(labels) >= self.n_points_min):
@@ -198,7 +195,7 @@ class Union():
         for label in [0, 1]:
             new_bounds.append(type(self.bounds[0]).compute(
                 points[labels == label], enlarge_per_dim=self.enlarge_per_dim,
-                random_state=self.random_state))
+                rng=self.rng))
 
         if not allow_overlap and ellipsoids_overlap(new_bounds):
             return False
@@ -256,17 +253,17 @@ class Union():
             n_sample = 10000
 
             p = np.exp(np.array(self.log_v) - logsumexp(self.log_v))
-            n_per_bound = self.random_state.multinomial(n_sample, p)
+            n_per_bound = self.rng.multinomial(n_sample, p)
 
             points = np.vstack([bound.sample(n) for bound, n in
                                 zip(self.bounds, n_per_bound)])
             if self.cube is not None:
                 points = points[self.cube.contains(points)]
-            self.random_state.shuffle(points)
+            self.rng.shuffle(points)
             n_bound = np.sum([bound.contains(points) for bound in self.bounds],
                              axis=0)
             p = 1 - 1.0 / n_bound
-            points = points[self.random_state.random(size=len(points)) > p]
+            points = points[self.rng.random(size=len(points)) > p]
             self.points_sample = np.vstack([self.points_sample, points])
 
             self.n_sample += n_sample
@@ -318,14 +315,14 @@ class Union():
         group.create_dataset('points_sample', data=self.points_sample)
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group : h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -336,10 +333,10 @@ class Union():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         for key in ['n_dim', 'log_v', 'enlarge_per_dim', 'n_points_min',
                     'n_sample', 'n_reject']:
@@ -347,7 +344,7 @@ class Union():
 
         if group.attrs['unit']:
             bound.cube = UnitCube.read(
-                group['cube'], random_state=bound.random_state)
+                group['cube'], rng=bound.rng)
 
         if group.attrs['bound_class'] == 'Ellipsoid':
             bound_class = Ellipsoid
@@ -355,7 +352,7 @@ class Union():
             bound_class = UnitCubeEllipsoidMixture
 
         bound.bounds = [bound_class.read(
-            group['bound_{}'.format(i)], random_state=bound.random_state)
+            group['bound_{}'.format(i)], rng=bound.rng)
             for i in range(len(bound.log_v))]
         bound.points = [np.array(group['points_{}'.format(i)]) for i in
                         range(len(bound.log_v))]

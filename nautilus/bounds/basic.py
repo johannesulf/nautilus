@@ -16,20 +16,20 @@ class UnitCube():
     ----------
     n_dim : int
         Number of dimensions.
-    random_state : numpy.random.RandomState instance
+    rng : numpy.random.Generator
         Determines random number generation.
 
     """
 
     @classmethod
-    def compute(cls, n_dim, random_state=None):
+    def compute(cls, n_dim, rng=None):
         """Compute the bound.
 
         Parameters
         ----------
         n_dim : int
             Number of dimensions.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -41,10 +41,10 @@ class UnitCube():
         bound = cls()
         bound.n_dim = n_dim
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         return bound
 
@@ -80,7 +80,7 @@ class UnitCube():
             Points as two-dimensional array of shape (n_points, n_dim).
 
         """
-        points = self.random_state.random(size=(n_points, self.n_dim))
+        points = self.rng.random(size=(n_points, self.n_dim))
         return points
 
     def volume(self):
@@ -107,14 +107,14 @@ class UnitCube():
         group.attrs['n_dim'] = self.n_dim
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group : h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -125,10 +125,10 @@ class UnitCube():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         bound.n_dim = group.attrs['n_dim']
 
@@ -235,14 +235,14 @@ class Ellipsoid():
         Inverse of B.
     log_v : float
         Natural log of the volume of the ellipsoid.
-    random_state : numpy.random.RandomState instance
+    rng : numpy.random.Generator
         Determines random number generation.
 
     """
 
     @classmethod
     def compute(cls, points, enlarge_per_dim=1.1, fast=False,
-                random_state=None):
+                rng=None):
         """Compute the bound.
 
         Parameters
@@ -257,7 +257,7 @@ class Ellipsoid():
             covariance of the points. If False, the ellipsoid (ignoring
             `enlarge_per_dim` is an approximation to a minimum volume enclosing
             ellipsoid. Default is False.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Raises
@@ -302,10 +302,10 @@ class Ellipsoid():
                        bound.n_dim * gammaln(1.5) -
                        gammaln(bound.n_dim / 2.0 + 1))
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         return bound
 
@@ -367,9 +367,9 @@ class Ellipsoid():
             Points as two-dimensional array of shape (n_points, n_dim).
 
         """
-        points = self.random_state.normal(size=(n_points, self.n_dim))
+        points = self.rng.normal(size=(n_points, self.n_dim))
         points = points / np.sqrt(np.sum(points**2, axis=1))[:, np.newaxis]
-        points *= self.random_state.uniform(size=n_points)[:, np.newaxis]**(
+        points *= self.rng.uniform(size=n_points)[:, np.newaxis]**(
             1.0 / self.n_dim)
         points = self.transform(points, inverse=True)
         return points
@@ -399,14 +399,14 @@ class Ellipsoid():
             group.attrs[key] = getattr(self, key)
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group: h5py.Group
             HDF5 group to write to.
-        random_state: None or numpy.random.RandomState instance, optional
+        rng: None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -417,10 +417,10 @@ class Ellipsoid():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         for key in ['n_dim', 'c', 'A', 'B', 'B_inv', 'log_v']:
             setattr(bound, key, group.attrs[key])
@@ -444,12 +444,12 @@ class UnitCubeEllipsoidMixture():
         Unit cube defining the boundary along certain dimensions.
     ellipsoid: Ellipsoid or None
         Ellipsoid defining the boundary along certain dimensions.
-    random_state: numpy.random.RandomState instance
+    rng: numpy.random.Generator
         Determines random number generation.
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, random_state=None):
+    def compute(cls, points, enlarge_per_dim=1.1, rng=None):
         """Compute the bound.
 
         Parameters
@@ -459,7 +459,7 @@ class UnitCubeEllipsoidMixture():
         enlarge_per_dim: float, optional
             Along each dimension, the ellipsoid is enlarged by this factor.
             Default is 1.1.
-        random_state: None or numpy.random.RandomState instance, optional
+        rng: None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -472,7 +472,7 @@ class UnitCubeEllipsoidMixture():
         bound.n_dim = points.shape[1]
 
         kwargs = dict(enlarge_per_dim=enlarge_per_dim,
-                      random_state=random_state)
+                      rng=rng)
 
         # First, calculate a bounding ellipsoid along all dimensions.
         ellipsoid = Ellipsoid.compute(points, fast=True, **kwargs)
@@ -487,7 +487,7 @@ class UnitCubeEllipsoidMixture():
 
         if np.any(bound.dim_cube):
             bound.cube = UnitCube.compute(
-                np.sum(bound.dim_cube), random_state=random_state)
+                np.sum(bound.dim_cube), rng=rng)
         else:
             bound.cube = None
 
@@ -497,10 +497,10 @@ class UnitCubeEllipsoidMixture():
             bound.ellipsoid = Ellipsoid.compute(
                 points[:, np.arange(bound.n_dim)[~bound.dim_cube]], **kwargs)
 
-        if random_state is None:
-            bound.random_state = np.random
+        if rng is None:
+            bound.rng = np.random
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         return bound
 
@@ -614,14 +614,14 @@ class UnitCubeEllipsoidMixture():
             self.ellipsoid.write(group.create_group('ellipsoid'))
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group: h5py.Group
             HDF5 group to write to.
-        random_state: None or numpy.random.RandomState instance, optional
+        rng: None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -632,23 +632,23 @@ class UnitCubeEllipsoidMixture():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         bound.n_dim = group.attrs['n_dim']
         bound.dim_cube = np.array(group['dim_cube'])
 
         if np.any(bound.dim_cube):
             bound.cube = UnitCube.read(
-                group['cube'], random_state=bound.random_state)
+                group['cube'], rng=bound.rng)
         else:
             bound.cube = None
 
         if not np.all(bound.dim_cube):
             bound.ellipsoid = Ellipsoid.read(
-                group['ellipsoid'], random_state=bound.random_state)
+                group['ellipsoid'], rng=bound.rng)
         else:
             bound.ellipsoid = None
 
