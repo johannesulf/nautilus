@@ -294,10 +294,10 @@ class Sampler():
                 self.rng.bit_generator.state = dict(
                     bit_generator='PCG64',
                     state=dict(
-                        state=group.attrs['rng_state'],
-                        inc=group.atts['rng_inc']),
+                        state=int(group.attrs['rng_state']),
+                        inc=int(group.attrs['rng_inc'])),
                     has_uint32=group.attrs['rng_has_uint32'],
-                    rng_uinteger=group.attrs['rng_uinteger'])
+                    uinteger=group.attrs['rng_uinteger'])
 
                 for key in ['n_like', 'explored', 'shell_n',
                             'shell_n_sample_shell', 'shell_n_sample_bound',
@@ -1116,8 +1116,8 @@ class Sampler():
             bound.write(fstream.create_group('bound_{}'.format(i)))
 
         rng_state = self.rng.bit_generator.state
-        group.attrs['rng_state'] = rng_state['state']['state']
-        group.attrs['rng_inc'] = rng_state['state']['inc']
+        group.attrs['rng_state'] = str(rng_state['state']['state'])
+        group.attrs['rng_inc'] = str(rng_state['state']['inc'])
         group.attrs['rng_has_uint32'] = rng_state['has_uint32']
         group.attrs['rng_uinteger'] = rng_state['uinteger']
 
@@ -1166,8 +1166,8 @@ class Sampler():
             group['blobs_{}'.format(shell)][...] = self.blobs[shell]
 
         rng_state = self.rng.bit_generator.state
-        group.attrs['rng_state'] = rng_state['state']['state']
-        group.attrs['rng_inc'] = rng_state['state']['inc']
+        group.attrs['rng_state'] = str(rng_state['state']['state'])
+        group.attrs['rng_inc'] = str(rng_state['state']['inc'])
         group.attrs['rng_has_uint32'] = rng_state['has_uint32']
         group.attrs['rng_uinteger'] = rng_state['uinteger']
 
