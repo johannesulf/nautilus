@@ -53,8 +53,8 @@ class Sampler():
         Maximum number of threads used by `sklearn`.
     pool : object
         Pool used to parallelize likelihood calls.
-    random_state : np.random.RandomState
-        Random state of the sampler used for random number generation.
+    rng : np.random.Generator
+        Random number generator of the sampler.
     n_like : int
         Total number of likelihood evaluations.
     explored : bool, optional
@@ -96,8 +96,8 @@ class Sampler():
                  likelihood_kwargs=dict(), n_batch=100,
                  use_neural_networks=None, n_like_new_bound=None,
                  vectorized=False, pass_dict=None, pool=None, n_jobs='max',
-                 random_state=None, blobs_dtype=None, filepath=None,
-                 resume=True):
+                 random_state=None, seed=None,
+                 blobs_dtype=None, filepath=None, resume=True):
         r"""
         Initialize the sampler.
 
@@ -174,8 +174,10 @@ class Sampler():
         neural_network_thread_limit : int or None, optional
             Deprecated.
         random_state : int or np.random.RandomState, optional
-            Determines random number generation. Pass an int for reproducible
-            results accross different runs. Default is None.
+            Deprecated.
+        seed : int, optional
+            Seed for random number generation used for reproducible results
+            accross different runs. Default is None.
         blobs_dtype : object or None, optional
             Object that can be converted to a data type object describing the
             blobs. If None, this will be inferred from the first blob. Default
@@ -193,8 +195,8 @@ class Sampler():
         ------
         ValueError
             If `prior` is a function and `n_dim` is not given or `pass_struct`
-            is set to True. Also, if the dimensionality of the problem is less
-            than 2.
+            is set to True. If the dimensionality of the problem is less than
+            2.
 
         """
         if callable(prior):
@@ -260,12 +262,12 @@ class Sampler():
 
         self.n_jobs = n_jobs
 
-        if random_state is None:
-            self.random_state = np.random.RandomState()
-        elif isinstance(random_state, int):
-            self.random_state = np.random.RandomState(random_state)
-        else:
-            self.random_state = random_state
+        if random_state is not None:
+            warnings.warn("The 'random_state' keyword argument has been " +
+                          "deprecated. Use 'seed' instead.",
+                          DeprecationWarning, stacklevel=2)
+
+        self.rng = np.random.default_rng(seed)
 
         # The following variables carry the information about the run.
         self.n_like = 0
@@ -286,10 +288,16 @@ class Sampler():
         self.filepath = filepath
         if resume and filepath is not None and Path(filepath).exists():
             with h5py.File(filepath, 'r') as fstream:
+
                 group = fstream['sampler']
-                self.random_state.set_state(
-                    tuple(group.attrs['random_state_{}'.format(i)] for i in
-                          range(5)))
+
+                self.rng.bit_generator.state = dict(
+                    bit_generator='PCG64',
+                    state=dict(
+                        state=int(group.attrs['rng_state']),
+                        inc=int(group.attrs['rng_inc'])),
+                    has_uint32=group.attrs['rng_has_uint32'],
+                    uinteger=group.attrs['rng_uinteger'])
 
                 for key in ['n_like', 'explored', 'shell_n',
                             'shell_n_sample_shell', 'shell_n_sample_bound',
@@ -309,12 +317,11 @@ class Sampler():
                     except KeyError:
                         pass
 
-                self.bounds = [UnitCube.read(fstream['bound_0'],
-                                             random_state=self.random_state), ]
+                self.bounds = [
+                    UnitCube.read(fstream['bound_0'], rng=self.rng), ]
                 for i in range(1, len(self.shell_n)):
                     self.bounds.append(NautilusBound.read(
-                        fstream['bound_{}'.format(i)],
-                        random_state=self.random_state))
+                        fstream['bound_{}'.format(i)], rng=self.rng))
 
     def run(self, f_live=0.01, n_shell=None, n_eff=10000,
             discard_exploration=False, verbose=False):
@@ -469,7 +476,7 @@ class Sampler():
                 ' only returns dictionaries.')
 
         if equal_weight:
-            select = (self.random_state.random(len(log_w)) <
+            select = (self.rng.random(len(log_w)) <
                       np.exp(log_w - np.amax(log_w)))
             points = points[select]
             log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
@@ -573,10 +580,10 @@ class Sampler():
                     idx_2 = np.flatnonzero(shell_p == shell)
                     n = min(len(idx_1), len(idx_2))
                     if n > 0:
-                        idx_t = np.append(idx_t, self.random_state.choice(
+                        idx_t = np.append(idx_t, self.rng.choice(
                             idx_1, size=n, replace=False))
                         shell_t[idx_t] = -1
-                        replace[self.random_state.choice(
+                        replace[self.rng.choice(
                             idx_2, size=n, replace=False)] = True
 
             points = points[~replace]
@@ -718,8 +725,7 @@ class Sampler():
         # If this is the first bound, use the UnitCube bound.
         if len(self.bounds) == 0:
             log_l_min = -np.inf
-            self.bounds.append(
-                UnitCube.compute(self.n_dim, random_state=self.random_state))
+            self.bounds.append(UnitCube.compute(self.n_dim, rng=self.rng))
         else:
             if verbose:
                 print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
@@ -732,7 +738,7 @@ class Sampler():
                 enlarge_per_dim=self.enlarge_per_dim,
                 n_networks=self.n_networks,
                 neural_network_kwargs=self.neural_network_kwargs,
-                n_jobs=self.n_jobs, random_state=self.random_state)
+                n_jobs=self.n_jobs, rng=self.rng)
             if bound.volume() > self.bounds[-1].volume():
                 bound = self.bounds[-1]
             self.bounds.append(bound)
@@ -1092,9 +1098,6 @@ class Sampler():
             group.attrs['neural_network_{}'.format(key)] =\
                 self.neural_network_kwargs[key]
 
-        for i, var in enumerate(self.random_state.get_state()):
-            group.attrs['random_state_{}'.format(i)] = var
-
         for shell in range(len(self.bounds)):
             group.create_dataset(
                 'points_{}'.format(shell), data=self.points[shell],
@@ -1111,6 +1114,12 @@ class Sampler():
 
         for i, bound in enumerate(self.bounds):
             bound.write(fstream.create_group('bound_{}'.format(i)))
+
+        rng_state = self.rng.bit_generator.state
+        group.attrs['rng_state'] = str(rng_state['state']['state'])
+        group.attrs['rng_inc'] = str(rng_state['state']['inc'])
+        group.attrs['rng_has_uint32'] = rng_state['has_uint32']
+        group.attrs['rng_uinteger'] = rng_state['uinteger']
 
         fstream.close()
 
@@ -1155,5 +1164,11 @@ class Sampler():
         if self.blobs_dtype is not None:
             group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
             group['blobs_{}'.format(shell)][...] = self.blobs[shell]
+
+        rng_state = self.rng.bit_generator.state
+        group.attrs['rng_state'] = str(rng_state['state']['state'])
+        group.attrs['rng_inc'] = str(rng_state['state']['inc'])
+        group.attrs['rng_has_uint32'] = rng_state['has_uint32']
+        group.attrs['rng_uinteger'] = rng_state['uinteger']
 
         fstream.close()

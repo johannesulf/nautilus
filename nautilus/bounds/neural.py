@@ -15,7 +15,7 @@ class NeuralBound():
     ----------
     n_dim : int
         Number of dimensions.
-    random_state : numpy.random or numpy.random.RandomState instance
+    rng : numpy.random or numpy.random.Generator
         Determines random number generation.
     outer_bound : UnitCubeEllipsoidMixture
         Outer bound around the points above the likelihood threshold.
@@ -30,7 +30,7 @@ class NeuralBound():
     @classmethod
     def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
                 n_networks=4, neural_network_kwargs={}, n_jobs='max',
-                random_state=None):
+                rng=None):
         """Compute a neural network-based bound.
 
         Parameters
@@ -52,7 +52,7 @@ class NeuralBound():
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
             passed, all available cores are used.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -64,15 +64,15 @@ class NeuralBound():
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        if random_state is None:
-            bound.random_state = np.random
+        if rng is None:
+            bound.rng = np.random
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         # Determine the outer bound.
         bound.outer_bound = Ellipsoid.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
-            random_state=bound.random_state)
+            rng=bound.rng)
 
         if n_networks == 0:
             bound.emulator = None
@@ -143,14 +143,14 @@ class NeuralBound():
             self.emulator.write(group.create_group('emulator'))
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group : h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -161,10 +161,10 @@ class NeuralBound():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random
+        if rng is None:
+            bound.rng = np.random
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         bound.n_dim = group.attrs['n_dim']
         bound.score_predict_min = group.attrs['score_predict_min']
@@ -189,7 +189,7 @@ class NautilusBound():
         List of the individual neural network-based bounds.
     outer_bound : Union
         Outer bound used for sampling.
-    random_state : None or numpy.random.RandomState instance
+    rng : None or numpy.random.Generator
         Determines random number generation.
     points_sample : numpy.ndarray
         Points that a call to `sample` will return next.
@@ -203,7 +203,7 @@ class NautilusBound():
     def compute(cls, points, log_l, log_l_min, log_v_target,
                 enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
                 n_networks=4, neural_network_kwargs={}, n_jobs='max',
-                random_state=None):
+                rng=None):
         """Compute a union of multiple neural network-based bounds.
 
         Parameters
@@ -238,7 +238,7 @@ class NautilusBound():
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
             passed, all available cores are used.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -254,7 +254,7 @@ class NautilusBound():
         multi_ellipsoid = Union.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
             n_points_min=n_points_min, bound_class=Ellipsoid,
-            random_state=random_state)
+            rng=rng)
 
         while multi_ellipsoid.split_bound(allow_overlap=False):
             pass
@@ -265,22 +265,22 @@ class NautilusBound():
                 points[select], log_l[select], log_l_min,
                 enlarge_per_dim=enlarge_per_dim, n_networks=n_networks,
                 neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs,
-                random_state=random_state))
+                rng=rng))
 
         bound.outer_bound = Union.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
             n_points_min=n_points_min, bound_class=UnitCubeEllipsoidMixture,
-            random_state=random_state)
+            rng=rng)
 
         while bound.outer_bound.volume() - log_v_target > np.log(
                 split_threshold * enlarge_per_dim**points.shape[1]):
             if not bound.outer_bound.split_bound():
                 break
 
-        if random_state is None:
-            bound.random_state = np.random.RandomState()
+        if rng is None:
+            bound.rng = np.random.default_rng()
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         bound.points_sample = np.zeros((0, points.shape[1]))
         bound.n_sample = 0
@@ -401,14 +401,14 @@ class NautilusBound():
         group.attrs['n_reject'] = self.n_reject
 
     @classmethod
-    def read(cls, group, random_state=None):
+    def read(cls, group, rng=None):
         """Read the bound from an HDF5 group.
 
         Parameters
         ----------
         group : h5py.Group
             HDF5 group to write to.
-        random_state : None or numpy.random.RandomState instance, optional
+        rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
         Returns
@@ -419,21 +419,21 @@ class NautilusBound():
         """
         bound = cls()
 
-        if random_state is None:
-            bound.random_state = np.random
+        if rng is None:
+            bound.rng = np.random
         else:
-            bound.random_state = random_state
+            bound.rng = rng
 
         bound.neural_bounds = []
         i = 0
         while 'neural_bound_{}'.format(i) in group:
             bound.neural_bounds.append(NeuralBound.read(
                 group['neural_bound_{}'.format(i)],
-                random_state=bound.random_state))
+                rng=bound.rng))
             i += 1
 
         bound.outer_bound = Union.read(
-            group['outer_bound'], random_state=random_state)
+            group['outer_bound'], rng=rng)
 
         bound.points_sample = np.array(group['points_sample'])
         bound.n_sample = group.attrs['n_sample']

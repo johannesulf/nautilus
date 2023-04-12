@@ -56,16 +56,14 @@ def test_unit_cube():
     assert cube.volume() == 0
 
 
-def test_unit_cube_random_state():
-    # Test that passing a random state leads to reproducible results.
+def test_unit_cube_rng():
+    # Test that passing a random number generator leads to reproducible
+    # results.
 
     n_dim, n_points = 7, 1000
-    cube = bounds.UnitCube.compute(
-        n_dim, random_state=np.random.RandomState(0))
-    cube_same = bounds.UnitCube.compute(
-        n_dim, random_state=np.random.RandomState(0))
-    cube_diff = bounds.UnitCube.compute(
-        n_dim, random_state=np.random.RandomState(1))
+    cube = bounds.UnitCube.compute(n_dim, rng=np.random.default_rng(0))
+    cube_same = bounds.UnitCube.compute(n_dim, rng=np.random.default_rng(0))
+    cube_diff = bounds.UnitCube.compute(n_dim, rng=np.random.default_rng(1))
     points = cube.sample(n_points)
     assert np.all(points == cube_same.sample(n_points))
     assert not np.all(points == cube_diff.sample(n_points))
@@ -122,7 +120,7 @@ def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
 
     ell = bounds.Ellipsoid.compute(
         points_on_hypersphere_boundary, enlarge_per_dim=1.0,
-        random_state=np.random.RandomState(0))
+        rng=np.random.default_rng(0))
     c = np.mean(points_on_hypersphere_boundary)
 
     n_points = 100
@@ -132,7 +130,7 @@ def test_ellipsoid_sample_and_contains(points_on_hypersphere_boundary):
     assert np.all(ell.contains(points))
 
     ell = bounds.Ellipsoid.compute(
-        points, enlarge_per_dim=1.1, random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.1, rng=np.random.default_rng(0))
     points = ell.sample(n_points)
     assert not np.all(np.linalg.norm(points - c, axis=1) < 1)
     assert np.all(ell.contains(points))
@@ -154,22 +152,23 @@ def test_ellipsoid_transform(random_points_from_hypersphere):
     # Test that the Cholesky decomposition works correctly.
 
     ell = bounds.Ellipsoid.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(0))
+        random_points_from_hypersphere, rng=np.random.default_rng(0))
     points = ell.sample(100)
     points_t = ell.transform(points)
     assert np.all(np.abs(points_t) < 1 + 1e-9)
     assert np.allclose(points, ell.transform(points_t, inverse=True))
 
 
-def test_ellipsoid_random_state(random_points_from_hypersphere):
-    # Test that passing a random state leads to reproducible results.
+def test_ellipsoid_rng(random_points_from_hypersphere):
+    # Test that passing a random number generator leads to reproducible
+    # results.
 
     ell = bounds.Ellipsoid.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(0))
+        random_points_from_hypersphere, rng=np.random.default_rng(0))
     ell_same = bounds.Ellipsoid.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(0))
+        random_points_from_hypersphere, rng=np.random.default_rng(0))
     ell_diff = bounds.Ellipsoid.compute(
-        random_points_from_hypersphere, random_state=np.random.RandomState(1))
+        random_points_from_hypersphere, rng=np.random.default_rng(1))
     n_points = 1000
     points = ell.sample(n_points)
     assert np.all(points == ell_same.sample(n_points))
@@ -192,8 +191,8 @@ def test_union_split(random_points_from_hypersphere):
                              random_points_from_hypersphere + 100])
 
     union = bounds.Union.compute(
-        points, enlarge_per_dim=1.0 + 1e-9,
-        unit=False, random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.0 + 1e-9, unit=False,
+        rng=np.random.default_rng(0))
 
     # When not allowing overlaps, only 2 ellipsoids should be possible.
     while union.split_bound(allow_overlap=False):
@@ -230,7 +229,7 @@ def test_union_sample_and_contains(random_points_from_hypersphere):
 
     union = bounds.Union.compute(
         random_points_from_hypersphere + 50, enlarge_per_dim=1.0,
-        unit=False, random_state=np.random.RandomState(0))
+        unit=False, rng=np.random.default_rng(0))
     for i in range(4):
         union.split_bound()
 
@@ -240,26 +239,26 @@ def test_union_sample_and_contains(random_points_from_hypersphere):
     assert np.all(union.contains(points))
 
     union_large = bounds.Union.compute(
-        points, enlarge_per_dim=1.1, unit=False,
-        random_state=np.random.RandomState(0))
+        points, enlarge_per_dim=1.1, unit=False, rng=np.random.default_rng(0))
     points = union_large.sample(n_points)
     assert not np.all(union.contains(points))
 
 
-def test_union_random_state(random_points_from_hypersphere):
-    # Test that passing a random state leads to reproducible results.
+def test_union_rng(random_points_from_hypersphere):
+    # Test that passing a random number generator leads to reproducible
+    # results.
 
     union = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
-        random_state=np.random.RandomState(0))
+        rng=np.random.default_rng(0))
     union.split_bound()
     union_same = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
-        random_state=np.random.RandomState(0))
+        rng=np.random.default_rng(0))
     union_same.split_bound()
     union_diff = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
-        random_state=np.random.RandomState(1))
+        rng=np.random.default_rng(1))
     union_diff.split_bound()
     n_points = 100
     points = union.sample(n_points)
@@ -323,9 +322,8 @@ def test_nautilus_bound_gaussian_shell():
     log_v_target = np.log(2 * np.pi * radius * width * 2)
 
     nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, log_v_target,
-        split_threshold=1, n_networks=1, n_jobs=1,
-        random_state=np.random.RandomState(0))
+        points, log_l, log_l_min, log_v_target, split_threshold=1,
+        n_networks=1, n_jobs=1, rng=np.random.default_rng(0))
 
     points = nbound.sample(10000)
     log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
@@ -347,7 +345,7 @@ def test_nautilus_bound_small_target(random_points_from_hypercube):
     log_l_min = np.amin(log_l)
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, -np.inf, n_points_min=20, n_networks=1,
-        n_jobs=1, random_state=np.random.RandomState(0))
+        n_jobs=1, rng=np.random.default_rng(0))
     assert nbound.volume() > -1
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
     assert nbound.number_of_networks_and_ellipsoids()[1] > 10
@@ -372,7 +370,7 @@ def test_nautilus_bound_two_peaks():
     log_v_target = np.log(2 * np.pi * radius**2)
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, log_v_target, n_networks=1, n_jobs=1,
-        random_state=np.random.RandomState(0))
+        rng=np.random.default_rng(0))
 
     points = nbound.sample(10000)
     log_l = likelihood(points)
