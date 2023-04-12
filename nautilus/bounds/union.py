@@ -5,7 +5,6 @@ import numpy as np
 from scipy.special import logsumexp
 from scipy.optimize import minimize
 from sklearn.cluster import KMeans
-from threadpoolctl import threadpool_limits
 
 from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
 
@@ -57,9 +56,10 @@ class Union():
         List of individual bounds.
     log_v : list
         Natural log of the volume of each individual bound.
-    points : list
-        The points used to create the union. Used to add more bounds.
-    points_sample : numpy.ndarray
+    points_bounds : list
+        The points used to create the individual bounds. Used to split bounds
+        further.
+    points : numpy.ndarray
         Points that a call to `sample` will return next.
     n_sample : int
         Number of points sampled from all bounds.
@@ -67,6 +67,7 @@ class Union():
         Number of points rejected due to overlap.
     rng : numpy.random.Generator
         Determines random number generation.
+
     """
 
     @classmethod
@@ -126,13 +127,13 @@ class Union():
             bound.cube = UnitCube.compute(
                 bound.n_dim, rng=rng)
 
-        bound.points = [points]
+        bound.points_bounds = [points]
         bound.bounds = [bound_class.compute(
             points, enlarge_per_dim=enlarge_per_dim,
             rng=rng)]
         bound.log_v = np.array([bound.bounds[0].volume()])
 
-        bound.points_sample = np.zeros((0, points.shape[1]))
+        bound.points = np.zeros((0, points.shape[1]))
         bound.n_sample = 0
         bound.n_reject = 0
 
@@ -169,19 +170,19 @@ class Union():
             raise ValueError("'allow_overlap' can only be False if " +
                              "bounds are ellipsoids.")
 
-        split_possible = (np.array([len(points) for points in self.points]) >=
-                          2 * self.n_points_min)
+        split_possible = (
+            np.array([len(points) for points in self.points_bounds]) >=
+            2 * self.n_points_min)
 
         if not np.any(split_possible):
             return False
 
         index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
-        points = self.bounds[index].transform(self.points[index])
+        points = self.bounds[index].transform(self.points_bounds[index])
 
-        with threadpool_limits(limits=1):
-            d = KMeans(
-                n_clusters=2, n_init=10, random_state=self.rng.integers(
-                    2**32 - 1)).fit_transform(points)
+        d = KMeans(
+            n_clusters=2, n_init=10, random_state=self.rng.integers(
+                2**32 - 1)).fit_transform(points)
 
         labels = np.argmin(d, axis=1)
         if not np.all(np.bincount(labels) >= self.n_points_min):
@@ -191,7 +192,7 @@ class Union():
 
         new_bounds = self.bounds.copy()
         new_bounds.pop(index)
-        points = self.points[index]
+        points = self.points_bounds[index]
         for label in [0, 1]:
             new_bounds.append(type(self.bounds[0]).compute(
                 points[labels == label], enlarge_per_dim=self.enlarge_per_dim,
@@ -202,14 +203,12 @@ class Union():
 
         self.bounds = new_bounds
         self.log_v = np.array([bound.volume() for bound in self.bounds])
-        self.points.pop(index)
-        self.points.append(points[labels == 0])
-        self.points.append(points[labels == 1])
+        self.points_bounds.pop(index)
+        self.points_bounds.append(points[labels == 0])
+        self.points_bounds.append(points[labels == 1])
 
         # Reset the sampling.
-        self.points_sample = np.zeros((0, points.shape[1]))
-        self.n_sample = 0
-        self.n_reject = 0
+        self.reset()
 
         return True
 
@@ -241,7 +240,7 @@ class Union():
         Parameters
         ----------
         n_points : int, optional
-            How many points to draw.
+            How many points to draw. Default is 100.
 
         Returns
         -------
@@ -249,8 +248,8 @@ class Union():
             Points as two-dimensional array of shape (n_points, n_dim).
 
         """
-        while len(self.points_sample) < n_points:
-            n_sample = 10000
+        while len(self.points) < n_points:
+            n_sample = 1000
 
             p = np.exp(np.array(self.log_v) - logsumexp(self.log_v))
             n_per_bound = self.rng.multinomial(n_sample, p)
@@ -264,13 +263,13 @@ class Union():
                              axis=0)
             p = 1 - 1.0 / n_bound
             points = points[self.rng.random(size=len(points)) > p]
-            self.points_sample = np.vstack([self.points_sample, points])
+            self.points = np.vstack([self.points, points])
 
             self.n_sample += n_sample
             self.n_reject += n_sample - len(points)
 
-        points = self.points_sample[:n_points]
-        self.points_sample = self.points_sample[n_points:]
+        points = self.points[:n_points]
+        self.points = self.points[n_points:]
         return points
 
     def volume(self):
@@ -310,9 +309,9 @@ class Union():
         for i, bound in enumerate(self.bounds):
             bound.write(group.create_group('bound_{}'.format(i)))
 
-        for i in range(len(self.points)):
-            group.create_dataset('points_{}'.format(i), data=self.points[i])
-        group.create_dataset('points_sample', data=self.points_sample)
+        for i, points in enumerate(self.points_bounds):
+            group.create_dataset('points_bound_{}'.format(i), data=points)
+        group.create_dataset('points', data=self.points)
 
     @classmethod
     def read(cls, group, rng=None):
@@ -354,8 +353,29 @@ class Union():
         bound.bounds = [bound_class.read(
             group['bound_{}'.format(i)], rng=bound.rng)
             for i in range(len(bound.log_v))]
-        bound.points = [np.array(group['points_{}'.format(i)]) for i in
-                        range(len(bound.log_v))]
-        bound.points_sample = np.array(group['points_sample'])
+        bound.points_bounds = [np.array(group['points_bound_{}'.format(i)]) for
+                               i in range(len(bound.log_v))]
+        bound.points = np.array(group['points'])
 
         return bound
+
+    def reset(self, rng=None):
+        """Reset random number generation and any progress, if applicable.
+
+        Parameters
+        ----------
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        """
+        self.points = np.zeros((0, self.n_dim))
+        self.n_sample = 0
+        self.n_reject = 0
+
+        if rng is not None:
+            self.rng = rng
+            if self.cube is not None:
+                self.cube.reset(rng)
+            for bound in self.bounds:
+                bound.reset(rng)

@@ -219,9 +219,9 @@ def test_union_split(random_points_from_hypersphere):
         points = np.random.random((2 * n_points_min, 2))
         union = bounds.Union.compute(points, n_points_min=n_points_min)
         union.split_bound()
-        assert len(union.points) == 2
-        assert len(union.points[0]) == n_points_min
-        assert len(union.points[1]) == n_points_min
+        assert len(union.points_bounds) == 2
+        assert len(union.points_bounds[0]) == n_points_min
+        assert len(union.points_bounds[1]) == n_points_min
 
 
 def test_union_sample_and_contains(random_points_from_hypersphere):

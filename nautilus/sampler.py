@@ -5,13 +5,14 @@ try:
 except ImportError:
     pass
 import numpy as np
+import warnings
 
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
+from threadpoolctl import threadpool_limits
 from tqdm import tqdm
-import warnings
 
 from .bounds import UnitCube, NautilusBound
 
@@ -558,8 +559,8 @@ class Sampler():
         points_all = []
 
         while n_sample < self.n_batch:
-            points = np.atleast_2d(self.bounds[index].sample(
-                self.n_batch - n_sample))
+            with threadpool_limits(limits=1):
+                points = self.bounds[index].sample(self.n_batch - n_sample)
             n_bound += self.n_batch - n_sample
 
             # Remove points that are actually in another shell.
@@ -733,12 +734,13 @@ class Sampler():
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
-            bound = NautilusBound.compute(
-                points, log_l, log_l_min, self.live_volume(),
-                enlarge_per_dim=self.enlarge_per_dim,
-                n_networks=self.n_networks,
-                neural_network_kwargs=self.neural_network_kwargs,
-                n_jobs=self.n_jobs, rng=self.rng)
+            with threadpool_limits(limits=1):
+                bound = NautilusBound.compute(
+                    points, log_l, log_l_min, self.live_volume(),
+                    enlarge_per_dim=self.enlarge_per_dim,
+                    n_networks=self.n_networks,
+                    neural_network_kwargs=self.neural_network_kwargs,
+                    n_jobs=self.n_jobs, rng=self.rng)
             if bound.volume() > self.bounds[-1].volume():
                 bound = self.bounds[-1]
             self.bounds.append(bound)

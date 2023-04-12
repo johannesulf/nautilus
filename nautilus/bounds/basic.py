@@ -134,6 +134,19 @@ class UnitCube():
 
         return bound
 
+    def reset(self, rng=None):
+        """Reset random number generation and any progress, if applicable.
+
+        Parameters
+        ----------
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        """
+        if rng is not None:
+            self.rng = rng
+
 
 def invert_symmetric_positive_semidefinite_matrix(m):
     """Invert a symmetric positive sem-definite matrix.
@@ -358,7 +371,7 @@ class Ellipsoid():
         Parameters
         ----------
         n_points : int, optional
-            How many points to draw.
+            How many points to draw. Default is 100.
 
         Returns
         -------
@@ -426,6 +439,19 @@ class Ellipsoid():
 
         return bound
 
+    def reset(self, rng=None):
+        """Reset random number generation and any progress, if applicable.
+
+        Parameters
+        ----------
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        """
+        if rng is not None:
+            self.rng = rng
+
 
 class UnitCubeEllipsoidMixture():
     """Mixture of a unit cube and an ellipsoid.
@@ -443,8 +469,7 @@ class UnitCubeEllipsoidMixture():
         Unit cube defining the boundary along certain dimensions.
     ellipsoid: Ellipsoid or None
         Ellipsoid defining the boundary along certain dimensions.
-    rng: numpy.random.Generator
-        Determines random number generation.
+
     """
 
     @classmethod
@@ -484,8 +509,7 @@ class UnitCubeEllipsoidMixture():
                 bound.dim_cube[dim] = True
 
         if np.any(bound.dim_cube):
-            bound.cube = UnitCube.compute(
-                np.sum(bound.dim_cube), rng=rng)
+            bound.cube = UnitCube.compute(np.sum(bound.dim_cube), rng=rng)
         else:
             bound.cube = None
 
@@ -494,11 +518,6 @@ class UnitCubeEllipsoidMixture():
         else:
             bound.ellipsoid = Ellipsoid.compute(
                 points[:, np.arange(bound.n_dim)[~bound.dim_cube]], **kwargs)
-
-        if rng is None:
-            bound.rng = np.random
-        else:
-            bound.rng = rng
 
         return bound
 
@@ -562,12 +581,12 @@ class UnitCubeEllipsoidMixture():
         Parameters
         ----------
         n_points: int, optional
-            How many points to draw.
+            How many points to draw. Default is 100.
 
         Returns
         -------
         points: numpy.ndarray
-            Points as two-dimensional array of shape(n_points, n_dim).
+            Points as two-dimensional array of shape (n_points, n_dim).
 
         """
         points = np.zeros((n_points, self.n_dim))
@@ -631,23 +650,35 @@ class UnitCubeEllipsoidMixture():
         bound = cls()
 
         if rng is None:
-            bound.rng = np.random.default_rng()
-        else:
-            bound.rng = rng
+            rng = np.random.default_rng()
 
         bound.n_dim = group.attrs['n_dim']
         bound.dim_cube = np.array(group['dim_cube'])
 
         if np.any(bound.dim_cube):
-            bound.cube = UnitCube.read(
-                group['cube'], rng=bound.rng)
+            bound.cube = UnitCube.read(group['cube'], rng=rng)
         else:
             bound.cube = None
 
         if not np.all(bound.dim_cube):
-            bound.ellipsoid = Ellipsoid.read(
-                group['ellipsoid'], rng=bound.rng)
+            bound.ellipsoid = Ellipsoid.read(group['ellipsoid'], rng=rng)
         else:
             bound.ellipsoid = None
 
         return bound
+
+    def reset(self, rng=None):
+        """Reset random number generation and any progress, if applicable.
+
+        Parameters
+        ----------
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        """
+        if rng is not None:
+            if self.ellipsoid is not None:
+                self.ellipsoid.reset(rng)
+            if self.cube is not None:
+                self.cube.reset(rng)
