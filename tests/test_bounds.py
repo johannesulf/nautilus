@@ -160,7 +160,8 @@ def test_ellipsoid_transform(random_points_from_hypersphere):
 
 
 def test_ellipsoid_rng(random_points_from_hypersphere):
-    # Test that passing a random state leads to reproducible results.
+    # Test that passing a random number generator leads to reproducible
+    # results.
 
     ell = bounds.Ellipsoid.compute(
         random_points_from_hypersphere, rng=np.random.default_rng(0))
@@ -244,7 +245,8 @@ def test_union_sample_and_contains(random_points_from_hypersphere):
 
 
 def test_union_rng(random_points_from_hypersphere):
-    # Test that passing a random state leads to reproducible results.
+    # Test that passing a random number generator leads to reproducible
+    # results.
 
     union = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,

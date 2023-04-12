@@ -241,8 +241,7 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, fast=False,
-                rng=None):
+    def compute(cls, points, enlarge_per_dim=1.1, fast=False, rng=None):
         """Compute the bound.
 
         Parameters
@@ -471,8 +470,7 @@ class UnitCubeEllipsoidMixture():
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        kwargs = dict(enlarge_per_dim=enlarge_per_dim,
-                      rng=rng)
+        kwargs = dict(enlarge_per_dim=enlarge_per_dim, rng=rng)
 
         # First, calculate a bounding ellipsoid along all dimensions.
         ellipsoid = Ellipsoid.compute(points, fast=True, **kwargs)

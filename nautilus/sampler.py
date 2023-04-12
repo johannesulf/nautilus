@@ -196,7 +196,7 @@ class Sampler():
         ValueError
             If `prior` is a function and `n_dim` is not given or `pass_struct`
             is set to True. If the dimensionality of the problem is less than
-            2. If `random_number_generator` uses an algorithm other than PCG64.
+            2.
 
         """
         if callable(prior):

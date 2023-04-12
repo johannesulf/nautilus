@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The code now uses the more modern `numpy.random.Generator` framework instead of `numpy.random.RandomState`.
 
 ### Fixed
-- The sampler now correctly saves the random number generation in the sampling phase.
+- The sampler now correctly writes the random number generation in the sampling phase.
 
 ### Deprecated
 - The `random_state` keyword argument for the sampler has been deprecated in favor of the new keyword argument `seed`.
