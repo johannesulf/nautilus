@@ -92,7 +92,7 @@ class NeuralBound():
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
         bound.emulator = NeuralNetworkEmulator.train(
             points_t, score, n_networks=n_networks,
-            neural_network_kwargs=neural_network_kwargs, n_jobs='max')
+            neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs)
 
         bound.score_predict_min = np.polyval(np.polyfit(
             score, bound.emulator.predict(points_t), 3), 0.5)
