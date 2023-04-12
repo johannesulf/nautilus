@@ -66,13 +66,15 @@ class UnitCube():
         """
         return np.all((points >= 0) & (points < 1), axis=-1)
 
-    def sample(self, n_points=100):
+    def sample(self, n_points=100, n_jobs=None):
         """Sample points from the bound.
 
         Parameters
         ----------
         n_points : int, optional
             How many points to draw. Default is 100.
+        n_jobs : ignored
+            Not used. Present for API consistency.
 
         Returns
         -------

@@ -161,7 +161,7 @@ class Sampler():
             (n_points). Default is False.
         pass_dict : bool or None, optional
             If True, the likelihood function expects model parameters as
-            dictionaries. If false, it expects regular numpy arrays. Default is
+            dictionaries. If False, it expects regular numpy arrays. Default is
             to set it to True if prior was a nautilus.Prior instance and False
             otherwise.
         pool : object or int, optional
@@ -170,8 +170,9 @@ class Sampler():
             If it is an integer, it determines the number of workers in the
             Pool. Default is None.
         n_jobs : int or string, optional
-            Number of parallel jobs to use for neural network training. If the
-            string 'max' is passed, all available cores are used.
+            Number of parallel jobs to use for neural network training and
+            sampling new points. If the string 'max' is passed, all available
+            cores are used. Default is 'max'.
         neural_network_thread_limit : int or None, optional
             Deprecated.
         random_state : int or np.random.RandomState, optional
@@ -560,7 +561,8 @@ class Sampler():
 
         while n_sample < self.n_batch:
             with threadpool_limits(limits=1):
-                points = self.bounds[index].sample(self.n_batch - n_sample)
+                points = self.bounds[index].sample(
+                    self.n_batch - n_sample, n_jobs=self.n_jobs)
             n_bound += self.n_batch - n_sample
 
             # Remove points that are actually in another shell.
