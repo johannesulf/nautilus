@@ -368,7 +368,7 @@ class NautilusBound():
                     n_jobs = cpu_count()
                 with Pool(n_jobs) as pool:
                     n_points_per_job = (
-                        (n_points - len(self.points)) // n_jobs) + 1
+                        (max(n_points - len(self.points), 1000)) // n_jobs) + 1
                     func = partial(self._reset_and_sample, n_points_per_job)
                     rngs = [np.random.default_rng(seed) for seed in
                             np.random.SeedSequence(self.rng.integers(
