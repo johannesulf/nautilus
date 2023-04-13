@@ -399,7 +399,7 @@ class NautilusBound():
 
         """
         if self.n_sample == 0:
-            self.sample()
+            self.sample(return_points=False)
 
         return self.outer_bound.volume() + np.log(
             1.0 - self.n_reject / self.n_sample)

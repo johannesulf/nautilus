@@ -37,8 +37,19 @@ class Sampler():
         created.
     n_like_new_bound : int
         The maximum number of likelihood calls before a new bounds is created.
-    enlarge : float
-        Factor by which the volume of ellipsoidal bounds is increased.
+    enlarge_per_dim : float
+        Along each dimension, outer ellipsoidal bounds are enlarged by this
+        factor.
+    n_points_min : int or None, optional
+        The minimum number of points each ellipsoid should have. Effectively,
+        ellipsoids with less than twice that number will not be split further.
+    split_threshold: float, optional
+        Threshold used for splitting the multi-ellipsoidal bound used for
+        sampling. If the volume of the bound prior enlarging is larger than
+        `split_threshold` times the target volume, the multi-ellipsiodal
+        bound is split further, if possible.
+    n_networks : int
+        Number of networks used in the estimator.
     neural_network_kwargs : dict
         Keyword arguments passed to the constructor of
         `sklearn.neural_network.MLPRegressor`.
@@ -50,10 +61,11 @@ class Sampler():
     pass_dict : bool
         If True, the likelihood function expects model parameters as
         dictionaries.
-    neural_network_thread_limit : int or None
-        Maximum number of threads used by `sklearn`.
     pool : object
         Pool used to parallelize likelihood calls.
+    n_jobs : int or string
+        Number of parallel jobs to use for neural network training and sampling
+        new points.
     rng : np.random.Generator
         Random number generator of the sampler.
     n_like : int
@@ -92,6 +104,7 @@ class Sampler():
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=2000,
                  n_update=None, enlarge=None, enlarge_per_dim=1.1,
+                 n_points_min=None, split_threshold=100,
                  n_networks=4, neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
@@ -124,6 +137,16 @@ class Sampler():
         enlarge_per_dim : float, optional
             Along each dimension, outer ellipsoidal bounds are enlarged by this
             factor. Default is 1.1.
+        n_points_min : int or None, optional
+            The minimum number of points each ellipsoid should have.
+            Effectively, ellipsoids with less than twice that number will not
+            be split further. If None, uses `n_points_min = n_dim + 50`.
+            Default is None.
+        split_threshold: float, optional
+            Threshold used for splitting the multi-ellipsoidal bound used for
+            sampling. If the volume of the bound prior enlarging is larger than
+            `split_threshold` times the target volume, the multi-ellipsiodal
+            bound is split further, if possible. Default is 100.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
@@ -227,14 +250,12 @@ class Sampler():
         self.n_live = n_live
 
         if n_update is None:
-            self.n_update = n_live
-        else:
-            self.n_update = n_update
+            n_update = n_live
+        self.n_update = n_update
 
         if n_like_new_bound is None:
-            self.n_like_new_bound = 10 * n_live
-        else:
-            self.n_like_new_bound = n_like_new_bound
+            n_like_new_bound = 10 * n_live
+        self.n_like_new_bound = n_like_new_bound
 
         if enlarge is not None:
             warnings.warn("The 'enlarge' keyword argument has been " +
@@ -242,6 +263,12 @@ class Sampler():
                           DeprecationWarning, stacklevel=2)
 
         self.enlarge_per_dim = enlarge_per_dim
+
+        if n_points_min is None:
+            n_points_min = self.n_dim + 50
+        self.n_points_min = n_points_min
+
+        self.split_threshold = split_threshold
 
         if use_neural_networks is not None:
             warnings.warn("The 'use_neural_networks' keyword argument has " +
@@ -740,11 +767,14 @@ class Sampler():
                 bound = NautilusBound.compute(
                     points, log_l, log_l_min, self.live_volume(),
                     enlarge_per_dim=self.enlarge_per_dim,
+                    n_points_min=self.n_points_min,
+                    split_threshold=self.split_threshold,
                     n_networks=self.n_networks,
                     neural_network_kwargs=self.neural_network_kwargs,
                     n_jobs=self.n_jobs, rng=self.rng)
-            if bound.volume() > self.bounds[-1].volume():
-                bound = self.bounds[-1]
+                bound.sample(1000, return_points=False, n_jobs=self.n_jobs)
+                if bound.volume() > self.bounds[-1].volume():
+                    bound = self.bounds[-1]
             self.bounds.append(bound)
 
         self.points.append([])
@@ -1091,11 +1121,11 @@ class Sampler():
         group = fstream.create_group('sampler')
 
         for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
-                    'enlarge_per_dim', 'n_networks', 'n_batch', 'vectorized',
-                    'pass_dict', 'n_like', 'explored', 'shell_n',
-                    'shell_n_sample_shell', 'shell_n_sample_bound',
-                    'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                    'shell_log_v']:
+                    'enlarge_per_dim', 'n_points_min', 'split_threshold',
+                    'n_networks', 'n_batch', 'vectorized', 'pass_dict',
+                    'n_like', 'explored', 'shell_n', 'shell_n_sample_shell',
+                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():

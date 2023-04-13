@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The code now uses the more modern `numpy.random.Generator` framework instead of `numpy.random.RandomState`.
+- Added the keyword arguments `n_points_min` and `split_threshold` to the sampler. Previously, they were not accessible.
+- The default value for `n_points_min` is now the number of dimensions plus 50. Previously, it was hard-coded to be the number of dimensions plus 1.
 
 ### Fixed
 - The sampler now correctly writes the random number generation in the sampling phase.
