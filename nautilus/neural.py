@@ -64,7 +64,7 @@ class NeuralNetworkEmulator():
             MLPRegressor.
         n_jobs : int or string, optional
             Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available cores are used.
+            passed, all available cores are used. Default is 'max'.
 
         Returns
         -------
@@ -92,11 +92,10 @@ class NeuralNetworkEmulator():
                           " neural network is ignored.", Warning, stacklevel=2)
             del neural_network_kwargs['random_state']
 
-        with threadpool_limits(limits=1):
-            with Pool(n_jobs) as pool:
-                emulator.neural_networks = pool.map(partial(
-                    train_network, (x - emulator.mean) / emulator.scale, y,
-                    neural_network_kwargs), range(n_networks))
+        with Pool(n_jobs) as pool:
+            emulator.neural_networks = pool.map(partial(
+                train_network, (x - emulator.mean) / emulator.scale, y,
+                neural_network_kwargs), range(n_networks))
 
         return emulator
 
@@ -114,10 +113,9 @@ class NeuralNetworkEmulator():
             Emulated normalized likelihood value of the training points.
 
         """
-        with threadpool_limits(limits=1):
-            return np.mean(
-                [network.predict((x - self.mean) / self.scale) for network in
-                 self.neural_networks], axis=0)
+        return np.mean(
+            [network.predict((x - self.mean) / self.scale) for network in
+             self.neural_networks], axis=0)
 
     def write(self, group):
         """Write the emulator to an HDF5 group.

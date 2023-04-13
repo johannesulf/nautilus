@@ -5,13 +5,14 @@ try:
 except ImportError:
     pass
 import numpy as np
+import warnings
 
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
+from threadpoolctl import threadpool_limits
 from tqdm import tqdm
-import warnings
 
 from .bounds import UnitCube, NautilusBound
 
@@ -160,7 +161,7 @@ class Sampler():
             (n_points). Default is False.
         pass_dict : bool or None, optional
             If True, the likelihood function expects model parameters as
-            dictionaries. If false, it expects regular numpy arrays. Default is
+            dictionaries. If False, it expects regular numpy arrays. Default is
             to set it to True if prior was a nautilus.Prior instance and False
             otherwise.
         pool : object or int, optional
@@ -169,8 +170,9 @@ class Sampler():
             If it is an integer, it determines the number of workers in the
             Pool. Default is None.
         n_jobs : int or string, optional
-            Number of parallel jobs to use for neural network training. If the
-            string 'max' is passed, all available cores are used.
+            Number of parallel jobs to use for neural network training and
+            sampling new points. If the string 'max' is passed, all available
+            cores are used. Default is 'max'.
         neural_network_thread_limit : int or None, optional
             Deprecated.
         random_state : int or np.random.RandomState, optional
@@ -557,40 +559,41 @@ class Sampler():
         idx_t = np.zeros(0, dtype=int)
         points_all = []
 
-        while n_sample < self.n_batch:
-            points = np.atleast_2d(self.bounds[index].sample(
-                self.n_batch - n_sample))
-            n_bound += self.n_batch - n_sample
+        with threadpool_limits(limits=1):
+            while n_sample < self.n_batch:
+                points = self.bounds[index].sample(
+                    self.n_batch - n_sample, n_jobs=self.n_jobs)
+                n_bound += self.n_batch - n_sample
 
-            # Remove points that are actually in another shell.
-            in_shell = np.ones(len(points), dtype=bool)
-            for bound in self.bounds[index:][1:]:
-                in_shell = in_shell & ~bound.contains(points)
-                if np.all(~in_shell):
-                    continue
-            points = points[in_shell]
+                # Remove points that are actually in another shell.
+                in_shell = np.ones(len(points), dtype=bool)
+                for bound in self.bounds[index:][1:]:
+                    in_shell = in_shell & ~bound.contains(points)
+                    if np.all(~in_shell):
+                        continue
+                points = points[in_shell]
 
-            # Replace points for which we can use transfer points.
-            replace = np.zeros(len(points), dtype=bool)
-            if shell_t is not None and len(shell_t) > 0:
-                shell_p = self.shell_association(
-                    points, n_max=len(self.bounds) - 1)
-                for shell in range(len(self.bounds) - 1):
-                    idx_1 = np.flatnonzero(shell_t == shell)
-                    idx_2 = np.flatnonzero(shell_p == shell)
-                    n = min(len(idx_1), len(idx_2))
-                    if n > 0:
-                        idx_t = np.append(idx_t, self.rng.choice(
-                            idx_1, size=n, replace=False))
-                        shell_t[idx_t] = -1
-                        replace[self.rng.choice(
-                            idx_2, size=n, replace=False)] = True
+                # Replace points for which we can use transfer points.
+                replace = np.zeros(len(points), dtype=bool)
+                if shell_t is not None and len(shell_t) > 0:
+                    shell_p = self.shell_association(
+                        points, n_max=len(self.bounds) - 1)
+                    for shell in range(len(self.bounds) - 1):
+                        idx_1 = np.flatnonzero(shell_t == shell)
+                        idx_2 = np.flatnonzero(shell_p == shell)
+                        n = min(len(idx_1), len(idx_2))
+                        if n > 0:
+                            idx_t = np.append(idx_t, self.rng.choice(
+                                idx_1, size=n, replace=False))
+                            shell_t[idx_t] = -1
+                            replace[self.rng.choice(
+                                idx_2, size=n, replace=False)] = True
 
-            points = points[~replace]
+                points = points[~replace]
 
-            if len(points) > 0:
-                points_all.append(points)
-                n_sample += len(points)
+                if len(points) > 0:
+                    points_all.append(points)
+                    n_sample += len(points)
 
         points = np.concatenate(points_all)
 
@@ -733,12 +736,13 @@ class Sampler():
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
-            bound = NautilusBound.compute(
-                points, log_l, log_l_min, self.live_volume(),
-                enlarge_per_dim=self.enlarge_per_dim,
-                n_networks=self.n_networks,
-                neural_network_kwargs=self.neural_network_kwargs,
-                n_jobs=self.n_jobs, rng=self.rng)
+            with threadpool_limits(limits=1):
+                bound = NautilusBound.compute(
+                    points, log_l, log_l_min, self.live_volume(),
+                    enlarge_per_dim=self.enlarge_per_dim,
+                    n_networks=self.n_networks,
+                    neural_network_kwargs=self.neural_network_kwargs,
+                    n_jobs=self.n_jobs, rng=self.rng)
             if bound.volume() > self.bounds[-1].volume():
                 bound = self.bounds[-1]
             self.bounds.append(bound)

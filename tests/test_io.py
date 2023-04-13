@@ -68,7 +68,12 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
     bound_write.write(h5py_group)
     rng = np.random.default_rng(1)
     if rng_sync:
-        rng.bit_generator.state = bound_write.rng.bit_generator.state
+        if bound_class == NeuralBound:
+            rng = None
+        elif bound_class == UnitCubeEllipsoidMixture:
+            rng.bit_generator.state = bound_write.cube.rng.bit_generator.state
+        else:
+            rng.bit_generator.state = bound_write.rng.bit_generator.state
 
     bound_read = bound_class.read(h5py_group, rng=rng)
 

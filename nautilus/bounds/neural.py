@@ -1,6 +1,8 @@
 """Module implementing multi-dimensional neural network-based bounds."""
 
 import numpy as np
+from functools import partial
+from multiprocessing import cpu_count, Pool
 from scipy.stats import percentileofscore
 
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
@@ -15,8 +17,6 @@ class NeuralBound():
     ----------
     n_dim : int
         Number of dimensions.
-    rng : numpy.random or numpy.random.Generator
-        Determines random number generation.
     outer_bound : UnitCubeEllipsoidMixture
         Outer bound around the points above the likelihood threshold.
     emulator : object
@@ -65,14 +65,12 @@ class NeuralBound():
         bound.n_dim = points.shape[1]
 
         if rng is None:
-            bound.rng = np.random
-        else:
-            bound.rng = rng
+            rng = np.random.default_rng()
 
         # Determine the outer bound.
         bound.outer_bound = Ellipsoid.compute(
             points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
-            rng=bound.rng)
+            rng=rng)
 
         if n_networks == 0:
             bound.emulator = None
@@ -94,7 +92,7 @@ class NeuralBound():
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
         bound.emulator = NeuralNetworkEmulator.train(
             points_t, score, n_networks=n_networks,
-            neural_network_kwargs=neural_network_kwargs, n_jobs='max')
+            neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs)
 
         bound.score_predict_min = np.polyval(np.polyfit(
             score, bound.emulator.predict(points_t), 3), 0.5)
@@ -125,7 +123,7 @@ class NeuralBound():
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
 
-        return np.squeeze(in_bound)
+        return in_bound
 
     def write(self, group):
         """Write the bound to an HDF5 group.
@@ -162,13 +160,11 @@ class NeuralBound():
         bound = cls()
 
         if rng is None:
-            bound.rng = np.random
-        else:
-            bound.rng = rng
+            rng = np.random.default_rng()
 
         bound.n_dim = group.attrs['n_dim']
         bound.score_predict_min = group.attrs['score_predict_min']
-        bound.outer_bound = Ellipsoid.read(group['outer_bound'])
+        bound.outer_bound = Ellipsoid.read(group['outer_bound'], rng=rng)
         if 'emulator' in group:
             bound.emulator = NeuralNetworkEmulator.read(group['emulator'])
         else:
@@ -185,18 +181,21 @@ class NautilusBound():
 
     Attributes
     ----------
+    n_dim : int
+        Number of dimensions.
     neural_bounds : list
         List of the individual neural network-based bounds.
     outer_bound : Union
         Outer bound used for sampling.
     rng : None or numpy.random.Generator
         Determines random number generation.
-    points_sample : numpy.ndarray
+    points : numpy.ndarray
         Points that a call to `sample` will return next.
     n_sample : int
-        Number of points sampled from all ellipsoids.
+        Number of points sampled from the outer bound.
     n_reject : int
-        Number of points rejected due to overlap.
+        Number of points rejected due to not falling into the neural
+        network-based bounds.
     """
 
     @classmethod
@@ -248,6 +247,7 @@ class NautilusBound():
 
         """
         bound = cls()
+        bound.n_dim = points.shape[1]
 
         bound.neural_bounds = []
 
@@ -282,7 +282,7 @@ class NautilusBound():
         else:
             bound.rng = rng
 
-        bound.points_sample = np.zeros((0, points.shape[1]))
+        bound.points = np.zeros((0, points.shape[1]))
         bound.n_sample = 0
         bound.n_reject = 0
 
@@ -311,35 +311,82 @@ class NautilusBound():
                 axis=0)
         return in_bound
 
-    def sample(self, n_points=100):
+    def _reset_and_sample(self, n_points=100, rng=None):
+        """Reset the bound, sample points internally and return the result.
+
+        Parameters
+        ----------
+        n_points : int, optional
+            How many points to draw. Default is 100.
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        Returns
+        -------
+        bound : NautilusBound
+            The bound.
+
+        """
+        self.reset(rng=rng)
+        self.sample(n_points=n_points, return_points=False, n_jobs=1)
+        return self
+
+    def sample(self, n_points=100, return_points=True, n_jobs=1):
         """Sample points from the the bound.
 
         Parameters
         ----------
         n_points : int, optional
-            How many points to draw.
+            How many points to draw. Default is 100.
+        return_points : bool, optional
+            If True, return sampled points. Otherwise, sample internally until
+            at least `n_points` are saved.
+        n_jobs : int or string, optional
+            Number of parallel jobs to use for sampling. If the string 'max' is
+            passed, all available cores are used. Default is 1.
 
         Returns
         -------
         points : numpy.ndarray
-            If `n_points` is larger than 1, two-dimensional array of shape
-            (n_points, n_dim). Otherwise, a one-dimensional array of shape
-            (n_dim).
+            Points as two-dimensional array of shape (n_points, n_dim).
 
         """
-        while len(self.points_sample) < n_points:
-            n_sample = 10000
-            points = self.outer_bound.sample(n_sample)
-            in_bound = np.any([bound.contains(points) for bound in
-                               self.neural_bounds], axis=0)
-            points = points[in_bound]
-            self.points_sample = np.vstack([self.points_sample, points])
-            self.n_sample += n_sample
-            self.n_reject += n_sample - len(points)
+        if len(self.points) < n_points:
+            if n_jobs == 1:
+                while len(self.points) < n_points:
+                    n_sample = 1000
+                    points = self.outer_bound.sample(n_sample)
+                    in_bound = np.any([bound.contains(points) for bound in
+                                       self.neural_bounds], axis=0)
+                    points = points[in_bound]
+                    self.points = np.vstack([self.points, points])
+                    self.n_sample += n_sample
+                    self.n_reject += n_sample - len(points)
+            else:
+                if n_jobs == 'max':
+                    n_jobs = cpu_count()
+                with Pool(n_jobs) as pool:
+                    n_points_per_job = (
+                        (max(n_points - len(self.points), 1000)) // n_jobs) + 1
+                    func = partial(self._reset_and_sample, n_points_per_job)
+                    rngs = [np.random.default_rng(seed) for seed in
+                            np.random.SeedSequence(self.rng.integers(
+                                2**32 - 1)).spawn(n_jobs)]
+                    bounds = pool.map(func, rngs)
+                for bound in bounds:
+                    self.points = np.vstack([self.points, bound.points])
+                    self.n_sample += bound.n_sample
+                    self.n_reject += bound.n_reject
+                    self.outer_bound.points = np.vstack([
+                        self.outer_bound.points, bound.outer_bound.points])
+                    self.outer_bound.n_sample += bound.outer_bound.n_sample
+                    self.outer_bound.n_reject += bound.outer_bound.n_reject
 
-        points = self.points_sample[:n_points]
-        self.points_sample = self.points_sample[n_points:]
-        return np.squeeze(points)
+        if return_points:
+            points = self.points[:n_points]
+            self.points = self.points[n_points:]
+            return points
 
     def volume(self):
         """Return the natural log of the volume.
@@ -389,6 +436,7 @@ class NautilusBound():
 
         """
         group.attrs['type'] = 'NautilusBound'
+        group.attrs['n_dim'] = self.n_dim
         group.attrs['n_neural_bounds'] = len(self.neural_bounds)
 
         for i, neural_bound in enumerate(self.neural_bounds):
@@ -396,7 +444,7 @@ class NautilusBound():
 
         self.outer_bound.write(group.create_group('outer_bound'))
 
-        group.create_dataset('points_sample', data=self.points_sample)
+        group.create_dataset('points', data=self.points)
         group.attrs['n_sample'] = self.n_sample
         group.attrs['n_reject'] = self.n_reject
 
@@ -420,9 +468,11 @@ class NautilusBound():
         bound = cls()
 
         if rng is None:
-            bound.rng = np.random
+            bound.rng = np.random.default_rng()
         else:
             bound.rng = rng
+
+        bound.n_dim = group.attrs['n_dim']
 
         bound.neural_bounds = []
         i = 0
@@ -435,8 +485,25 @@ class NautilusBound():
         bound.outer_bound = Union.read(
             group['outer_bound'], rng=rng)
 
-        bound.points_sample = np.array(group['points_sample'])
+        bound.points = np.array(group['points'])
         bound.n_sample = group.attrs['n_sample']
         bound.n_reject = group.attrs['n_reject']
 
         return bound
+
+    def reset(self, rng=None):
+        """Reset random number generation and any progress, if applicable.
+
+        Parameters
+        ----------
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. If None, random number
+            generation is not reset. Default is None.
+
+        """
+        self.points = np.zeros((0, self.n_dim))
+        self.n_sample = 0
+        self.n_reject = 0
+        self.outer_bound.reset(rng)
+        if rng is not None:
+            self.rng = rng
