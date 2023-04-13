@@ -380,3 +380,26 @@ def test_nautilus_bound_two_peaks():
     assert np.mean(log_l > log_l_min) > 0.9
     # We should have two neural networks.
     assert nbound.number_of_networks_and_ellipsoids()[0] == 2
+
+
+@pytest.mark.parametrize("n_jobs", [1, 2, 'max'])
+def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
+    # Test that resetting the bound works as expected and that we can sample
+    # in parallel.
+
+    points = random_points_from_hypercube
+    log_l = -np.linalg.norm(points - 0.5, axis=1)
+    log_l_min = np.median(log_l)
+    nbound = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, np.log(0.5), n_networks=1, n_jobs=n_jobs,
+        rng=np.random.default_rng(0))
+
+    nbound.reset(np.random.default_rng(0))
+    points_1 = nbound.sample(10000, n_jobs=n_jobs)
+    volume_1 = nbound.volume()
+    nbound.reset(np.random.default_rng(0))
+    points_2 = nbound.sample(10000, n_jobs=n_jobs)
+    volume_2 = nbound.volume()
+
+    assert np.all(points_1 == points_2)
+    assert volume_1 == volume_2

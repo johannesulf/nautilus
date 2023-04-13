@@ -90,7 +90,8 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
 
 
 @pytest.mark.parametrize("blobs", [True, False])
-def test_sampler_io(blobs):
+@pytest.mark.parametrize("discard_exploration", [True, False])
+def test_sampler_io(blobs, discard_exploration):
     # Test that we can write and read a sampler correctly. In particular, also
     # test that the random number generator is correctly set after writing and
     # reading. Also make sure that the sampler can print out the progress.
@@ -108,12 +109,16 @@ def test_sampler_io(blobs):
                             n_networks=1, n_jobs=1, filepath='test.hdf5',
                             resume=False, seed=0)
     sampler_write.run(f_live=0.45, n_eff=0, verbose=True)
+    sampler_write.explored = False
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=1, n_jobs=1,  filepath='test.hdf5',
                            resume=True)
+    sampler_read.explored = False
 
-    sampler_write.run(n_eff=1000, verbose=True)
-    sampler_read.run(n_eff=1000, verbose=True)
+    sampler_write.run(f_live=0.45, n_eff=1000,
+                      discard_exploration=discard_exploration, verbose=True)
+    sampler_read.run(f_live=0.45, n_eff=1000,
+                     discard_exploration=discard_exploration, verbose=True)
 
     posterior_write = sampler_write.posterior()
     posterior_read = sampler_read.posterior()
