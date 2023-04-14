@@ -374,8 +374,6 @@ class NautilusBound():
                     self.points = np.vstack([self.points, bound.points])
                     self.n_sample += bound.n_sample
                     self.n_reject += bound.n_reject
-                    self.outer_bound.points = np.vstack([
-                        self.outer_bound.points, bound.outer_bound.points])
                     self.outer_bound.n_sample += bound.outer_bound.n_sample
                     self.outer_bound.n_reject += bound.outer_bound.n_reject
 
