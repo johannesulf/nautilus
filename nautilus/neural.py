@@ -4,8 +4,10 @@ import numpy as np
 import warnings
 from functools import partial
 from sklearn.neural_network import MLPRegressor
+from threadpoolctl import threadpool_limits
 
 
+@threadpool_limits.wrap(limits=1)
 def train_network(x, y, neural_network_kwargs, random_state):
     """Train a network.
 

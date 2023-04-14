@@ -3,6 +3,7 @@
 import numpy as np
 from functools import partial
 from scipy.stats import percentileofscore
+from threadpoolctl import threadpool_limits
 
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
@@ -308,6 +309,7 @@ class NautilusBound():
                 axis=0)
         return in_bound
 
+    @threadpool_limits.wrap(limits=1)
     def _reset_and_sample(self, n_points=100, rng=None):
         """Reset the bound, sample points internally and return the result.
 
