@@ -196,8 +196,6 @@ class Sampler():
             Number of parallel jobs to use for neural network training and
             sampling new points. If the string 'max' is passed, all available
             cores are used. Default is 'max'.
-        neural_network_thread_limit : int or None, optional
-            Deprecated.
         random_state : int or np.random.RandomState, optional
             Deprecated.
         seed : int, optional
