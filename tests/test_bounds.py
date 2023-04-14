@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from multiprocessing import Pool
 from scipy.special import gamma
 
 from nautilus import bounds
@@ -273,8 +274,7 @@ def test_neural_bound_contains(random_points_from_hypercube):
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nbound = bounds.NeuralBound.compute(points, log_l, log_l_min, n_networks=1,
-                                        n_jobs=1)
+    nbound = bounds.NeuralBound.compute(points, log_l, log_l_min, n_networks=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
@@ -290,8 +290,8 @@ def test_nautilus_bound_sample_and_contains(random_points_from_hypercube):
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
-    nbound = bounds.NautilusBound.compute(points, log_l, log_l_min,
-                                          np.log(0.5), n_networks=1, n_jobs=1)
+    nbound = bounds.NautilusBound.compute(
+        points, log_l, log_l_min, np.log(0.5), n_networks=1)
 
     n_points = 100
     n_dim = random_points_from_hypercube.shape[1]
@@ -323,7 +323,7 @@ def test_nautilus_bound_gaussian_shell():
 
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, log_v_target, split_threshold=1,
-        n_networks=1, n_jobs=1, rng=np.random.default_rng(0))
+        n_networks=1, rng=np.random.default_rng(0))
 
     points = nbound.sample(10000)
     log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
@@ -345,7 +345,7 @@ def test_nautilus_bound_small_target(random_points_from_hypercube):
     log_l_min = np.amin(log_l)
     nbound = bounds.NautilusBound.compute(
         points, log_l, log_l_min, -np.inf, n_points_min=20, n_networks=1,
-        n_jobs=1, rng=np.random.default_rng(0))
+        rng=np.random.default_rng(0))
     assert nbound.volume() > -1
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
     assert nbound.number_of_networks_and_ellipsoids()[1] > 10
@@ -369,7 +369,7 @@ def test_nautilus_bound_two_peaks():
     log_l_min = -1
     log_v_target = np.log(2 * np.pi * radius**2)
     nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, log_v_target, n_networks=1, n_jobs=1,
+        points, log_l, log_l_min, log_v_target, n_networks=1,
         rng=np.random.default_rng(0))
 
     points = nbound.sample(10000)
@@ -382,7 +382,7 @@ def test_nautilus_bound_two_peaks():
     assert nbound.number_of_networks_and_ellipsoids()[0] == 2
 
 
-@pytest.mark.parametrize("n_jobs", [1, 2, 'max'])
+@pytest.mark.parametrize("n_jobs", [1, 2])
 def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
     # Test that resetting the bound works as expected and that we can sample
     # in parallel.
@@ -390,16 +390,25 @@ def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
     points = random_points_from_hypercube
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     log_l_min = np.median(log_l)
+
+    if n_jobs > 1:
+        pool = Pool(n_jobs)
+    else:
+        pool = None
+
     nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, np.log(0.5), n_networks=1, n_jobs=n_jobs,
+        points, log_l, log_l_min, np.log(0.5), n_networks=1, pool=pool,
         rng=np.random.default_rng(0))
 
     nbound.reset(np.random.default_rng(0))
-    points_1 = nbound.sample(10000, n_jobs=n_jobs)
+    points_1 = nbound.sample(10000, pool=pool)
     volume_1 = nbound.volume()
     nbound.reset(np.random.default_rng(0))
-    points_2 = nbound.sample(10000, n_jobs=n_jobs)
+    points_2 = nbound.sample(10000, pool=pool)
     volume_2 = nbound.volume()
+
+    if n_jobs > 1:
+        pool.close()
 
     assert np.all(points_1 == points_2)
     assert volume_1 == volume_2

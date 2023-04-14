@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
@@ -109,7 +109,7 @@ class Sampler():
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
                  use_neural_networks=None, n_like_new_bound=None,
-                 vectorized=False, pass_dict=None, pool=None, n_jobs='max',
+                 vectorized=False, pass_dict=None, pool=None, n_jobs=1,
                  random_state=None, seed=None,
                  blobs_dtype=None, filepath=None, resume=True):
         r"""
@@ -289,6 +289,8 @@ class Sampler():
         else:
             self.pool = None
 
+        if n_jobs == 'max':
+            n_jobs = cpu_count()
         self.n_jobs = n_jobs
 
         if random_state is not None:
@@ -376,6 +378,8 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
+        self._pool = Pool(self.n_jobs)
+
         if not self.explored:
 
             if verbose:
@@ -435,6 +439,8 @@ class Sampler():
                 print()
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
+
+        self._pool.close()
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
@@ -589,7 +595,7 @@ class Sampler():
         with threadpool_limits(limits=1):
             while n_sample < self.n_batch:
                 points = self.bounds[index].sample(
-                    self.n_batch - n_sample, n_jobs=self.n_jobs)
+                    self.n_batch - n_sample, pool=self._pool)
                 n_bound += self.n_batch - n_sample
 
                 # Remove points that are actually in another shell.
@@ -771,8 +777,8 @@ class Sampler():
                     split_threshold=self.split_threshold,
                     n_networks=self.n_networks,
                     neural_network_kwargs=self.neural_network_kwargs,
-                    n_jobs=self.n_jobs, rng=self.rng)
-                bound.sample(1000, return_points=False, n_jobs=self.n_jobs)
+                    pool=self._pool, rng=self.rng)
+                bound.sample(1000, return_points=False, pool=self._pool)
                 if bound.volume() > self.bounds[-1].volume():
                     bound = self.bounds[-1]
             self.bounds.append(bound)

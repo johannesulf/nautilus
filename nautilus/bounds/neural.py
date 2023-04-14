@@ -2,7 +2,6 @@
 
 import numpy as np
 from functools import partial
-from multiprocessing import cpu_count, Pool
 from scipy.stats import percentileofscore
 
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
@@ -29,7 +28,7 @@ class NeuralBound():
 
     @classmethod
     def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
-                n_networks=4, neural_network_kwargs={}, n_jobs='max',
+                n_networks=4, neural_network_kwargs={}, pool=None,
                 rng=None):
         """Compute a neural network-based bound.
 
@@ -49,9 +48,8 @@ class NeuralBound():
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
-        n_jobs : int or string, optional
-            Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available cores are used.
+        pool : multiprocessing.Pool, optional
+            Pool used for parallel processing.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -92,7 +90,7 @@ class NeuralBound():
         score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
         bound.emulator = NeuralNetworkEmulator.train(
             points_t, score, n_networks=n_networks,
-            neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs)
+            neural_network_kwargs=neural_network_kwargs, pool=pool)
 
         bound.score_predict_min = np.polyval(np.polyfit(
             score, bound.emulator.predict(points_t), 3), 0.5)
@@ -201,7 +199,7 @@ class NautilusBound():
     @classmethod
     def compute(cls, points, log_l, log_l_min, log_v_target,
                 enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
-                n_networks=4, neural_network_kwargs={}, n_jobs='max',
+                n_networks=4, neural_network_kwargs={}, pool=None,
                 rng=None):
         """Compute a union of multiple neural network-based bounds.
 
@@ -234,9 +232,8 @@ class NautilusBound():
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
-        n_jobs : int or string, optional
-            Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available cores are used.
+        pool : multiprocessing.Pool, optional
+            Pool used for parallel processing.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -264,7 +261,7 @@ class NautilusBound():
             bound.neural_bounds.append(NeuralBound.compute(
                 points[select], log_l[select], log_l_min,
                 enlarge_per_dim=enlarge_per_dim, n_networks=n_networks,
-                neural_network_kwargs=neural_network_kwargs, n_jobs=n_jobs,
+                neural_network_kwargs=neural_network_kwargs, pool=pool,
                 rng=rng))
 
         bound.outer_bound = Union.compute(
@@ -329,10 +326,10 @@ class NautilusBound():
 
         """
         self.reset(rng=rng)
-        self.sample(n_points=n_points, return_points=False, n_jobs=1)
+        self.sample(n_points=n_points, return_points=False)
         return self
 
-    def sample(self, n_points=100, return_points=True, n_jobs=1):
+    def sample(self, n_points=100, return_points=True, pool=None):
         """Sample points from the the bound.
 
         Parameters
@@ -342,9 +339,8 @@ class NautilusBound():
         return_points : bool, optional
             If True, return sampled points. Otherwise, sample internally until
             at least `n_points` are saved.
-        n_jobs : int or string, optional
-            Number of parallel jobs to use for sampling. If the string 'max' is
-            passed, all available cores are used. Default is 1.
+        pool : multiprocessing.Pool, optional
+            Pool used for parallel processing.
 
         Returns
         -------
@@ -353,7 +349,7 @@ class NautilusBound():
 
         """
         if len(self.points) < n_points:
-            if n_jobs == 1:
+            if pool is None:
                 while len(self.points) < n_points:
                     n_sample = 1000
                     points = self.outer_bound.sample(n_sample)
@@ -364,16 +360,14 @@ class NautilusBound():
                     self.n_sample += n_sample
                     self.n_reject += n_sample - len(points)
             else:
-                if n_jobs == 'max':
-                    n_jobs = cpu_count()
-                with Pool(n_jobs) as pool:
-                    n_points_per_job = (
-                        (max(n_points - len(self.points), 1000)) // n_jobs) + 1
-                    func = partial(self._reset_and_sample, n_points_per_job)
-                    rngs = [np.random.default_rng(seed) for seed in
-                            np.random.SeedSequence(self.rng.integers(
-                                2**32 - 1)).spawn(n_jobs)]
-                    bounds = pool.map(func, rngs)
+                n_jobs = pool._processes
+                n_points_per_job = (
+                    (max(n_points - len(self.points), 1000)) // n_jobs) + 1
+                func = partial(self._reset_and_sample, n_points_per_job)
+                rngs = [np.random.default_rng(seed) for seed in
+                        np.random.SeedSequence(self.rng.integers(
+                            2**32 - 1)).spawn(n_jobs)]
+                bounds = pool.map(func, rngs)
                 for bound in bounds:
                     self.points = np.vstack([self.points, bound.points])
                     self.n_sample += bound.n_sample

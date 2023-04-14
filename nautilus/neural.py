@@ -3,8 +3,6 @@
 import numpy as np
 import warnings
 from functools import partial
-from multiprocessing import cpu_count, Pool
-from threadpoolctl import threadpool_limits
 from sklearn.neural_network import MLPRegressor
 
 
@@ -48,7 +46,7 @@ class NeuralNetworkEmulator():
     """
 
     @classmethod
-    def train(cls, x, y, n_networks=4, neural_network_kwargs={}, n_jobs='max'):
+    def train(cls, x, y, n_networks=4, neural_network_kwargs={}, pool=None):
         """Initialize and train the likelihood neural network emulator.
 
         Parameters
@@ -62,9 +60,8 @@ class NeuralNetworkEmulator():
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
-        n_jobs : int or string, optional
-            Number of parallel jobs to use for training. If the string 'max' is
-            passed, all available cores are used. Default is 'max'.
+        pool : multiprocessing.Pool, optional
+            Pool used for parallel processing.
 
         Returns
         -------
@@ -76,9 +73,6 @@ class NeuralNetworkEmulator():
 
         emulator.mean = np.mean(x, axis=0)
         emulator.scale = np.std(x, axis=0)
-
-        if n_jobs == 'max':
-            n_jobs = cpu_count()
 
         default_neural_network_kwargs = dict(
             hidden_layer_sizes=(100, 50, 20), alpha=0, learning_rate_init=1e-2,
@@ -92,10 +86,13 @@ class NeuralNetworkEmulator():
                           " neural network is ignored.", Warning, stacklevel=2)
             del neural_network_kwargs['random_state']
 
-        with Pool(n_jobs) as pool:
-            emulator.neural_networks = pool.map(partial(
-                train_network, (x - emulator.mean) / emulator.scale, y,
-                neural_network_kwargs), range(n_networks))
+        f = partial(train_network, (x - emulator.mean) / emulator.scale, y,
+                    neural_network_kwargs)
+
+        if pool is None:
+            emulator.neural_networks = list(map(f, range(n_networks)))
+        else:
+            emulator.neural_networks = pool.map(f, range(n_networks))
 
         return emulator
 

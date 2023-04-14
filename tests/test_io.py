@@ -24,7 +24,7 @@ def test_neural_io(h5py_group):
     points = np.random.random((100, 2))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     emulator_write = NeuralNetworkEmulator.train(points, log_l, n_networks=1,
-                                                 n_jobs=1)
+                                                 pool=None)
     emulator_write.write(h5py_group)
     emulator_read = NeuralNetworkEmulator.read(h5py_group)
     assert np.all(emulator_write.predict(points) ==
@@ -59,7 +59,7 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
             args = (points, log_l, log_l_min)
         else:
             args = (points, log_l, log_l_min, np.log(0.5))
-        kwargs = dict(n_networks=1, n_jobs=1)
+        kwargs = dict(n_networks=1, pool=None)
 
     bound_write = bound_class.compute(*args, **kwargs, rng=rng)
     if bound_class == Union:
