@@ -378,7 +378,7 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
-        self._pool = Pool(self.n_jobs)
+        self._pool = Pool(self.n_jobs) if self.n_jobs > 1 else None
 
         if not self.explored:
 
@@ -440,7 +440,8 @@ class Sampler():
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
 
-        self._pool.close()
+        if self.n_jobs > 1:
+            self._pool.close()
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
