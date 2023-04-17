@@ -66,7 +66,7 @@ def test_sampler_prior(custom_prior, vectorized, pass_dict):
             points, log_w, log_l = sampler.posterior(return_as_dict=False)
 
 
-@pytest.mark.parametrize("n_networks", [0, 1])
+@pytest.mark.parametrize("n_networks", [0, 4])
 @pytest.mark.parametrize("discard_exploration", [True, False])
 def test_sampler_accuracy(n_networks, discard_exploration):
     # Do a basic tests of the sampler accuracy.

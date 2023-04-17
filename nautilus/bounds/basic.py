@@ -171,7 +171,7 @@ def invert_symmetric_positive_semidefinite_matrix(m):
     return m_inv_triangle + m_inv_triangle.T - np.diag(np.diag(m_inv_triangle))
 
 
-def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=500):
+def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
     r"""Find an approximation to the minimum volume enclosing ellipsoid (MVEE).
 
     This functions finds an approximation to the MVEE using the Khachiyan
@@ -256,7 +256,8 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, fast=False, rng=None):
+    def compute(cls, points, enlarge_per_dim=1.1, fast=False,
+                max_iterations=1000, rng=None):
         """Compute the bound.
 
         Parameters
@@ -269,8 +270,12 @@ class Ellipsoid():
         fast : bool, optional
             If True, calculate the bounding ellipsoid from the mean and
             covariance of the points. If False, the ellipsoid (ignoring
-            `enlarge_per_dim` is an approximation to a minimum volume enclosing
-            ellipsoid. Default is False.
+            `enlarge_per_dim`) is an approximation to a minimum volume
+            enclosing ellipsoid. Default is False.
+        max_iterations : int, optional
+            Maximum number of iterations before the minimization algorithm for
+            the minimum volume enclosing ellipsoid is stopped. Ignored if
+            `fast` is True. Default is 1000.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -299,7 +304,8 @@ class Ellipsoid():
 
         if not fast:
             with threadpool_limits(limits=1):
-                bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+                bound.c, bound.A = minimum_volume_enclosing_ellipsoid(
+                    points, max_iterations=max_iterations)
         else:
             bound.c = np.mean(points, axis=0)
             bound.A = np.linalg.inv(np.atleast_2d(np.cov(
@@ -497,18 +503,25 @@ class UnitCubeEllipsoidMixture():
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        kwargs = dict(enlarge_per_dim=enlarge_per_dim, rng=rng)
+        kwargs = dict(enlarge_per_dim=enlarge_per_dim, max_iterations=100,
+                      rng=rng)
 
         # First, calculate a bounding ellipsoid along all dimensions.
-        ellipsoid = Ellipsoid.compute(points, fast=True, **kwargs)
+        ellipsoid = Ellipsoid.compute(points, **kwargs)
+        ellipsoid_fast = Ellipsoid.compute(points, fast=True, **kwargs)
         bound.dim_cube = np.zeros(bound.n_dim, dtype=bool)
-        # Now, determine which dimensions have a smaller volume when using the
+        # Now, estimate which dimensions have a smaller volume when using the
         # cube.
         for dim in range(bound.n_dim):
-            ellipsoid_dim = Ellipsoid.compute(
+            ellipsoid_dim_fast = Ellipsoid.compute(
                 np.delete(points, dim, axis=1), fast=True, **kwargs)
-            if ellipsoid.volume() > ellipsoid_dim.volume():
-                bound.dim_cube[dim] = True
+            if ellipsoid_fast.volume() > ellipsoid_dim_fast.volume():
+                ellipsoid_dim = Ellipsoid.compute(
+                    np.delete(points, dim, axis=1), fast=False, **kwargs)
+                if ellipsoid.volume() > ellipsoid_dim.volume():
+                    bound.dim_cube[dim] = True
+
+        kwargs['max_iterations'] = 1000
 
         if np.any(bound.dim_cube):
             bound.cube = UnitCube.compute(np.sum(bound.dim_cube), rng=rng)

@@ -52,13 +52,16 @@ class Union():
         ellipsoids with less than twice that number will not be split further.
     cube : UnitCube or None
         If not None, the bound is defined as the overlap with the unit cube.
-    bounds : list
-        List of individual bounds.
-    log_v : list
-        Natural log of the volume of each individual bound.
     points_bounds : list
         The points used to create the individual bounds. Used to split bounds
         further.
+    bounds : list
+        List of individual bounds.
+    log_v : numpy.ndarray
+        Natural log of the volume of each individual bound.
+    block : numpy.ndarray
+        List indicating whether a bound should not be split further because
+        the volume would not decrease or the number of points is too low.
     points : numpy.ndarray
         Points that a call to `sample` will return next.
     n_sample : int
@@ -132,6 +135,7 @@ class Union():
             points, enlarge_per_dim=enlarge_per_dim,
             rng=rng)]
         bound.log_v = np.array([bound.bounds[0].volume()])
+        bound.block = np.atleast_1d(len(points) < 2 * bound.n_points_min)
 
         bound.points = np.zeros((0, points.shape[1]))
         bound.n_sample = 0
@@ -170,14 +174,10 @@ class Union():
             raise ValueError("'allow_overlap' can only be False if " +
                              "bounds are ellipsoids.")
 
-        split_possible = (
-            np.array([len(points) for points in self.points_bounds]) >=
-            2 * self.n_points_min)
-
-        if not np.any(split_possible):
+        if not np.any(~self.block):
             return False
 
-        index = np.argmax(np.where(split_possible, self.log_v, -np.inf))
+        index = np.argmax(np.where(~self.block, self.log_v, -np.inf))
         points = self.bounds[index].transform(self.points_bounds[index])
 
         d = KMeans(
@@ -201,11 +201,20 @@ class Union():
         if not allow_overlap and ellipsoids_overlap(new_bounds):
             return False
 
-        self.bounds = new_bounds
-        self.log_v = np.array([bound.volume() for bound in self.bounds])
+        if (logsumexp([bound.volume() for bound in new_bounds]) >
+                logsumexp([bound.volume() for bound in self.bounds])):
+            self.block[index] = True
+            return self.split_bound(allow_overlap=allow_overlap)
+
         self.points_bounds.pop(index)
         self.points_bounds.append(points[labels == 0])
         self.points_bounds.append(points[labels == 1])
+        self.bounds = new_bounds
+        self.log_v = np.array([bound.volume() for bound in self.bounds])
+        self.block = np.concatenate(
+            (np.delete(self.block, index),
+             [len(self.points_bounds[-2]) < 2 * self.n_points_min,
+              len(self.points_bounds[-1]) < 2 * self.n_points_min]))
 
         # Reset the sampling.
         self.reset()

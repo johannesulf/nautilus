@@ -189,7 +189,8 @@ def test_union_split(random_points_from_hypersphere):
     # Test that adding ellipsoids works correctly.
 
     points = np.concatenate([random_points_from_hypersphere,
-                             random_points_from_hypersphere + 100])
+                             random_points_from_hypersphere + 100,
+                             random_points_from_hypersphere + 101])
 
     union = bounds.Union.compute(
         points, enlarge_per_dim=1.0 + 1e-9, unit=False,
@@ -201,28 +202,12 @@ def test_union_split(random_points_from_hypersphere):
     assert len(union.bounds) == 2
     assert np.all(union.contains(points))
 
-    # It should be possible to add 3 more ellipoids when overlaps are allowed.
-    for i in range(3):
-        assert union.split_bound(allow_overlap=True)
-    assert len(union.bounds) == 5
-    assert np.all(union.contains(points))
-
-    points = np.random.random((20, 10))
-    union = bounds.Union.compute(points)
-    # Check that no new ellipsoid can be added.
+    # It should be possible to add one more ellipoids when overlaps are
+    # allowed.
+    assert union.split_bound()
     assert not union.split_bound()
-
-    # Check that every split leads to ellipsoids with the minimum number of
-    # points.
-    np.random.seed(0)
-    n_points_min = 10
-    for i in range(10):
-        points = np.random.random((2 * n_points_min, 2))
-        union = bounds.Union.compute(points, n_points_min=n_points_min)
-        union.split_bound()
-        assert len(union.points_bounds) == 2
-        assert len(union.points_bounds[0]) == n_points_min
-        assert len(union.points_bounds[1]) == n_points_min
+    assert len(union.bounds) == 3
+    assert np.all(union.contains(points))
 
 
 def test_union_sample_and_contains(random_points_from_hypersphere):
@@ -333,22 +318,6 @@ def test_nautilus_bound_gaussian_shell():
     assert np.mean(log_l > log_l_min) > 0.5
     # We should have only one neural network.
     assert nbound.number_of_networks_and_ellipsoids()[0] == 1
-
-
-def test_nautilus_bound_small_target(random_points_from_hypercube):
-    # Test that nothing catastrophic happens if we set the target volume to
-    # effectively 0. This should just result in very aggresive ellipsoid
-    # splitting and make the boundary miss a small part of the parameter space.
-
-    points = random_points_from_hypercube
-    log_l = -np.linalg.norm(points - 0.5, axis=1)
-    log_l_min = np.amin(log_l)
-    nbound = bounds.NautilusBound.compute(
-        points, log_l, log_l_min, -np.inf, n_points_min=20, n_networks=1,
-        rng=np.random.default_rng(0))
-    assert nbound.volume() > -1
-    assert nbound.number_of_networks_and_ellipsoids()[0] == 1
-    assert nbound.number_of_networks_and_ellipsoids()[1] > 10
 
 
 def test_nautilus_bound_two_peaks():

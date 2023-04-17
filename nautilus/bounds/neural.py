@@ -364,7 +364,7 @@ class NautilusBound():
             else:
                 n_jobs = pool._processes
                 n_points_per_job = (
-                    (max(n_points - len(self.points), 1000)) // n_jobs) + 1
+                    (max(n_points - len(self.points), 10000)) // n_jobs) + 1
                 func = partial(self._reset_and_sample, n_points_per_job)
                 rngs = [np.random.default_rng(seed) for seed in
                         np.random.SeedSequence(self.rng.integers(
