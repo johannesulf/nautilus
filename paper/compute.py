@@ -159,7 +159,7 @@ def main():
                 points, log_w, log_l = sampler.posterior()
                 weights = np.exp(log_w - np.amax(log_w))
 
-                if args.nautilus != 1500:
+                if args.nautilus != 2000:
                     algorithm += '-{}'.format(args.nautilus)
                 write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
                       points, log_l, weights, args.full)
