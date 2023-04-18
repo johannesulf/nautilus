@@ -408,7 +408,7 @@ class NautilusBound():
         n_ellipsoids : int
             The number of sample ellipsoids.
         """
-        if self.neural_bounds[0].emulator.neural_networks is not None:
+        if self.neural_bounds[0].emulator is not None:
             n_networks = len(self.neural_bounds) * len(
                 self.neural_bounds[0].emulator.neural_networks)
         else:
