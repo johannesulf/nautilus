@@ -11,11 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The code now uses the more modern `numpy.random.Generator` framework instead of `numpy.random.RandomState`.
 - Added the keyword arguments `n_points_min` and `split_threshold` to the sampler. Previously, they were not accessible.
 - The default value for `n_points_min` is now the number of dimensions plus 50. Previously, it was hard-coded to be the number of dimensions plus 1.
-- The multi-ellipsoidal decomposition has been optimized with the goal of reducing computational overhead for high-dimensional problems.
+- The multi-ellipsoidal decomposition has been tweaked with the goal of reducing computational overhead for high-dimensional problems.
+- The default number of parallel processes has been changed to one. By default, the sampler will not use parallelization.
+- Multi-ellipsoidal decomposition now uses Gaussian mixture modeling instead of K-Means. The former typically results in better performance, i.e., smaller boundaries with fewer ellipsoids.
 
 ### Fixed
-- The sampler now correctly writes the random number generation in the sampling phase.
+- The sampler now correctly writes the random number generator in the sampling phase.
 - The keyword argument `n_jobs` is now being correctly passed when training networks. Previously, all cores were used regardless of `n_jobs`.
+- The sampler doesn't crash when setting `verbose=True`and `n_networks=0`.
 
 ### Deprecated
 - The `random_state` keyword argument for the sampler has been deprecated in favor of the new keyword argument `seed`.

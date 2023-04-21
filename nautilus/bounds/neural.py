@@ -250,7 +250,7 @@ class NautilusBound():
         bound.neural_bounds = []
 
         multi_ellipsoid = Union.compute(
-            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            points[log_l >= log_l_min], enlarge_per_dim=enlarge_per_dim,
             n_points_min=n_points_min, bound_class=Ellipsoid,
             rng=rng)
 

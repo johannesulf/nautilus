@@ -4,7 +4,7 @@ import itertools
 import numpy as np
 from scipy.special import logsumexp
 from scipy.optimize import minimize
-from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
 
 from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
 
@@ -180,36 +180,36 @@ class Union():
         index = np.argmax(np.where(~self.block, self.log_v, -np.inf))
         points = self.bounds[index].transform(self.points_bounds[index])
 
-        d = KMeans(
-            n_clusters=2, n_init=10, random_state=self.rng.integers(
-                2**32 - 1)).fit_transform(points)
+        # print('mixture...')
+        labels = GaussianMixture(
+            n_components=2, n_init=10, random_state=self.rng.integers(
+                2**32 - 1)).fit_predict(points)
 
-        labels = np.argmin(d, axis=1)
         if not np.all(np.bincount(labels) >= self.n_points_min):
-            label = np.argmin(np.bincount(labels))
-            labels[np.argsort(d[:, label] - d[:, label - 1])[
-                :self.n_points_min]] = label
+            self.block[index] = True
+            return self.split_bound(allow_overlap=allow_overlap)
 
-        new_bounds = self.bounds.copy()
-        new_bounds.pop(index)
+        new_bounds = []
         points = self.points_bounds[index]
         for label in [0, 1]:
             new_bounds.append(type(self.bounds[0]).compute(
                 points[labels == label], enlarge_per_dim=self.enlarge_per_dim,
                 rng=self.rng))
 
-        if not allow_overlap and ellipsoids_overlap(new_bounds):
+        if not allow_overlap and ellipsoids_overlap(
+                self.bounds[:index] + self.bounds[index+1:] + new_bounds):
             return False
 
-        if (logsumexp([bound.volume() for bound in new_bounds]) >
-                logsumexp([bound.volume() for bound in self.bounds])):
+        if (logsumexp([new_bounds[0].volume(), new_bounds[1].volume()]) >
+                self.bounds[index].volume()):
             self.block[index] = True
             return self.split_bound(allow_overlap=allow_overlap)
 
         self.points_bounds.pop(index)
         self.points_bounds.append(points[labels == 0])
         self.points_bounds.append(points[labels == 1])
-        self.bounds = new_bounds
+        self.bounds.pop(index)
+        self.bounds = self.bounds + new_bounds
         self.log_v = np.array([bound.volume() for bound in self.bounds])
         self.block = np.concatenate(
             (np.delete(self.block, index),
