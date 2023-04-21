@@ -243,7 +243,7 @@ plt.figure(figsize=(7, 2.5))
 ax1 = plt.subplot2grid((8, 2), (1, 0), rowspan=7)
 ax2 = plt.subplot2grid((8, 2), (1, 1), rowspan=7)
 ax3 = plt.subplot2grid((8, 2), (0, 0), colspan=2)
-n_dim_list = [5, 10, 15, 20, 25, 30]
+n_dim_list = [5, 10, 15, 20, 25, 30, 40, 50]
 
 
 for k, (sampler, color, ls) in enumerate(
@@ -275,7 +275,8 @@ ax3.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 1.0),
            ncol=len(sampler_list), frameon=False, handletextpad=0.3,
            columnspacing=0.8, borderpad=0, markerscale=0, handlelength=1.5)
 ax3.axis('off')
-ax2.set_ylim(-3.5, +3.5)
+ax2.set_ylim(-20, +20)
+ax2.set_yscale('symlog', linthresh=0.1)
 ax2.axhline(0, ls='--', color='black')
 ax1.set_xlabel(r'Dimensionality $N_{\rm dim}$')
 ax2.set_xlabel(r'Dimensionality $N_{\rm dim}$')
