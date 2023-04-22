@@ -5,7 +5,7 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2023-04-22
 
 ### Changed
 - The code now uses the more modern `numpy.random.Generator` framework instead of `numpy.random.RandomState`.
@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The multi-ellipsoidal decomposition has been tweaked with the goal of reducing computational overhead for high-dimensional problems.
 - The default number of parallel processes has been changed to one. By default, the sampler will not use parallelization.
 - Multi-ellipsoidal decomposition now uses Gaussian mixture modeling instead of K-Means. The former typically results in better performance, i.e., smaller boundaries with fewer ellipsoids.
+- Sampling new points can now be parallelized using the `n_jobs` keyword argument.
 
 ### Fixed
 - The sampler now correctly writes the random number generator in the sampling phase.
