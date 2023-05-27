@@ -79,7 +79,7 @@ class NeuralNetworkEmulator():
         default_neural_network_kwargs = dict(
             hidden_layer_sizes=(100, 50, 20), alpha=0, learning_rate_init=1e-2,
             max_iter=10000, tol=0, n_iter_no_change=10,
-            validation_fraction=0.1)
+            validation_fraction=0.1, early_stopping=True)
         default_neural_network_kwargs.update(neural_network_kwargs)
         neural_network_kwargs = default_neural_network_kwargs
 
@@ -134,7 +134,7 @@ class NeuralNetworkEmulator():
                     continue
                 try:
                     group.attrs[key + '_{}'.format(i)] = getattr(network, key)
-                except TypeError:
+                except (TypeError, ValueError):
                     pass
 
             for k in range(network.n_layers_ - 1):
