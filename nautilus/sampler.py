@@ -61,11 +61,10 @@ class Sampler():
     pass_dict : bool
         If True, the likelihood function expects model parameters as
         dictionaries.
-    pool : object
+    pool_l : object
         Pool used to parallelize likelihood calls.
-    n_jobs : int or string
-        Number of parallel jobs to use for neural network training and sampling
-        new points.
+    pool_s : object
+        Pool used to parallelize sampler calculations.
     rng : np.random.Generator
         Random number generator of the sampler.
     n_like : int
@@ -109,7 +108,7 @@ class Sampler():
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, n_jobs=1, seed=None, blobs_dtype=None,
+                 pool=None, n_jobs=None, seed=None, blobs_dtype=None,
                  filepath=None, resume=True):
         r"""
         Initialize the sampler.
@@ -182,18 +181,19 @@ class Sampler():
             dictionaries. If False, it expects regular numpy arrays. Default is
             to set it to True if prior was a nautilus.Prior instance and False
             otherwise.
-        pool : object or int, optional
-            Object with a `map` function used for parallelization of likelihood
-            calls, e.g. a multiprocessing.Pool object, or a positive integer.
-            If it is an integer, it determines the number of workers in the
-            Pool. Default is None.
+        pool : None, object, int or tuple, optional
+            Pool used for parallelization of likelihood calls and sampler
+            calculations. If None, no parallelization is performed. If an
+            integer, the sampler will use a multiprocessing.Pool object with
+            the specified number of processes. Finally, if specifying a tuple,
+            the first one specifies the pool used for likelihood calls and the
+            second one the pool for sampler calculations. Default is None.
         n_jobs : int or string, optional
-            Number of parallel jobs to use for neural network training and
-            sampling new points. If the string 'max' is passed, all available
-            cores are used. Default is 'max'.
-        seed : int, optional
+            Deprecated.
+        seed : None or int, optional
             Seed for random number generation used for reproducible results
-            accross different runs. Default is None.
+            accross different runs. If None, results are not reproducible.
+            Default is None.
         blobs_dtype : object or None, optional
             Object that can be converted to a data type object describing the
             blobs. If None, this will be inferred from the first blob. Default
@@ -263,16 +263,27 @@ class Sampler():
         self.vectorized = vectorized
         self.pass_dict = pass_dict
 
-        if isinstance(pool, int):
-            self.pool = Pool(pool)
-        elif pool is not None:
-            self.pool = pool
+        if pool is None:
+            self.pool_l = None
+            self.pool_s = None
+        elif isinstance(pool, int):
+            self.pool_l = Pool(pool)
+            self.pool_s = self.pool_l
+        elif isinstance(pool, tuple):
+            self.pool_l = pool[0]
+            if isinstance(self.pool_l, int):
+                self.pool_l = Pool(self.pool_l)
+            self.pool_s = pool[1]
+            if isinstance(self.pool_s, int):
+                self.pool_s = Pool(self.pool_s)
         else:
-            self.pool = None
+            self.pool_l = pool
+            self.pool_s = pool
 
-        if n_jobs == 'max':
-            n_jobs = cpu_count()
-        self.n_jobs = n_jobs
+        if n_jobs is not None:
+            warnings.warn(
+                "The 'n_jobs' keyword argument has been deprecated .Use " +
+                "'pool', instead.", DeprecationWarning, stacklevel=2)
 
         self.rng = np.random.default_rng(seed)
 
@@ -354,7 +365,6 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
-        self._pool = Pool(self.n_jobs) if self.n_jobs > 1 else None
 
         if not self.explored:
 
@@ -415,9 +425,6 @@ class Sampler():
                 print()
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
-
-        if self.n_jobs > 1:
-            self._pool.close()
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
@@ -572,7 +579,7 @@ class Sampler():
         with threadpool_limits(limits=1):
             while n_sample < self.n_batch:
                 points = self.bounds[index].sample(
-                    self.n_batch - n_sample, pool=self._pool)
+                    self.n_batch - n_sample, pool=self.pool_s)
                 n_bound += self.n_batch - n_sample
 
                 # Remove points that are actually in another shell.
@@ -654,8 +661,8 @@ class Sampler():
             result = self.likelihood(args)
             if isinstance(result, tuple):
                 result = list(zip(*result))
-        elif self.pool is not None:
-            result = list(self.pool.map(self.likelihood, args))
+        elif self.pool_l is not None:
+            result = list(self.pool_l.map(self.likelihood, args))
         else:
             result = list(map(self.likelihood, args))
 
@@ -754,8 +761,8 @@ class Sampler():
                     split_threshold=self.split_threshold,
                     n_networks=self.n_networks,
                     neural_network_kwargs=self.neural_network_kwargs,
-                    pool=self._pool, rng=self.rng)
-                bound.sample(1000, return_points=False, pool=self._pool)
+                    pool=self.pool_s, rng=self.rng)
+                bound.sample(1000, return_points=False, pool=self.pool_s)
                 if bound.volume() > self.bounds[-1].volume():
                     bound = self.bounds[-1]
             self.bounds.append(bound)

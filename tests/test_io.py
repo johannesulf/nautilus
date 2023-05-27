@@ -107,13 +107,13 @@ def test_sampler_io(blobs, discard_exploration, n_networks):
             return -np.linalg.norm(x - 0.5) * 0.001
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                            n_networks=n_networks, n_jobs=1,
-                            filepath='test.hdf5', resume=False, seed=0)
+                            n_networks=n_networks, filepath='test.hdf5',
+                            resume=False, seed=0)
     sampler_write.run(f_live=0.45, n_eff=0, verbose=True)
     sampler_write.explored = False
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                           n_networks=n_networks, n_jobs=1,
-                           filepath='test.hdf5', resume=True)
+                           n_networks=n_networks, filepath='test.hdf5',
+                           resume=True)
     sampler_read.explored = False
 
     sampler_write.run(f_live=0.45, n_eff=1000,
@@ -143,8 +143,7 @@ def test_sampler_exploration_io():
         return -np.linalg.norm(x - 0.5) * 0.001
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                      n_networks=1, n_jobs=1, filepath='test.hdf5',
-                      resume=False, seed=0)
+                      n_networks=1, filepath='test.hdf5', resume=False, seed=0)
     sampler.run(n_eff=1000, discard_exploration=True)
 
     assert Path('test.hdf5').is_file()

@@ -20,18 +20,24 @@ def likelihood(x):
 
 @pytest.mark.skipif(multiprocessing.get_start_method() == 'spawn',
                     reason=('pytest does not support spawning'))
-@pytest.mark.parametrize("pool", [1, 2, Pool(2), Pool(3)])
+@pytest.mark.parametrize("pool", [1, 2, Pool(2), Pool(3), None,
+                                  (2, 2), (None, 1), (2, Pool(2))])
 def test_pool(pool):
     # Test that the expected number of processes are run.
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, n_networks=1,
-                      pool=pool, n_jobs=1)
+                      pool=pool)
     sampler.run(f_live=1.0, n_eff=0)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
-    if isinstance(pool, int):
-        assert len(np.unique(blobs)) == pool
-    else:
-        assert len(np.unique(blobs)) == pool._processes
+    if isinstance(pool, tuple):
+        pool = pool[0]
 
-    sampler.pool.close()
+    if isinstance(pool, int):
+        n_jobs = pool
+    elif pool is None:
+        n_jobs = 1
+    else:
+        n_jobs = pool._processes
+
+    assert len(np.unique(blobs)) == n_jobs
