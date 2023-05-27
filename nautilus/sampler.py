@@ -103,15 +103,14 @@ class Sampler():
     """
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=2000,
-                 n_update=None, enlarge=None, enlarge_per_dim=1.1,
-                 n_points_min=None, split_threshold=100,
-                 n_networks=4, neural_network_kwargs=dict(), prior_args=[],
+                 n_update=None, enlarge_per_dim=1.1, n_points_min=None,
+                 split_threshold=100, n_networks=4,
+                 neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
-                 use_neural_networks=None, n_like_new_bound=None,
-                 vectorized=False, pass_dict=None, pool=None, n_jobs=1,
-                 random_state=None, seed=None,
-                 blobs_dtype=None, filepath=None, resume=True):
+                 n_like_new_bound=None, vectorized=False, pass_dict=None,
+                 pool=None, n_jobs=1, seed=None, blobs_dtype=None,
+                 filepath=None, resume=True):
         r"""
         Initialize the sampler.
 
@@ -132,8 +131,6 @@ class Sampler():
         n_update : None or int, optional
             The maximum number of additions to the live set before a new bound
             is created. If None, use `n_live`. Default is None.
-        enlarge : float, optional
-            Deprecated.
         enlarge_per_dim : float, optional
             Along each dimension, outer ellipsoidal bounds are enlarged by this
             factor. Default is 1.1.
@@ -169,8 +166,6 @@ class Sampler():
             lead to new bounds being created long after `n_update` additions to
             the live set have been achieved. This will not cause any bias but
             could reduce efficiency. Default is 100.
-        use_neural_networks : bool, optional
-            Deprecated.
         n_like_new_bound : None or int, optional
             The maximum number of likelihood calls before a new bounds is
             created. If None, use 10 times `n_live`. Default is None.
@@ -196,8 +191,6 @@ class Sampler():
             Number of parallel jobs to use for neural network training and
             sampling new points. If the string 'max' is passed, all available
             cores are used. Default is 'max'.
-        random_state : int or np.random.RandomState, optional
-            Deprecated.
         seed : int, optional
             Seed for random number generation used for reproducible results
             accross different runs. Default is None.
@@ -255,11 +248,6 @@ class Sampler():
             n_like_new_bound = 10 * n_live
         self.n_like_new_bound = n_like_new_bound
 
-        if enlarge is not None:
-            warnings.warn("The 'enlarge' keyword argument has been " +
-                          "deprecated. Use 'enlarge_per_dim', instead.",
-                          DeprecationWarning, stacklevel=2)
-
         self.enlarge_per_dim = enlarge_per_dim
 
         if n_points_min is None:
@@ -267,11 +255,6 @@ class Sampler():
         self.n_points_min = n_points_min
 
         self.split_threshold = split_threshold
-
-        if use_neural_networks is not None:
-            warnings.warn("The 'use_neural_networks' keyword argument has " +
-                          "been deprecated. Set 'n_networks', instead.",
-                          DeprecationWarning, stacklevel=2)
 
         self.n_networks = n_networks
 
@@ -290,11 +273,6 @@ class Sampler():
         if n_jobs == 'max':
             n_jobs = cpu_count()
         self.n_jobs = n_jobs
-
-        if random_state is not None:
-            warnings.warn("The 'random_state' keyword argument has been " +
-                          "deprecated. Use 'seed' instead.",
-                          DeprecationWarning, stacklevel=2)
 
         self.rng = np.random.default_rng(seed)
 
