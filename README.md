@@ -12,7 +12,7 @@ Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evide
 
 ## Example
 
-This example, sampling a 3-dimensional Gaussian, illustrates how to use nautilus.
+This example, sampling a 3-dimensional Gaussian, illustrates how to use Nautilus.
 
 ```python
 import corner
@@ -37,6 +37,10 @@ corner.corner(points, weights=np.exp(log_w), labels='abc')
 ## Documentation
 
 You can find the documentation at [nautilus-sampler.readthedocs.io](https://nautilus-sampler.readthedocs.io).
+
+## Attribution
+
+A paper describing Nautilus's underlying methods and performance has been submitted for publication. A draft of the paper will be uploaded to arXiv around the end of June 2023. Please cite the paper, once available, if you found Nautilus helpful in your research
 
 ## License
 
