@@ -405,14 +405,14 @@ class Sampler():
                         setattr(self, key, np.delete(
                             getattr(self, key), shell))
 
+            for index in range(len(self.log_l)):
+                self.shell_start_sampling[index] = len(self.points[index])
             self.explored = True
+
             if self.filepath is not None:
                 self.write(self.filepath, overwrite=True)
 
-            self._discard_exploration = discard_exploration
-            for index in range(len(self.log_l)):
-                self.shell_start_sampling[index] = len(self.points[index])
-                self.update_shell_info(index)
+        self.discard_exploration = discard_exploration
 
         if n_shell is None:
             n_shell = self.n_batch
@@ -430,10 +430,31 @@ class Sampler():
 
     @property
     def discard_exploration(self):
+        """Return whether the exploration phase is discarded.
+
+        Returns
+        -------
+        discard_exploration : bool
+            Whether the exploration phase is discarded.
+
+        """
         return self._discard_exploration
 
     @discard_exploration.setter
     def discard_exploration(self, discard_exploration):
+        """Set whether exploration phase should be discarded.
+
+        Parameters
+        ----------
+        discard_exploration : bool
+            Whether the exploration phase is discarded.
+
+        Raises
+        ------
+        ValueError
+            If `discard_exploration` is not a bool.
+
+        """
         if not isinstance(discard_exploration, bool):
             raise ValueError("'discard_exploration' must be a bool.")
         if discard_exploration != self._discard_exploration:
