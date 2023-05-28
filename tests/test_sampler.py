@@ -33,6 +33,42 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
 
 
+@pytest.mark.parametrize("discard_exploration_start", [True, False])
+@pytest.mark.parametrize("discard_exploration_end", [True, False, 1])
+def test_sampler_switch_exploration(
+        discard_exploration_start, discard_exploration_end):
+    # Test that we can switch later whether to discard the exploration phase.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+
+    sampler = Sampler(
+        prior, likelihood, n_dim=2, n_networks=1, vectorized=True, n_live=500)
+    sampler.run(f_live=0.45, n_eff=10000, verbose=False,
+                discard_exploration=discard_exploration_start)
+    points, log_w, log_l = sampler.posterior()
+    n_start = len(points)
+    log_z_start = sampler.evidence()
+
+    if not isinstance(discard_exploration_end, bool):
+        with pytest.raises(ValueError):
+            sampler.discard_exploration = discard_exploration_end
+        return
+
+    sampler.discard_exploration = discard_exploration_end
+    points, log_w, log_l = sampler.posterior()
+    n_end = len(points)
+    log_z_end = sampler.evidence()
+
+    assert ((discard_exploration_start == discard_exploration_end) ==
+            (n_start == n_end))
+    assert ((discard_exploration_start == discard_exploration_end) ==
+            (log_z_start == log_z_end))
+
+
 @pytest.mark.parametrize("custom_prior", [True, False])
 @pytest.mark.parametrize("vectorized", [True, False])
 @pytest.mark.parametrize("pass_dict", [True, False])

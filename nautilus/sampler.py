@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 
 from functools import partial
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
@@ -40,10 +40,10 @@ class Sampler():
     enlarge_per_dim : float
         Along each dimension, outer ellipsoidal bounds are enlarged by this
         factor.
-    n_points_min : int or None, optional
+    n_points_min : int or None
         The minimum number of points each ellipsoid should have. Effectively,
         ellipsoids with less than twice that number will not be split further.
-    split_threshold: float, optional
+    split_threshold: float
         Threshold used for splitting the multi-ellipsoidal bound used for
         sampling. If the volume of the bound prior enlarging is larger than
         `split_threshold` times the target volume, the multi-ellipsiodal
@@ -69,7 +69,7 @@ class Sampler():
         Random number generator of the sampler.
     n_like : int
         Total number of likelihood evaluations.
-    explored : bool, optional
+    explored : bool
         Whether the space has been explored and the shells have been
         constructed.
     bounds : list
@@ -83,6 +83,8 @@ class Sampler():
         Blobs associated with each point. Same ordering as `points`.
     blobs_dtype : numpy.dtype
         Data type of the blobs.
+    _discard_exploration : bool
+        Whether to exclude points in the exploration phase.
     shell_n : numpy.ndarray
         Number of points for each bound/shell.
     shell_n_sample_shell : numpy.ndarray
@@ -98,6 +100,9 @@ class Sampler():
         Logarithm of the mean likelihood of points in each bound/shell.
     shell_log_v : numpy.ndarray
         Logarithm of the volume of each bound/shell.
+    shell_start_sampling : numpy.ndarray
+        Index at which points are coming from the sampling phase instead of the
+        exploration phase.
 
     """
 
@@ -295,6 +300,7 @@ class Sampler():
         self.log_l = []
         self.blobs = []
         self.blobs_dtype = blobs_dtype
+        self._discard_exploration = False
         self.shell_n = np.zeros(0, dtype=int)
         self.shell_n_sample_shell = np.zeros(0, dtype=int)
         self.shell_n_sample_bound = np.zeros(0, dtype=int)
@@ -302,6 +308,7 @@ class Sampler():
         self.shell_log_l_min = np.zeros(0, dtype=float)
         self.shell_log_l = np.zeros(0, dtype=float)
         self.shell_log_v = np.zeros(0, dtype=float)
+        self.shell_start_sampling = np.zeros(0, dtype=int)
 
         self.filepath = filepath
         if resume and filepath is not None and Path(filepath).exists():
@@ -317,10 +324,11 @@ class Sampler():
                     has_uint32=group.attrs['rng_has_uint32'],
                     uinteger=group.attrs['rng_uinteger'])
 
-                for key in ['n_like', 'explored', 'shell_n',
-                            'shell_n_sample_shell', 'shell_n_sample_bound',
-                            'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                            'shell_log_v']:
+                for key in ['n_like', 'explored', '_discard_exploration',
+                            'shell_n', 'shell_n_sample_shell',
+                            'shell_n_sample_bound', 'shell_n_eff',
+                            'shell_log_l_min', 'shell_log_l', 'shell_log_v',
+                            'shell_start_sampling']:
                     setattr(self, key, group.attrs[key])
 
                 for shell in range(len(self.shell_n)):
@@ -365,7 +373,6 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
-
         if not self.explored:
 
             if verbose:
@@ -394,23 +401,18 @@ class Sampler():
                     for key in ['shell_n', 'shell_n_sample_shell',
                                 'shell_n_sample_bound', 'shell_n_eff',
                                 'shell_log_l_min', 'shell_log_l',
-                                'shell_log_v']:
+                                'shell_log_v', 'shell_start_sampling']:
                         setattr(self, key, np.delete(
                             getattr(self, key), shell))
 
+            for index in range(len(self.log_l)):
+                self.shell_start_sampling[index] = len(self.points[index])
             self.explored = True
+
             if self.filepath is not None:
                 self.write(self.filepath, overwrite=True)
 
-            if discard_exploration:
-                self.discard_points()
-                if self.filepath is not None:
-                    # Rename the old checkpoint file containing points in the
-                    # exploration phase and start a new one.
-                    path = Path(self.filepath)
-                    path.rename(Path(path.parent, path.stem + '_exp' +
-                                     path.suffix))
-                    self.write(self.filepath)
+        self.discard_exploration = discard_exploration
 
         if n_shell is None:
             n_shell = self.n_batch
@@ -425,6 +427,40 @@ class Sampler():
                 print()
 
             self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
+
+    @property
+    def discard_exploration(self):
+        """Return whether the exploration phase is discarded.
+
+        Returns
+        -------
+        discard_exploration : bool
+            Whether the exploration phase is discarded.
+
+        """
+        return self._discard_exploration
+
+    @discard_exploration.setter
+    def discard_exploration(self, discard_exploration):
+        """Set whether exploration phase should be discarded.
+
+        Parameters
+        ----------
+        discard_exploration : bool
+            Whether the exploration phase is discarded.
+
+        Raises
+        ------
+        ValueError
+            If `discard_exploration` is not a bool.
+
+        """
+        if not isinstance(discard_exploration, bool):
+            raise ValueError("'discard_exploration' must be a bool.")
+        if discard_exploration != self._discard_exploration:
+            self._discard_exploration = discard_exploration
+            for index in range(len(self.log_l)):
+                self.update_shell_info(index)
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
@@ -466,15 +502,20 @@ class Sampler():
             else:
                 return_as_dict = False
 
-        points = np.concatenate(self.points)
+        if self._discard_exploration:
+            start = self.shell_start_sampling
+        else:
+            start = np.zeros(len(self.points), dtype=int)
+
+        points = np.concatenate([p[s:] for p, s in zip(self.points, start)])
         log_v = np.repeat(self.shell_log_v -
                           np.log(np.maximum(self.shell_n, 1)), self.shell_n)
-        log_l = np.concatenate(self.log_l)
+        log_l = np.concatenate([l[s:] for l, s in zip(self.log_l, start)])
         log_w = log_v + log_l
         if return_blobs:
             if self.blobs_dtype is None:
                 raise ValueError('No blobs have been calculated.')
-            blobs = np.concatenate(self.blobs)
+            blobs = np.concatenate([b[s:] for b, s in zip(self.blobs, start)])
 
         if callable(self.prior):
             transform = self.prior
@@ -698,7 +739,12 @@ class Sampler():
             Index of the shell.
 
         """
-        log_l = self.log_l[index]
+        if self._discard_exploration:
+            start = self.shell_start_sampling[index]
+        else:
+            start = 0
+
+        log_l = self.log_l[index][start:]
         self.shell_n[index] = len(log_l)
 
         if self.shell_n[index] > 0:
@@ -741,6 +787,7 @@ class Sampler():
         self.shell_n_eff = np.append(self.shell_n_eff, 0)
         self.shell_log_l = np.append(self.shell_log_l, np.nan)
         self.shell_log_v = np.append(self.shell_log_v, np.nan)
+        self.shell_start_sampling = np.append(self.shell_start_sampling, 0)
 
         # If this is the first bound, use the UnitCube bound.
         if len(self.bounds) == 0:
@@ -944,17 +991,6 @@ class Sampler():
         if self.filepath is not None:
             self.write_shell_update(self.filepath, shell)
 
-    def discard_points(self):
-        """Discard all points drawn."""
-        for i in range(len(self.bounds)):
-            self.shell_n_sample_shell[i] = 0
-            self.shell_n_sample_bound[i] = 0
-            self.points[i] = np.zeros((0, self.n_dim))
-            self.log_l[i] = np.zeros(0)
-            if self.blobs_dtype is not None:
-                self.blobs[i] = self.blobs[i][:0]
-            self.update_shell_info(i)
-
     def add_points(self, n_eff=0, n_shell=0, verbose=False):
         """Add samples to shells.
 
@@ -1113,9 +1149,10 @@ class Sampler():
         for key in ['n_dim', 'n_live', 'n_update', 'n_like_new_bound',
                     'enlarge_per_dim', 'n_points_min', 'split_threshold',
                     'n_networks', 'n_batch', 'vectorized', 'pass_dict',
-                    'n_like', 'explored', 'shell_n', 'shell_n_sample_shell',
-                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
-                    'shell_log_l', 'shell_log_v']:
+                    'n_like', 'explored', '_discard_exploration', 'shell_n',
+                    'shell_n_sample_shell', 'shell_n_sample_bound',
+                    'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                    'shell_log_v', 'shell_start_sampling']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():
