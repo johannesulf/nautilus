@@ -165,7 +165,8 @@ def main():
                       points, log_l, weights, args.full)
 
                 sampler.discard_exploration = True
-                sampler.run(verbose=args.verbose, n_eff=10000)
+                sampler.run(verbose=args.verbose, n_eff=10000,
+                            discard_exploration=True)
                 log_z = sampler.evidence()
                 n_like = sampler.n_like
                 n_eff = sampler.effective_sample_size()
@@ -175,7 +176,8 @@ def main():
                 write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
                       points, log_l, weights, args.full)
 
-                sampler.run(verbose=args.verbose, n_eff=100000)
+                sampler.run(verbose=args.verbose, n_eff=100000,
+                            discard_exploration=True)
                 log_z = sampler.evidence()
                 n_like = sampler.n_like
                 n_eff = sampler.effective_sample_size()
