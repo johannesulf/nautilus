@@ -9,10 +9,10 @@
 source init.sh
 cd ..
 for i in {0..39}; do
-  OMP_NUM_THREADS=1 python compute.py $ARGS --n_run=5 &
+  OMP_NUM_THREADS=1 python compute.py $ARGS &
   sleep 1
 done
 
 wait
 
-# example usage: ARGS="loggamma-30 dynesty-r"; STR=$(echo "$ARGS" | tr ' ' _); sbatch --job-name=compute_$STR --output=log/compute_$STR.out --export=ARGS="$ARGS" compute.sbatch
+# example usage: ARGS="loggamma-30 dynesty-r"; STR=$(echo "$ARGS" | tr ' ' _); sbatch --job-name=compute_$STR --output=log/compute_$STR.out --export compute.sbatch
