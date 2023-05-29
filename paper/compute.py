@@ -164,7 +164,7 @@ def main():
                 write(args.likelihood, algorithm, n_dim, log_z, n_like, n_eff,
                       points, log_l, weights, args.full)
 
-                sampler.discard_points()
+                sampler.discard_exploration = True
                 sampler.run(verbose=args.verbose, n_eff=10000)
                 log_z = sampler.evidence()
                 n_like = sampler.n_like
