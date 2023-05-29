@@ -15,4 +15,4 @@ done
 
 wait
 
-# example usage: ARGS="loggamma-30 dynesty-r"; STR=$(echo "$ARGS" | tr ' ' _); sbatch --job-name=compute_$STR --output=log/compute_$STR.out --export compute.sbatch
+# example usage: ARGS="loggamma-30 dynesty-r"; STR=$(echo "$ARGS" | tr ' ' _); sbatch --job-name=compute_$STR --output=log/compute_$STR.out --export=ARGS="$ARGS" compute.sbatch
