@@ -35,7 +35,7 @@ If you're running nautilus on a computer or laptop, shared-memory multiprocessin
 
 .. code-block:: python
 
-    sampler = Sampler(prior, likelihood, pass_dict=False)
+    sampler = Sampler(prior, likelihood, pass_dict=False, pool=4)
     t_start = time.time()
     sampler.run(verbose=True)
     t_end = time.time()
