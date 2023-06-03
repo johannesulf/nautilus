@@ -84,11 +84,14 @@ fit = pipes.fit(galaxy, fit_info)
 
 
 def likelihood(x):
+    if np.any(np.isnan(x)):
+        return -1e99
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return max(fit.fitted_model.lnlike(
             fit.fitted_model.prior.transform(np.copy(x))),
             -1e20 * (1 + np.sum(x)))
+
 
 likelihood(np.ones(7) * 0.5)
 

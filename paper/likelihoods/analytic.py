@@ -49,6 +49,8 @@ def loggamma_likelihood(x):
 
 
 def funnel_likelihood(x):
+    if np.any(np.isnan(x)):
+        return -1e99
     gamma = 0.95
     log_l_1 = -0.5 * np.log(2 * np.pi) - ((x[..., 0] - 0.5) * 20)**2 / 2.0
     sigma = np.exp((x[0] - 0.5) * 20)
