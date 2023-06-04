@@ -256,8 +256,8 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, fast=False,
-                max_iterations=1000, rng=None):
+    def compute(cls, points, enlarge_per_dim=1.1, max_iterations=1000,
+                rng=None):
         """Compute the bound.
 
         Parameters
@@ -267,11 +267,6 @@ class Ellipsoid():
         enlarge_per_dim : float, optional
             Along each dimension, the ellipsoid is enlarged by this factor.
             Default is 1.1.
-        fast : bool, optional
-            If True, calculate the bounding ellipsoid from the mean and
-            covariance of the points. If False, the ellipsoid (ignoring
-            `enlarge_per_dim`) is an approximation to a minimum volume
-            enclosing ellipsoid. Default is False.
         max_iterations : int, optional
             Maximum number of iterations before the minimization algorithm for
             the minimum volume enclosing ellipsoid is stopped. Ignored if
@@ -302,17 +297,9 @@ class Ellipsoid():
             raise ValueError('Number of points must be larger than number ' +
                              'dimensions.')
 
-        if not fast:
-            with threadpool_limits(limits=1):
-                bound.c, bound.A = minimum_volume_enclosing_ellipsoid(
-                    points, max_iterations=max_iterations)
-        else:
-            bound.c = np.mean(points, axis=0)
-            bound.A = np.linalg.inv(np.atleast_2d(np.cov(
-                points, rowvar=False)))
-            scale = np.amax(np.einsum(
-                '...i,ij,...j', points - bound.c, bound.A, points - bound.c))
-            bound.A /= scale
+        with threadpool_limits(limits=1):
+            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(
+                points, max_iterations=max_iterations)
 
         bound.A /= enlarge_per_dim**2.0
         bound.B = np.linalg.cholesky(np.linalg.inv(bound.A))
@@ -503,25 +490,65 @@ class UnitCubeEllipsoidMixture():
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        kwargs = dict(enlarge_per_dim=enlarge_per_dim, max_iterations=100,
+        kwargs = dict(enlarge_per_dim=enlarge_per_dim, max_iterations=1000,
                       rng=rng)
 
-        # First, calculate a bounding ellipsoid along all dimensions.
+        # First, start by sampling all dimensions using an ellipsoid..
         ellipsoid = Ellipsoid.compute(points, **kwargs)
-        ellipsoid_fast = Ellipsoid.compute(points, fast=True, **kwargs)
         bound.dim_cube = np.zeros(bound.n_dim, dtype=bool)
-        # Now, estimate which dimensions have a smaller volume when using the
-        # cube.
-        for dim in range(bound.n_dim):
-            ellipsoid_dim_fast = Ellipsoid.compute(
-                np.delete(points, dim, axis=1), fast=True, **kwargs)
-            if ellipsoid_fast.volume() > ellipsoid_dim_fast.volume():
-                ellipsoid_dim = Ellipsoid.compute(
-                    np.delete(points, dim, axis=1), fast=False, **kwargs)
-                if ellipsoid.volume() > ellipsoid_dim.volume():
-                    bound.dim_cube[dim] = True
 
-        kwargs['max_iterations'] = 1000
+        # Sample dimensions from the unit cube until volume doesn't decrease.
+        while np.sum(~bound.dim_cube) > 1:
+            c = ellipsoid.c
+            A_inv = np.linalg.inv(ellipsoid.A)
+
+            # Start by projecting the current ellipsoid along each dimension to
+            # estimate dropping which dimension is most likely to lead to the
+            # biggest volume reduction.
+            log_v = np.zeros(np.sum(~bound.dim_cube))
+            for i in range(np.sum(~bound.dim_cube)):
+                points_proj = np.delete(points[:, ~bound.dim_cube], i, axis=1)
+                c_proj = np.delete(c, i)
+                A_inv_proj = np.delete(np.delete(A_inv, i, axis=0), i, axis=1)
+                A_proj = np.linalg.inv(A_inv_proj)
+                scale = np.amax(np.einsum('...i,ij,...j', points_proj - c_proj,
+                                A_proj, points_proj - c_proj))
+                A_proj /= scale
+                log_v[i] = np.linalg.slogdet(np.linalg.inv(A_proj))[1]
+
+            dim = np.arange(bound.n_dim)[~bound.dim_cube][np.argmin(log_v)]
+            bound.dim_cube[dim] = True
+            ellipsoid_proj = Ellipsoid.compute(
+                points[:, ~bound.dim_cube], **kwargs)
+
+            if ellipsoid_proj.volume() < ellipsoid.volume():
+                ellipsoid = ellipsoid_proj
+            else:
+                bound.dim_cube[dim] = False
+                break
+
+        # The above algorithm will not necessarily find the optimal combination
+        # of which dimensions to sample from the unit cube. In particular, the
+        # ellipsoid may have a volume larger than the unit cube. If that's the
+        # case, start from the unit cube and add dimensions to sample from
+        # ellipsoids until volume doesn't decrease.
+        if ellipsoid.volume() > 0:
+            ellipsoid = UnitCube.compute(points)
+            bound.dim_cube = np.ones(bound.n_dim, dtype=bool)
+            # Check which dimensions are better sampled from an ellipsoid,
+            # i.e., have smaller volumes.
+            tested = np.zeros(bound.n_dim, dtype=bool)
+            while ~np.all(tested):
+                for dim in np.arange(bound.n_dim)[~tested]:
+                    bound.dim_cube[dim] = False
+                    tested[dim] = True
+                    ellipsoid_test = Ellipsoid.compute(
+                        points[:, ~bound.dim_cube], **kwargs)
+                    if ellipsoid.volume() > ellipsoid_test.volume():
+                        ellipsoid = ellipsoid_test
+                        tested[bound.dim_cube] = False
+                    else:
+                        bound.dim_cube[dim] = True
 
         if np.any(bound.dim_cube):
             bound.cube = UnitCube.compute(np.sum(bound.dim_cube), rng=rng)
@@ -531,8 +558,7 @@ class UnitCubeEllipsoidMixture():
         if np.all(bound.dim_cube):
             bound.ellipsoid = None
         else:
-            bound.ellipsoid = Ellipsoid.compute(
-                points[:, np.arange(bound.n_dim)[~bound.dim_cube]], **kwargs)
+            bound.ellipsoid = ellipsoid
 
         return bound
 
