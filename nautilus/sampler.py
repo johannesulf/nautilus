@@ -87,9 +87,7 @@ class Sampler():
         Whether to exclude points in the exploration phase.
     shell_n : numpy.ndarray
         Number of points for each bound/shell.
-    shell_n_sample_shell : numpy.ndarray
-        Number of points sampled in each bound that fall into the shell.
-    shell_n_sample_bound : numpy.ndarray
+    shell_n_sample : numpy.ndarray
         Number of points sampled in each bound.
     shell_n_eff : numpy.ndarray
         Effective sample size for each bound/shell.
@@ -100,7 +98,9 @@ class Sampler():
         Logarithm of the mean likelihood of points in each bound/shell.
     shell_log_v : numpy.ndarray
         Logarithm of the volume of each bound/shell.
-    shell_start_sampling : numpy.ndarray
+    shell_n_sample_exp : numpy.ndarray
+        Number of points sampled in each bound during the exploration phase.
+    shell_end_exp : numpy.ndarray
         Index at which points are coming from the sampling phase instead of the
         exploration phase.
 
@@ -302,13 +302,13 @@ class Sampler():
         self.blobs_dtype = blobs_dtype
         self._discard_exploration = False
         self.shell_n = np.zeros(0, dtype=int)
-        self.shell_n_sample_shell = np.zeros(0, dtype=int)
-        self.shell_n_sample_bound = np.zeros(0, dtype=int)
+        self.shell_n_sample = np.zeros(0, dtype=int)
         self.shell_n_eff = np.zeros(0, dtype=float)
         self.shell_log_l_min = np.zeros(0, dtype=float)
         self.shell_log_l = np.zeros(0, dtype=float)
         self.shell_log_v = np.zeros(0, dtype=float)
-        self.shell_start_sampling = np.zeros(0, dtype=int)
+        self.shell_n_sample_exp = np.zeros(0, dtype=int)
+        self.shell_end_exp = np.zeros(0, dtype=int)
 
         self.filepath = filepath
         if resume and filepath is not None and Path(filepath).exists():
@@ -325,10 +325,9 @@ class Sampler():
                     uinteger=group.attrs['rng_uinteger'])
 
                 for key in ['n_like', 'explored', '_discard_exploration',
-                            'shell_n', 'shell_n_sample_shell',
-                            'shell_n_sample_bound', 'shell_n_eff',
+                            'shell_n', 'shell_n_sample', 'shell_n_eff',
                             'shell_log_l_min', 'shell_log_l', 'shell_log_v',
-                            'shell_start_sampling']:
+                            'shell_n_sample_exp', 'shell_end_exp']:
                     setattr(self, key, group.attrs[key])
 
                 for shell in range(len(self.shell_n)):
@@ -398,15 +397,14 @@ class Sampler():
                     self.log_l.pop(shell)
                     if self.blobs_dtype is not None:
                         self.blobs.pop(shell)
-                    for key in ['shell_n', 'shell_n_sample_shell',
-                                'shell_n_sample_bound', 'shell_n_eff',
+                    for key in ['shell_n', 'shell_n_sample', 'shell_n_eff',
                                 'shell_log_l_min', 'shell_log_l',
-                                'shell_log_v', 'shell_start_sampling']:
+                                'shell_log_v']:
                         setattr(self, key, np.delete(
                             getattr(self, key), shell))
 
-            for index in range(len(self.log_l)):
-                self.shell_start_sampling[index] = len(self.points[index])
+            self.shell_n_sample_exp = np.copy(self.shell_n_sample)
+            self.shell_end_exp = np.array([len(p) for p in self.points])
             self.explored = True
 
             if self.filepath is not None:
@@ -502,8 +500,8 @@ class Sampler():
             else:
                 return_as_dict = False
 
-        if self._discard_exploration:
-            start = self.shell_start_sampling
+        if self._discard_exploration and self.explored:
+            start = self.shell_end_exp
         else:
             start = np.zeros(len(self.points), dtype=int)
 
@@ -739,8 +737,11 @@ class Sampler():
             Index of the shell.
 
         """
-        if self._discard_exploration:
-            start = self.shell_start_sampling[index]
+        shell_n_sample = self.shell_n_sample[index]
+
+        if self._discard_exploration and self.explored:
+            start = self.shell_end_exp[index]
+            shell_n_sample -= self.shell_n_sample_exp[index]
         else:
             start = 0
 
@@ -750,8 +751,7 @@ class Sampler():
         if self.shell_n[index] > 0:
             self.shell_log_v[index] = (
                 self.bounds[index].volume() +
-                np.log(self.shell_n_sample_shell[index] /
-                       self.shell_n_sample_bound[index]))
+                np.log(self.shell_n[index] / shell_n_sample))
             self.shell_log_l[index] = logsumexp(log_l) - np.log(len(log_l))
             if not np.all(log_l == -np.inf):
                 self.shell_n_eff[index] = np.exp(2 * logsumexp(log_l) -
@@ -782,12 +782,10 @@ class Sampler():
 
         """
         self.shell_n = np.append(self.shell_n, 0)
-        self.shell_n_sample_shell = np.append(self.shell_n_sample_shell, 0)
-        self.shell_n_sample_bound = np.append(self.shell_n_sample_bound, 0)
+        self.shell_n_sample = np.append(self.shell_n_sample, 0)
         self.shell_n_eff = np.append(self.shell_n_eff, 0)
         self.shell_log_l = np.append(self.shell_log_l, np.nan)
         self.shell_log_v = np.append(self.shell_log_v, np.nan)
-        self.shell_start_sampling = np.append(self.shell_start_sampling, 0)
 
         # If this is the first bound, use the UnitCube bound.
         if len(self.bounds) == 0:
@@ -863,7 +861,6 @@ class Sampler():
                     self.blobs[shell] = self.blobs[shell][~in_bound]
 
                 self.shell_n[shell] -= np.sum(in_bound)
-                self.shell_n_sample_shell[shell] -= np.sum(in_bound)
                 self.update_shell_info(shell)
 
             shell_t = np.concatenate(shell_t)
@@ -905,8 +902,7 @@ class Sampler():
                 shell_t = np.delete(shell_t, idx_t)
 
             self.shell_n[-1] += n_bound
-            self.shell_n_sample_shell[-1] += n_bound
-            self.shell_n_sample_bound[-1] += n_bound
+            self.shell_n_sample[-1] += n_bound
             n_update += np.sum(log_l >= log_l_min)
             n_like += len(points)
 
@@ -980,8 +976,7 @@ class Sampler():
 
         """
         points, n_bound = self.sample_shell(shell)
-        self.shell_n_sample_shell[shell] += len(points)
-        self.shell_n_sample_bound[shell] += n_bound
+        self.shell_n_sample[shell] += n_bound
         log_l, blobs = self.evaluate_likelihood(points)
         self.points[shell] = np.concatenate([self.points[shell], points])
         self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
@@ -1150,9 +1145,9 @@ class Sampler():
                     'enlarge_per_dim', 'n_points_min', 'split_threshold',
                     'n_networks', 'n_batch', 'vectorized', 'pass_dict',
                     'n_like', 'explored', '_discard_exploration', 'shell_n',
-                    'shell_n_sample_shell', 'shell_n_sample_bound',
-                    'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                    'shell_log_v', 'shell_start_sampling']:
+                    'shell_n_sample', 'shell_n_eff', 'shell_log_l_min',
+                    'shell_log_l', 'shell_log_v', 'shell_n_sample_exp',
+                    'shell_end_exp']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():
@@ -1209,9 +1204,8 @@ class Sampler():
         fstream = h5py.File(filepath, 'r+')
         group = fstream['sampler']
 
-        for key in ['n_like', 'shell_n', 'shell_n_sample_shell',
-                    'shell_n_sample_bound', 'shell_n_eff', 'shell_log_l_min',
-                    'shell_log_l', 'shell_log_v']:
+        for key in ['n_like', 'shell_n', 'shell_n_sample', 'shell_n_eff',
+                    'shell_log_l_min', 'shell_log_l', 'shell_log_v']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():
