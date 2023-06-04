@@ -268,7 +268,7 @@ class Sampler():
         self.vectorized = vectorized
         self.pass_dict = pass_dict
 
-        if pool is None:
+        if pool is None or pool == 1:
             self.pool_l = None
             self.pool_s = None
         elif isinstance(pool, int):
