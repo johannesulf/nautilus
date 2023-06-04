@@ -39,11 +39,10 @@ def loggamma_likelihood(x):
 
     log_l = log_l_1 + log_l_2
 
-    for i in range(2, d):
-        if i <= (d + 2) / 2 - 1:
-            log_l += loggamma_logpdf(x[..., i], 1.0, 2.0 / 3.0, 1.0 / 30.0)
-        else:
-            log_l += norm.logpdf(x[..., i], 2.0 / 3.0, 1.0 / 30.0)
+    log_l += np.sum(loggamma_logpdf(x[..., 2:(d + 2) // 2], 1.0, 2.0 / 3.0,
+                                    1.0 / 30.0), axis=-1)
+    log_l += np.sum(norm.logpdf(x[..., (d + 2) // 2:], 2.0 / 3.0, 1.0 / 30.0),
+                    axis=-1)
 
     return filter_outside_unit(x, log_l)
 
