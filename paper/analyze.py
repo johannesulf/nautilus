@@ -267,7 +267,8 @@ for k, (sampler, color, ls) in enumerate(
         ax1.plot(x, n_like, color=color, marker='o', label=sampler, ls=ls,
                  zorder=k)
         plotline, cap, barlinecols = ax2.errorbar(
-            x, log_z, yerr=log_z_err, color=color, marker='o', ls=ls, zorder=k)
+            np.array(x) + (-(len(sampler_list) - 1) / 2 + k) * 0.25, log_z,
+            yerr=log_z_err, color=color, marker='o', ls=ls, zorder=k)
         plt.setp(barlinecols[0], capstyle='round')
 
 handles, labels = ax1.get_legend_handles_labels()
