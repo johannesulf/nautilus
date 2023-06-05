@@ -45,6 +45,13 @@ for path in (Path('.') / 'results').iterdir():
                     results['log Z'][select], ddof=1)
             else:
                 summary_row['log Z error'] = np.nan
+
+        if (likelihood in ['funnel-20', 'loggamma-30'] and
+                sampler == 'nautilus-r100k'):
+            print('Mean log Z: {:.5f} +/- {:.5f}'.format(
+                summary_row['log Z'], summary_row['log Z error'] /
+                np.sqrt(np.sum(select))))
+
         if 'bmd' in results.colnames:
             summary_row['bmd'] = np.mean(results['bmd'][select])
             if np.sum(select) > 1:
