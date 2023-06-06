@@ -64,8 +64,10 @@ def main():
                                  'dynesty-s', 'pocoMC', 'UltraNest', 'emcee'])
     parser.add_argument('--n_run', type=int, default=5,
                         help='number likelihood runs for each sampler')
-    parser.add_argument('--nautilus', default=2000, type=int,
-                        help='how many live points to use')
+    parser.add_argument('--n_live', default=2000, type=int,
+                        help='how many live points nautilus uses')
+    parser.add_argument('--enlarge_per_dim', default=1.05, type=float,
+                        help='enlargmenet factor for nautilus')
     parser.add_argument('--n_jobs', type=int, default=1,
                         help='number of jobs used by nautilus')
     parser.add_argument('--full', action='store_true',
@@ -150,7 +152,8 @@ def main():
 
                 sampler = nautilus.Sampler(
                     prior, likelihood, n_dim, pass_dict=False,
-                    n_live=args.nautilus, pool=args.n_jobs)
+                    n_live=args.n_live, enlarge_per_dim=args.enlarge_per_dim,
+                    pool=args.n_jobs)
                 sampler.run(verbose=args.verbose)
 
                 log_z = sampler.evidence()
