@@ -68,7 +68,7 @@ class NeuralBound():
 
         # Determine the outer bound.
         bound.outer_bound = Ellipsoid.compute(
-            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            points[log_l >= log_l_min], enlarge_per_dim=enlarge_per_dim,
             rng=rng)
 
         if n_networks == 0:
@@ -266,7 +266,7 @@ class NautilusBound():
                 rng=rng))
 
         bound.outer_bound = Union.compute(
-            points[log_l > log_l_min], enlarge_per_dim=enlarge_per_dim,
+            points[log_l >= log_l_min], enlarge_per_dim=enlarge_per_dim,
             n_points_min=n_points_min, bound_class=UnitCubeEllipsoidMixture,
             rng=rng)
 
