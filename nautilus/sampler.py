@@ -455,10 +455,15 @@ class Sampler():
         """
         if not isinstance(discard_exploration, bool):
             raise ValueError("'discard_exploration' must be a bool.")
-        if discard_exploration != self._discard_exploration:
-            self._discard_exploration = discard_exploration
-            for index in range(len(self.log_l)):
-                self.update_shell_info(index)
+
+        self._discard_exploration = discard_exploration
+        for index in range(len(self.log_l)):
+            self.update_shell_info(index)
+
+        if self.filepath is not None:
+            with h5py.File(self.filepath, 'r+') as fstream:
+                group = fstream['sampler']
+                group.attrs['_discard_exploration'] = discard_exploration
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
