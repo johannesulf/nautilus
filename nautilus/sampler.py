@@ -778,7 +778,10 @@ class Sampler():
             print('f_live: {:>17.3f}'.format(self.live_evidence_fraction()))
 
     def add_bound(self, verbose=False):
-        """Build a new bound from existing points.
+        """Try building a new bound from existing points.
+
+        If the new bound would be larger than the previious bound, we will
+        reject the new bound.
 
         Parameters
         ----------
@@ -786,19 +789,15 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
-        self.shell_n = np.append(self.shell_n, 0)
-        self.shell_n_sample = np.append(self.shell_n_sample, 0)
-        self.shell_n_eff = np.append(self.shell_n_eff, 0)
-        self.shell_log_l = np.append(self.shell_log_l, np.nan)
-        self.shell_log_v = np.append(self.shell_log_v, np.nan)
-
+        success = False
         # If this is the first bound, use the UnitCube bound.
         if len(self.bounds) == 0:
             log_l_min = -np.inf
             self.bounds.append(UnitCube.compute(self.n_dim, rng=self.rng))
+            success = True
         else:
             if verbose:
-                print('Adding bound {}'.format(len(self.bounds) + 1), end='\r')
+                print('Adding Bound {}'.format(len(self.bounds) + 1), end='\r')
             log_l = np.concatenate(self.log_l)
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
@@ -813,25 +812,35 @@ class Sampler():
                     neural_network_kwargs=self.neural_network_kwargs,
                     pool=self.pool_s, rng=self.rng)
                 bound.sample(1000, return_points=False, pool=self.pool_s)
-                if bound.volume() > self.bounds[-1].volume():
-                    bound = self.bounds[-1]
-            self.bounds.append(bound)
+            if bound.volume() < self.bounds[-1].volume():
+                self.bounds.append(bound)
+                success = True
 
-        self.points.append([])
-        self.log_l.append([])
-        self.blobs.append([])
-        self.shell_log_l_min = np.append(self.shell_log_l_min, log_l_min)
+        if success:
+            self.shell_n = np.append(self.shell_n, 0)
+            self.shell_n_sample = np.append(self.shell_n_sample, 0)
+            self.shell_n_eff = np.append(self.shell_n_eff, 0)
+            self.shell_log_l = np.append(self.shell_log_l, np.nan)
+            self.shell_log_v = np.append(self.shell_log_v, np.nan)
+            self.shell_log_l_min = np.append(self.shell_log_l_min, log_l_min)
+            self.points.append(np.zeros((0, self.n_dim)))
+            self.log_l.append(np.zeros(0))
+            self.blobs.append(np.zeros(0))
+        else:
+            self.shell_log_l_min[-1] = log_l_min
 
         if verbose:
-            print('Adding bound {:<7} done'.format(
-                str(len(self.bounds)) + ':'))
+            print('Adding Bound {:<5} {:>6}'.format(
+                str(len(self.bounds) + (not success)) + ':', 'done' if success
+                else 'failed'))
             if isinstance(self.bounds[-1], NautilusBound):
-                n_neural, n_sample =\
+                n_neural, n_ell =\
                     self.bounds[-1].number_of_networks_and_ellipsoids()
             else:
-                n_neural, n_sample = 0, 0
-            print("Neural nets: {:>12}".format(n_neural))
-            print("Ellipsoids: {:>13}".format(n_sample))
+                n_neural, n_ell = 0, 0
+            if success:
+                print("Ellipsoids: {:>13}".format(n_ell))
+                print("Neural Networks: {:>8}".format(n_neural))
 
     def fill_bound(self, verbose=False):
         """Fill a new bound with points until a new bound should be created.
@@ -842,6 +851,13 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
+        self.points[-1] = [self.points[-1], ]
+        self.log_l[-1] = [self.log_l[-1], ]
+        if len(self.blobs[-1]) > 0:
+            self.blobs[-1] = [self.blobs[-1], ]
+        else:
+            self.blobs[-1] = []
+
         shell_t = []
         points_t = []
         log_l_t = []
@@ -884,7 +900,7 @@ class Sampler():
             n_like_max = np.inf
 
         if verbose:
-            pbar = tqdm(desc='Filling bound {}'.format(len(self.bounds)),
+            pbar = tqdm(desc='Filling Bound {}'.format(len(self.bounds)),
                         total=n_update_max, leave=False)
 
         while n_update < n_update_max and n_like < n_like_max:
@@ -918,11 +934,13 @@ class Sampler():
         self.log_l[-1] = np.concatenate(self.log_l[-1])
         if self.blobs_dtype is not None:
             self.blobs[-1] = np.concatenate(self.blobs[-1])
+        else:
+            self.blobs[-1] = np.zeros(0)
         self.update_shell_info(-1)
 
         if verbose:
             pbar.close()
-            print('Filling bound {:<6} done'.format(
+            print('Filling Bound {:<6} done'.format(
                 str(len(self.bounds)) + ':'))
             self.print_status()
             print('')
