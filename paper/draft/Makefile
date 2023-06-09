@@ -17,6 +17,8 @@ all:
 	cp ../figures/exoplanet_x5_posterior.pdf ./
 	cp ../figures/scaling_only.pdf ./
 	bibm pdflatex ms.tex
+	latexdiff --type=CTRADITIONAL --math-markup=off ms_subm.tex ms.tex > diff_subm.tex
+	bibm pdflatex diff_subm.tex
 	zip source.zip *.tex ms.bbl bibliography.bib *.pdf
 
 clean:
