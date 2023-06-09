@@ -438,9 +438,25 @@ class NautilusBound():
 
         self.outer_bound.write(group.create_group('outer_bound'))
 
-        group.create_dataset('points', data=self.points)
+        group.create_dataset('points', data=self.points,
+                             maxshape=(None, self.n_dim))
         group.attrs['n_sample'] = self.n_sample
         group.attrs['n_reject'] = self.n_reject
+
+    def update(self, group):
+        """Update bound information previously written to an HDF5 group.
+
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
+        group.attrs['n_sample'] = self.n_sample
+        group.attrs['n_reject'] = self.n_reject
+        self.outer_bound.update(group['outer_bound'])
+        group['points'].resize(self.points.shape)
+        group['points'][...] = self.points
 
     @classmethod
     def read(cls, group, rng=None):

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Likelihoods with large plateaus shouldn't crash, anymore.
+- Information updates about bounds are now written during the sampling phase. Previously, if computations were interrupted and restarted during the sampling phase, the volume estimates were noisier than necessary, and some points may have been proposed twice.
 
 ### Deprecated
 - The `n_jobs` keyword argument for the sampler has been deprecated. The pool used for likelihood calls is now also used for sampler parallelization, by default. To use independent pools for likelihood calls and sampler calculations, pass a tuple to `pool`.

@@ -88,6 +88,22 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
     points = np.random.random((10000, n_dim))
     assert np.all(bound_write.contains(points) == bound_read.contains(points))
 
+    if bound_class in [Union, NautilusBound]:
+        bound_write.sample(10000)
+        bound_write.update(h5py_group)
+
+        rng = np.random.default_rng(1)
+        if rng_sync:
+            rng.bit_generator.state = bound_write.rng.bit_generator.state
+
+        bound_read = bound_class.read(h5py_group, rng=rng)
+
+        assert (np.all(bound_write.sample(20000) == bound_read.sample(20000))
+                == rng_sync)
+
+        if rng_sync:
+            assert bound_write.volume() == bound_read.volume()
+
 
 @pytest.mark.parametrize("blobs", [True, False])
 @pytest.mark.parametrize("discard_exploration", [True, False])
@@ -109,16 +125,22 @@ def test_sampler_io(blobs, discard_exploration, n_networks):
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             n_networks=n_networks, filepath='test.hdf5',
                             resume=False, seed=0)
-    sampler_write.run(f_live=0.45, n_eff=0, verbose=True)
+    sampler_write.run(f_live=0.45, n_eff=1000,
+                      discard_exploration=discard_exploration, verbose=True)
     sampler_write.explored = False
+    # Reset the interal shell calculations.
+    sampler_write.discard_exploration = discard_exploration
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=n_networks, filepath='test.hdf5',
                            resume=True)
     sampler_read.explored = False
+    # Reset the interal shell calculations.
+    sampler_read.discard_exploration = discard_exploration
+    assert sampler_write.evidence() == sampler_read.evidence()
 
-    sampler_write.run(f_live=0.45, n_eff=1000,
+    sampler_write.run(f_live=0.45, n_eff=5000,
                       discard_exploration=discard_exploration, verbose=True)
-    sampler_read.run(f_live=0.45, n_eff=1000,
+    sampler_read.run(f_live=0.45, n_eff=5000,
                      discard_exploration=discard_exploration, verbose=True)
 
     posterior_write = sampler_write.posterior()

@@ -1243,6 +1243,9 @@ class Sampler():
             group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
             group['blobs_{}'.format(shell)][...] = self.blobs[shell]
 
+        if isinstance(self.bounds[shell], NautilusBound):
+            self.bounds[shell].update(fstream['bound_{}'.format(shell)])
+
         rng_state = self.rng.bit_generator.state
         group.attrs['rng_state'] = str(rng_state['state']['state'])
         group.attrs['rng_inc'] = str(rng_state['state']['inc'])

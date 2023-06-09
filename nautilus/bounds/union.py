@@ -320,7 +320,15 @@ class Union():
 
         for i, points in enumerate(self.points_bounds):
             group.create_dataset('points_bound_{}'.format(i), data=points)
-        group.create_dataset('points', data=self.points)
+        group.create_dataset('points', data=self.points,
+                             maxshape=(None, self.n_dim))
+
+    def update(self, group):
+
+        group.attrs['n_sample'] = self.n_sample
+        group.attrs['n_reject'] = self.n_reject
+        group['points'].resize(self.points.shape)
+        group['points'][...] = self.points
 
     @classmethod
     def read(cls, group, rng=None):
