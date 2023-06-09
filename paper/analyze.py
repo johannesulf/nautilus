@@ -365,19 +365,20 @@ for likelihood in likelihood_list:
 
 # %%
 
+x = np.linspace(-5, +5, 10000)
+plt.plot(x, norm.pdf(x), color='grey', label='analytic', lw=2.5)
 sampler_list = ['nautilus', 'dynesty-r', 'pocoMC']
 color_list = ['purple', 'orange', 'royalblue']
-for sampler, color in zip(sampler_list, color_list):
+ls_list = [(0, (2.5, 2.5)), (2.5, (2.5, 2.5)), '-']
+for sampler, color, ls in zip(sampler_list, color_list, ls_list):
     plt.plot((posterior['funnel-20'][sampler][0][0] - 0.5) * 20,
              posterior['funnel-20'][sampler][0][1] / 20, color=color,
-             label=sampler)
-x = np.linspace(-5, +5, 10000)
-plt.plot(x, norm.pdf(x), color='black', ls='--', label='analytic')
-plt.xlim(-3.5, +3.5)
+             label=sampler, ls=ls, lw=2.0)
+plt.xlim(-4, +4)
 plt.ylim(ymin=0)
 plt.xlabel(r'$x_1$')
 plt.ylabel(r'$p(x_1)$')
-plt.legend(loc='best', frameon=False)
+plt.legend(loc='upper left', frameon=False)
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'funnel-20_x1_posterior.pdf')
 plt.savefig(path / 'funnel-20_x1_posterior.png', dpi=300)

@@ -19,7 +19,7 @@ all:
 	bibm pdflatex ms.tex
 	latexdiff --type=CTRADITIONAL --math-markup=off ms_subm.tex ms.tex > diff_subm.tex
 	bibm pdflatex diff_subm.tex
-	zip source.zip *.tex ms.bbl bibliography.bib *.pdf
+	zip source.zip *.tex ms.bbl bibliography.bib *.pdf rev.md
 
 clean:
 	rm -f *.log
