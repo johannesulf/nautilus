@@ -324,7 +324,14 @@ class Union():
                              maxshape=(None, self.n_dim))
 
     def update(self, group):
+        """Update bound information previously written to an HDF5 group.
 
+        Parameters
+        ----------
+        group : h5py.Group
+            HDF5 group to write to.
+
+        """
         group.attrs['n_sample'] = self.n_sample
         group.attrs['n_reject'] = self.n_reject
         group['points'].resize(self.points.shape)
