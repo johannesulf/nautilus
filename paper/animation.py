@@ -21,7 +21,7 @@ def likelihood(x):
         cov=np.array([[1.0, 0.5], [0.5, 1.0]]) * sigma**2)
 
 
-sampler = Sampler(prior, likelihood, 2, random_state=0)
+sampler = Sampler(prior, likelihood, 2, seed=0)
 
 points = []
 
