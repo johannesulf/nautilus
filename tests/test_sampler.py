@@ -31,6 +31,10 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
     sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
+    assert sampler.effective_sample_size() > 0
+    sampler.evidence()
+    assert sampler.asymptotic_sampling_efficiency() > 0
+    assert sampler.asymptotic_sampling_efficiency() < 1
 
 
 @pytest.mark.parametrize("discard_exploration_start", [True, False])

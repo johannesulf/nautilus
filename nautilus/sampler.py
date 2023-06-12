@@ -573,11 +573,33 @@ class Sampler():
         Returns
         -------
         log_z : float
-            Estimate the global evidence :math:`\log \mathcal{Z}`.
+            Estimate of the global evidence :math:`\log \mathcal{Z}`.
 
         """
         select = ~np.isnan(self.shell_log_l)
         return logsumexp(self.shell_log_l[select] + self.shell_log_v[select])
+
+    def asymptotic_sampling_efficiency(self):
+        r"""Estimate the asymptotic sampling efficiency :math:`\eta`.
+
+        The asymptotic sampling efficiency is defined as
+        :math:`\eta = \lim_{N_{\rm like} \to \infty} N_{\rm eff} / N_{\rm like}`.
+        This is set after the exploration phase. However, the estimate will be
+        updated based on what is found in the sampling phase.
+
+        Returns
+        -------
+        eta : float
+            Estimate of the asymptotic sampling efficiency.
+
+        """
+        shell_log_z = self.shell_log_l + self.shell_log_v
+        shell_eta = self.shell_n_eff / self.shell_n
+        select = ~np.isnan(self.shell_log_l)
+        shell_log_z = shell_log_z[select]
+        shell_eta = shell_eta[select]
+        return np.exp(2 * logsumexp(shell_log_z) - 2 * logsumexp(
+            shell_log_z - 0.5 * np.log(shell_eta)))
 
     def sample_shell(self, index, shell_t=None):
         """Sample a batch of points uniformly from a shell.
