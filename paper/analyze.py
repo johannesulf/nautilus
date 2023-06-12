@@ -116,7 +116,7 @@ for path in (Path('.') / 'results').iterdir():
                     r'$\log M_1$', r'$\alpha$', r'$A_{\rm cen}$',
                     r'$A_{\rm sat}$'][i]
         else:
-            text = r'$x_{{{}}}$'.format(i + 1)
+            text = r'$\theta_{{{}}}$'.format(i + 1)
 
         axarr[i].text(0.05, 0.95, text, ha='left', va='top',
                       transform=axarr[i].transAxes)
@@ -376,8 +376,8 @@ for sampler, color, ls in zip(sampler_list, color_list, ls_list):
              label=sampler, ls=ls, lw=2.0)
 plt.xlim(-4, +4)
 plt.ylim(ymin=0)
-plt.xlabel(r'$x_1$')
-plt.ylabel(r'$p(x_1)$')
+plt.xlabel(r'$\theta_1$')
+plt.ylabel(r'$p(\theta_1)$')
 plt.legend(loc='upper left', frameon=False)
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'funnel-20_x1_posterior.pdf')
@@ -413,8 +413,8 @@ ax2.plot(x, np.ones_like(x), color='black', ls='--')
 plt.xlim(0.4, 0.75)
 ax1.set_ylim(ymin=0)
 ax2.set_ylim(0, 1.3)
-plt.xlabel(r'$x_{10}$')
-ax1.set_ylabel(r'$p(x_{10})$')
+plt.xlabel(r'$\theta_{10}$')
+ax1.set_ylabel(r'$p(\theta_{10})$')
 ax2.set_ylabel(r'Ratio')
 ax1.set_yticks([0, 5, 10])
 ax1.legend(loc='best', frameon=False)
@@ -460,8 +460,8 @@ for sampler, color, ls in zip(sampler_list, color_list, ls_list):
              label=sampler, ls=ls)
 plt.xlim(-0.5, +1.75)
 plt.ylim(ymin=0)
-plt.xlabel(r'$x_8$')
-plt.ylabel(r'$p(x_8)$')
+plt.xlabel(r'$\theta_8$')
+plt.ylabel(r'$p(\theta_8)$')
 plt.legend(loc='best', frameon=False)
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'rosenbrock-10_x8_posterior.pdf')
@@ -523,7 +523,8 @@ table = Table.read(Path('.') / 'results' /
 table['weights'] /= np.sum(table['weights'])
 corner.corner(
     (table['points'][:, 1::2] - 0.5) * 10, weights=table['weights'], bins=60,
-    labels=np.array([r'$x_{{{}}}$'.format(i) for i in range(1, 11)])[1::2],
+    labels=np.array([r'$\theta_{{{}}}$'.format(i)
+                    for i in range(1, 11)])[1::2],
     plot_datapoints=False, plot_density=False, fill_contours=True,
     levels=(0.68, 0.95, 0.997), range=corner_range_abs, color='purple',
     contour_kwargs=dict(linewidths=0), fig=fig, labelpad=-0.1,

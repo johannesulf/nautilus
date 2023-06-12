@@ -30,8 +30,8 @@ plt.text(0.1, 0.9, r'$B_1$', ha='left', va='top')
 plt.text(0.9, 0.9, r'$B_2$', ha='right', va='top')
 plt.text(0.7, 0.7, r'$B_3$', ha='right', va='top')
 plt.text(0.5, 0.5, r'$B_4$', ha='center', va='center')
-plt.xlabel(r'$x_1$')
-plt.ylabel(r'$x_2$')
+plt.xlabel(r'$\theta_1$')
+plt.ylabel(r'$\theta_2$')
 plt.xticks([])
 plt.yticks([])
 plt.tight_layout(pad=0.3)
@@ -111,7 +111,7 @@ plt.close()
 
 sampler = Sampler(
     prior, rosenbrock_likelihood, n_dim=2, vectorized=True, pass_dict=False,
-    random_state=0)
+    seed=0)
 for i in range(6):
     sampler.add_bound(verbose=True)
     sampler.fill_bound(verbose=True)
@@ -140,8 +140,8 @@ cbar.ax.set_yticklabels(['-$10^5$', '0'])
 ax.set_xlim(-5, +5)
 ax.set_ylim(-5, +5)
 cbar.set_label(r'$\log \mathcal{L}$', labelpad=-10)
-ax.set_xlabel(r'$x_1$')
-ax.set_ylabel(r'$x_2$')
+ax.set_xlabel(r'$\theta_1$')
+ax.set_ylabel(r'$\theta_2$')
 
 ax = axarr[0, 1]
 ax.text(0.05, 0.95, '2', horizontalalignment='left', verticalalignment='top',
@@ -160,8 +160,8 @@ cbar.ax.set_yticklabels(['-$10^2$', '0'])
 ax.set_xlim(-5, +5)
 ax.set_ylim(-5, +5)
 cbar.set_label(r'$\log \mathcal{L}$', labelpad=-10)
-ax.set_xlabel(r'$x_1$')
-ax.set_ylabel(r'$x_2$')
+ax.set_xlabel(r'$\theta_1$')
+ax.set_ylabel(r'$\theta_2$')
 
 ax = axarr[0, 2]
 ax.text(0.05, 0.95, '3', horizontalalignment='left', verticalalignment='top',
@@ -180,16 +180,16 @@ cbar = fig.colorbar(img, cax=cax, orientation='vertical', ticks=[0, 1])
 ax.set_xlim(-1, +1)
 ax.set_ylim(-1, +1)
 cbar.set_label(r'$s_\mathcal{L}$', labelpad=0)
-ax.set_xlabel(r'$\tilde{x}_1$')
-ax.set_ylabel(r'$\tilde{x}_2$')
+ax.set_xlabel(r'$\tilde{\theta}_1$')
+ax.set_ylabel(r'$\tilde{\theta}_2$')
 
 ax = axarr[1, 0]
 ax.text(0.05, 0.95, '4', horizontalalignment='left', verticalalignment='top',
         transform=ax.transAxes, color='red')
 draw_neural_net(ax, 0.05, 0.95, 0.0, 1.0, [2, 8, 4, 2, 1])
-ax.text(0.0, 0.5625, r'$\tilde{x}_1$', horizontalalignment='right',
+ax.text(0.0, 0.5625, r'$\tilde{\theta}_1$', horizontalalignment='right',
         verticalalignment='center', transform=ax.transAxes)
-ax.text(0.0, 0.4375, r'$\tilde{x}_2$', horizontalalignment='right',
+ax.text(0.0, 0.4375, r'$\tilde{\theta}_2$', horizontalalignment='right',
         verticalalignment='center', transform=ax.transAxes)
 ax.text(1.0, 0.5, r'$s_\mathcal{L}$', horizontalalignment='left',
         verticalalignment='center', transform=ax.transAxes)
@@ -222,8 +222,8 @@ ax.contour(X, Y, in_bound, levels=[0.5], colors='black', linewidths=1,
 ax.set_rasterization_zorder(0)
 ax.set_xlim(-5, +5)
 ax.set_ylim(-5, +5)
-ax.set_xlabel(r'$x_1$')
-ax.set_ylabel(r'$x_2$')
+ax.set_xlabel(r'$\theta_1$')
+ax.set_ylabel(r'$\theta_2$')
 
 plt.tight_layout(pad=0.3)
 plt.savefig(path / 'bounds.pdf')
