@@ -362,7 +362,12 @@ class NautilusBound():
                     self.n_sample += n_sample
                     self.n_reject += n_sample - len(points)
             else:
-                n_jobs = pool._processes
+                try:
+                    n_jobs = pool._processes
+                except AttributeError:
+                    n_jobs = pool.size
+                except AttributeError:
+                    raise ValueError('Cannot determine size of pool.')
                 n_points_per_job = (
                     (max(n_points - len(self.points), 10000)) // n_jobs) + 1
                 func = partial(self._reset_and_sample, n_points_per_job)

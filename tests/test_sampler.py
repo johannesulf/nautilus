@@ -49,6 +49,7 @@ def test_sampler_switch_exploration(
         prior, likelihood, n_dim=2, n_networks=1, vectorized=True, n_live=500)
     sampler.run(f_live=0.45, n_eff=10000, verbose=False,
                 discard_exploration=discard_exploration_start)
+    assert sampler.discard_exploration == discard_exploration_start
     points, log_w, log_l = sampler.posterior()
     n_start = len(points)
     log_z_start = sampler.evidence()

@@ -1217,10 +1217,6 @@ class Sampler():
                     'shell_log_l_min', 'shell_log_l', 'shell_log_v']:
             group.attrs[key] = getattr(self, key)
 
-        for key in self.neural_network_kwargs.keys():
-            group.attrs['neural_network_{}'.format(key)] =\
-                self.neural_network_kwargs[key]
-
         group['points_{}'.format(shell)].resize(self.points[shell].shape)
         group['points_{}'.format(shell)][...] = self.points[shell]
         group['log_l_{}'.format(shell)].resize(self.log_l[shell].shape)

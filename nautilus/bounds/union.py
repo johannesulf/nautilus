@@ -180,7 +180,6 @@ class Union():
         index = np.argmax(np.where(~self.block, self.log_v, -np.inf))
         points = self.bounds[index].transform(self.points_bounds[index])
 
-        # print('mixture...')
         labels = GaussianMixture(
             n_components=2, n_init=10, random_state=self.rng.integers(
                 2**32 - 1)).fit_predict(points)

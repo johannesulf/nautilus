@@ -210,6 +210,24 @@ def test_union_split(random_points_from_hypersphere):
     assert np.all(union.contains(points))
 
 
+def test_union_split_stops(random_points_from_hypersphere):
+    # Test that splitting ellipsoids correctly stops after some time.
+
+    x = np.linspace(-1, 1, 30)
+    y = x**2
+    points = np.vstack([x, y]).T
+
+    bound = bounds.Union.compute(points)
+    n = 0
+
+    while bound.split_bound():
+        n += 1
+
+    assert n > 0
+    assert np.all(np.array([len(points) for points in bound.points_bounds]) >=
+                  bound.n_points_min)
+
+
 def test_union_sample_and_contains(random_points_from_hypersphere):
     # Test whether the union sampling and boundary work as expected.
 
