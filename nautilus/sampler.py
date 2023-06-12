@@ -411,6 +411,8 @@ class Sampler():
                 self.write(self.filepath, overwrite=True)
 
         self.discard_exploration = discard_exploration
+        if self.filepath is not None:
+            self.write_shell_information_update(self.filepath)
 
         if n_shell is None:
             n_shell = self.n_batch
@@ -459,11 +461,6 @@ class Sampler():
         self._discard_exploration = discard_exploration
         for index in range(len(self.log_l)):
             self.update_shell_info(index)
-
-        if self.filepath is not None:
-            with h5py.File(self.filepath, 'r+') as fstream:
-                group = fstream['sampler']
-                group.attrs['_discard_exploration'] = discard_exploration
 
     def posterior(self, return_as_dict=None, equal_weight=False,
                   return_blobs=False):
@@ -1212,19 +1209,8 @@ class Sampler():
         shell : int
             Shell index for which to write the upate.
 
-        Raises
-        ------
-        RuntimeError
-            If file does not exist.
-
         """
-        filepath = Path(filepath)
-
-        if not filepath.exists():
-            raise RuntimeError(
-                "File {} does not exist.".format(str(filepath)))
-
-        fstream = h5py.File(filepath, 'r+')
+        fstream = h5py.File(Path(filepath), 'r+')
         group = fstream['sampler']
 
         for key in ['n_like', 'shell_n', 'shell_n_sample', 'shell_n_eff',
@@ -1253,3 +1239,19 @@ class Sampler():
         group.attrs['rng_uinteger'] = rng_state['uinteger']
 
         fstream.close()
+
+    def write_shell_information_update(self, filepath):
+        """Update the shell summary statistics.
+
+        Parameters
+        ----------
+        filepath : string or pathlib.Path
+            Path to the file. Must have a '.h5' or '.hdf5' extension.
+
+        """
+        with h5py.File(Path(filepath), 'r+') as fstream:
+            group = fstream['sampler']
+            for key in ['_discard_exploration', 'shell_n', 'shell_n_sample',
+                        'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
+                        'shell_log_v', 'shell_n_sample_exp', 'shell_end_exp']:
+                group.attrs[key] = getattr(self, key)
