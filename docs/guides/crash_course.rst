@@ -1,7 +1,7 @@
 Crash Course
 ============
 
-The best way to get started with nautilus is to apply it to a problem. Here, we give a minimal example of using the code to estimate parameter posteriors and the Bayesian evidence :math:`\mathcal{Z}`. In this example, our "model" has three parameters: :math:`a`, :math:`b` and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and :math:`b` in the range :math:`[-5, +5]` and a Gaussian prior for :math:`c` with :math:`0` mean and :math:`2` scatter. The priors can be specified as follows.
+The best way to get started with ``nautilus`` is to apply it to a problem. Here, we give a minimal example of using the code to estimate parameter posteriors and the Bayesian evidence :math:`\mathcal{Z}`. In this example, our "model" has three parameters: :math:`a`, :math:`b` and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and :math:`b` in the range :math:`[-5, +5]` and a Gaussian prior for :math:`c` with :math:`0` mean and :math:`2` scatter. The priors can be specified as follows.
 
 .. code-block:: python
 

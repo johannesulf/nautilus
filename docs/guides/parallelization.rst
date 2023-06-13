@@ -1,7 +1,7 @@
 Parallelization
 ===============
 
-Nautilus supports distributing computations over multiple CPU cores and nodes on a high-performance computing (HPC) cluster. The parallelization includes likelihood calculations and the most computationally demanding aspects of the sampler, i.e., neural network training and sampling new points. Let's take the following simple problem. We added ``time.sleep(0.01)`` so that every likelihood evaluation takes a non-negligible amount of time, around ten milliseconds. This simulates a computationally more expensive likelihood problem.
+``nautilus`` supports distributing computations over multiple CPU cores and nodes on a high-performance computing (HPC) cluster. The parallelization includes likelihood calculations and the most computationally demanding aspects of the sampler, i.e., neural network training and sampling new points. Let's take the following simple problem. We added ``time.sleep(0.01)`` so that every likelihood evaluation takes a non-negligible amount of time, around ten milliseconds. This simulates a computationally more expensive likelihood problem.
 
 .. code-block:: python
 
@@ -31,7 +31,7 @@ For this example, the computation took around 330 seconds. Let's see how to spee
 SMP Parallelization
 -------------------
 
-If you're running nautilus on a computer or laptop, shared-memory multiprocessing (SMP) is likely the most straightforward way to distribute computations. All you need to do is give a number to the `pool` keyword argument. In this example, let's run the computation on 4 CPU cores.
+If you're running ``nautilus`` on a computer or laptop, shared-memory multiprocessing (SMP) is likely the most straightforward way to distribute computations. All you need to do is give a number to the `pool` keyword argument. In this example, let's run the computation on 4 CPU cores.
 
 .. code-block:: python
 
@@ -62,7 +62,7 @@ The above script should be executed via ``mpiexec -n 1 python -m mpi4py.futures 
 Notes
 -----
 
-Here are a few additional notes about parallelization. First, note that some functions, i.e., those used in ``numpy``, may distribute operations internally via OpenMP. This may interfere with the top-level parallelization performed by nautilus. Thus, it may be beneficial to deactivate OpenMP parallelization manually.
+Here are a few additional notes about parallelization. First, note that some functions, i.e., those used in ``numpy``, may distribute operations internally via OpenMP. This may interfere with the top-level parallelization performed by ``nautilus``. Thus, it may be beneficial to deactivate OpenMP parallelization manually.
 
 .. code-block:: python
 

@@ -4,6 +4,16 @@
 
 |
 
+.. image:: https://img.shields.io/github/actions/workflow/status/johannesulf/nautilus/tests.yml?branch=main&label=tests
+.. image:: https://img.shields.io/coverallsCoverage/github/johannesulf/nautilus
+.. image:: https://img.shields.io/readthedocs/nautilus-sampler
+.. image:: https://img.shields.io/pypi/v/nautilus-sampler?color=blue
+.. image:: https://img.shields.io/conda/vn/conda-forge/nautilus-sampler?color=blue
+.. image:: https://img.shields.io/github/license/johannesulf/nautilus?color=blue
+.. image:: https://img.shields.io/github/languages/top/johannesulf/nautilus
+
+|
+
 Overview
 --------
 
@@ -27,6 +37,7 @@ Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evide
 
     discussion/nested_sampling
     discussion/convergence
+    discussion/faqs
 
 .. toctree::
     :maxdepth: 1
