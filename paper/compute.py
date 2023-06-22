@@ -66,7 +66,7 @@ def main():
                         help='number likelihood runs for each sampler')
     parser.add_argument('--n_live', default=2000, type=int,
                         help='how many live points nautilus uses')
-    parser.add_argument('--enlarge_per_dim', default=1.05, type=float,
+    parser.add_argument('--enlarge_per_dim', default=1.1, type=float,
                         help='enlargmenet factor for nautilus')
     parser.add_argument('--n_jobs', type=int, default=1,
                         help='number of jobs used by nautilus')
