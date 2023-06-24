@@ -451,13 +451,14 @@ plt.close()
 
 # %%
 
-sampler_list = ['nautilus', 'dynesty-r', 'dynesty-s', 'pocoMC', 'emcee']
-color_list = ['purple', 'orange', 'orange', 'royalblue', 'grey']
-ls_list = ['-', '-', '--', '-', '-', '-']
+sampler_list = ['nautilus', 'UltraNest', 'dynesty-r', 'dynesty-s', 'pocoMC',
+                'emcee']
+color_list = ['purple', 'darkblue', 'orange', 'orange', 'royalblue', 'grey']
+ls_list = ['-', '--', '-', '--', '-', '-', '-']
 for sampler, color, ls in zip(sampler_list, color_list, ls_list):
     plt.plot((posterior['rosenbrock-10'][sampler][7][0] - 0.5) * 10,
              posterior['rosenbrock-10'][sampler][7][1] / 10, color=color,
-             label=sampler, ls=ls)
+             label=sampler if sampler != 'UltraNest' else 'UltraNest-m', ls=ls)
 plt.xlim(-0.5, +1.75)
 plt.ylim(ymin=0)
 plt.xlabel(r'$\theta_8$')
