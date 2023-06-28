@@ -14,7 +14,6 @@ all:
 	cp ../figures/funnel-20_x1_posterior.pdf ./
 	cp ../figures/rosenbrock-10_x8_posterior.pdf ./
 	cp ../figures/rosenbrock-10_full_posterior.pdf ./
-	cp ../figures/exoplanet_x5_posterior.pdf ./
 	cp ../figures/scaling_only.pdf ./
 	bibm pdflatex ms.tex
 	latexdiff --type=CTRADITIONAL --math-markup=off ms_subm.tex ms.tex > diff_subm.tex
