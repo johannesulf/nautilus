@@ -1,8 +1,8 @@
 ![Logo](https://raw.githubusercontent.com/johannesulf/nautilus/main/docs/nautilus_text_image.png "Logo")
 
 [![Unit Testing Status](https://img.shields.io/github/actions/workflow/status/johannesulf/nautilus/tests.yml?branch=main&label=tests)](https://github.com/johannesulf/nautilus/actions)
-[![Code Coverage](https://img.shields.io/coverallsCoverage/github/johannesulf/nautilus)](https://coveralls.io/github/johannesulf/nautilus?branch=main)
 [![Documentation Status](https://img.shields.io/readthedocs/nautilus-sampler)](https://nautilus-sampler.readthedocs.io/en/latest/)
+[![Code Coverage](https://img.shields.io/coverallsCoverage/github/johannesulf/nautilus)](https://coveralls.io/github/johannesulf/nautilus?branch=main)
 [![PyPI](https://img.shields.io/pypi/v/nautilus-sampler?color=blue)](https://pypi.org/project/nautilus-sampler/)
 [![Conda](https://img.shields.io/conda/vn/conda-forge/nautilus-sampler?color=blue)](https://anaconda.org/conda-forge/nautilus-sampler)
 [![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus?color=blue)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
@@ -34,13 +34,27 @@ points, log_w, log_l = sampler.posterior()
 corner.corner(points, weights=np.exp(log_w), labels='abc')
 ```
 
+## Installation
+
+The most recent stable version of nautilus is listed in the Python Package Index (PyPI) and can be installed via ``pip``.
+
+```shell
+pip install nautilus-sampler
+```
+
+Additionally, nautilus is also on conda-forge. To install via ``conda`` use the following command.
+
+```shell
+conda install -c conda-forge nautilus-sampler
+```
+
 ## Documentation
 
 You can find the documentation at [nautilus-sampler.readthedocs.io](https://nautilus-sampler.readthedocs.io).
 
 ## Attribution
 
-A paper describing nautilus's underlying methods and performance has been submitted for publication. A draft of the paper will be uploaded to arXiv around the end of June 2023. Please cite the paper, once available, if you found nautilus helpful in your research.
+A paper describing nautilus's underlying methods and performance has been submitted for publication. A draft of the paper is available on [arXiv](https://arxiv.org/abs/2306.16923). Please cite the paper if you find nautilus helpful in your research.
 
 ## License
 

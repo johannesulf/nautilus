@@ -1,13 +1,13 @@
 Installation
 ============
 
-The most recent stable version of ``nautilus`` is listed in the Python Package Index (PyPI) and be installed via `pip`.
+The most recent stable version of ``nautilus`` is listed in the Python Package Index (PyPI) and can be installed via ``pip``.
 
 .. code-block:: bash
 
     pip install nautilus-sampler
 
-Additionally, ``nautilus`` is also on conda-forge. To install via conda use the following command.
+Additionally, ``nautilus`` is also on conda-forge. To install via ``conda`` use the following command.
 
 .. code-block:: bash
 
