@@ -39,7 +39,7 @@ class NeuralNetworkEmulator():
     ----------
     mean : numpy.ndarray
         Mean of input coordinates used for normalizing coordinates.
-    mean : numpy.ndarray
+    scale : numpy.ndarray
         Standard deviation of input coordinates used for normalizing
         coordinates.
     network : sklearn.neural_network.MLPRegressor
@@ -93,7 +93,7 @@ class NeuralNetworkEmulator():
         if pool is None:
             emulator.neural_networks = list(map(f, range(n_networks)))
         else:
-            emulator.neural_networks = pool.map(f, range(n_networks))
+            emulator.neural_networks = list(pool.map(f, range(n_networks)))
 
         return emulator
 

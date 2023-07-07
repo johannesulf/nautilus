@@ -50,14 +50,16 @@ On an HPC cluster with multiple distinct CPUs and nodes without shared memory, S
 
 .. code-block:: python
 
+    from mpi4py.futures import MPIPoolExecutor
+
     if __name__ == '__main__':
-        sampler = Sampler(prior, likelihood, pass_dict=False, pool=MPIPoolExecutor(4))
+        sampler = Sampler(prior, likelihood, pass_dict=False, pool=MPIPoolExecutor())
         t_start = time.time()
         sampler.run(verbose=True)
         t_end = time.time()
         print('Total time: {:.1f}s'.format(t_end - t_start))
 
-The above script should be executed via ``mpiexec -n 1 python -m mpi4py.futures script.py``. Using 4 workers, the computation took around 110 seconds, i.e., it was about 3.0 times faster than without parallelization.
+The above script should be executed via ``mpiexec -n 4 python -m mpi4py.futures script.py``. Using 4 workers, the computation took around 110 seconds, i.e., it was about 3.0 times faster than without parallelization.
 
 Notes
 -----

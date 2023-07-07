@@ -121,7 +121,6 @@ class NeuralBound():
             points_t = self.outer_bound.transform(points)
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
-
         return in_bound
 
     def write(self, group):
@@ -362,11 +361,12 @@ class NautilusBound():
                     self.n_sample += n_sample
                     self.n_reject += n_sample - len(points)
             else:
-                try:
-                    n_jobs = pool._processes
-                except AttributeError:
-                    n_jobs = pool.size
-                except AttributeError:
+                n_jobs = None
+                for attr in ['_processes', '_max_workers', 'size']:
+                    if hasattr(pool, attr):
+                        n_jobs = getattr(pool, attr)
+                        break
+                if n_jobs is None:
                     raise ValueError('Cannot determine size of pool.')
                 n_points_per_job = (
                     (max(n_points - len(self.points), 10000)) // n_jobs) + 1
