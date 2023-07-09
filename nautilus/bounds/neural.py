@@ -2,7 +2,7 @@
 
 import numpy as np
 from functools import partial
-from scipy.stats import percentileofscore
+from scipy.stats import rankdata
 from threadpoolctl import threadpool_limits
 
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
@@ -82,13 +82,12 @@ class NeuralBound():
         log_l = log_l[select]
 
         points_t = bound.outer_bound.transform(points)
-        perc = np.argsort(np.argsort(log_l)) / float(len(log_l))
-        perc_min = percentileofscore(log_l, log_l_min) / 100
         score = np.zeros(len(points))
-        select = perc < perc_min
-        if np.any(select):
-            score[select] = 0.5 * (perc[select] / perc_min)
-        score[~select] = 1 - 0.5 * (1 - perc[~select]) / (1 - perc_min)
+        select = log_l > log_l_min
+        score[select] = 0.5 * (
+            1 + (rankdata(log_l[select]) - 0.5) / np.sum(select))
+        score[~select] = 0.5 * (
+            (rankdata(log_l[~select]) - 0.5) / np.sum(~select))
         bound.emulator = NeuralNetworkEmulator.train(
             points_t, score, n_networks=n_networks,
             neural_network_kwargs=neural_network_kwargs, pool=pool)
@@ -121,6 +120,7 @@ class NeuralBound():
             points_t = self.outer_bound.transform(points)
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
                                   self.score_predict_min)
+
         return in_bound
 
     def write(self, group):
