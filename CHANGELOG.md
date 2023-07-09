@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The sampler should now deal better with likelihood plateaus.
 
+### Fixed
+- The prior function now always receives a copy of the points, preventing buggy behavior if the user's prior function does the prior transform on the original array.
+
 ## [0.7.1] - 2023-07-07
 
 ### Fixed

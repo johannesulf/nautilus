@@ -715,9 +715,9 @@ class Sampler():
                 transform = self.prior.unit_to_physical
 
         if not self.vectorized:
-            args = list(map(transform, points))
+            args = list(map(transform, np.copy(points)))
         else:
-            args = transform(points)
+            args = transform(np.copy(points))
 
         # Evaluate the likelihood.
         if self.vectorized:
