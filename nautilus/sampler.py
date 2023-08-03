@@ -16,6 +16,19 @@ from tqdm import tqdm
 
 from .bounds import UnitCube, NautilusBound
 
+LIKELIHOOD = None
+
+
+def initialize_worker(likelihood):
+    global LIKELIHOOD
+    LIKELIHOOD = likelihood
+    print('initialized...')
+
+
+def likelihood_worker(*args):
+    # global LIKELIHOOD
+    return LIKELIHOOD(*args)
+
 
 class Sampler():
     """
@@ -272,12 +285,16 @@ class Sampler():
             self.pool_l = None
             self.pool_s = None
         elif isinstance(pool, int):
-            self.pool_l = Pool(pool)
+            self.pool_l = Pool(pool, initializer=initialize_worker,
+                               initargs=(self.likelihood, ))
+            self.likelihood = likelihood_worker
             self.pool_s = self.pool_l
         elif isinstance(pool, tuple):
             self.pool_l = pool[0]
             if isinstance(self.pool_l, int):
-                self.pool_l = Pool(self.pool_l)
+                self.pool_l = Pool(pool, initializer=initialize_worker,
+                                   initargs=(self.likelihood, ))
+                self.likelihood = likelihood_worker
             self.pool_s = pool[1]
             if isinstance(self.pool_s, int):
                 self.pool_s = Pool(self.pool_s)
