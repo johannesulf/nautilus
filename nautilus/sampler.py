@@ -22,11 +22,9 @@ LIKELIHOOD = None
 def initialize_worker(likelihood):
     global LIKELIHOOD
     LIKELIHOOD = likelihood
-    print('initialized...')
 
 
 def likelihood_worker(*args):
-    # global LIKELIHOOD
     return LIKELIHOOD(*args)
 
 
