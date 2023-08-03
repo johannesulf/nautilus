@@ -292,7 +292,7 @@ class Sampler():
         elif isinstance(pool, tuple):
             self.pool_l = pool[0]
             if isinstance(self.pool_l, int):
-                self.pool_l = Pool(pool, initializer=initialize_worker,
+                self.pool_l = Pool(self.pool_l, initializer=initialize_worker,
                                    initargs=(self.likelihood, ))
                 self.likelihood = likelihood_worker
             self.pool_s = pool[1]
