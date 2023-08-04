@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- When passing a number to the `pool` keyword argument, the sampler automatically caches the likelihood function in the subprocesses of the multiprocessing pool. This reduces communication between processes and can substantially improve performance.
+
 ## [0.7.2] - 2023-07-11
 
 ### Changed
