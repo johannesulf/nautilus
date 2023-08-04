@@ -72,4 +72,6 @@ Here are a few additional notes about parallelization. First, note that some fun
     
     os.environ["OMP_NUM_THREADS"] = "1"
 
+Also note that when using parallelization, the likelihood function is repeatedly pickled and sent to the workers in the pool for evaluation. If the likelihood function is complex, this communication between the primary process and workers may become a bottleneck. Thus, it is advisable to initialize the pool in a way that avoids the need for passing the full likelihood function for evaluations. Fortunately, when specifying a number for the `pool` keyword argument, ``nautilus`` takes care of that automatically.
+
 Finally, in some situations, it may be beneficial to use different parallelization schemes for the likelihood evaluations and the sampler calculations. The keyword argument ``pool`` also be a tuple defining two pools. In this case, the first is used for likelihood calculations and the second for sampler calculations. For example, to parallelize likelihood evaluations but not sampler calculations, use ``pool=(4, None)``.

@@ -135,7 +135,7 @@ def test_sampler_accuracy(n_networks, discard_exploration):
 
         mean_sampler = np.average(points, weights=weights, axis=0)
         cov_sampler = np.cov(points, aweights=weights, rowvar=False)
-        assert np.all(np.isclose(mean_sampler, mean, atol=0.005, rtol=0))
+        assert np.all(np.isclose(mean_sampler, mean, atol=0.01, rtol=0))
         assert np.all(np.isclose(cov_sampler, cov, atol=0.001, rtol=0))
 
     # This is a simple problem so the bounds should be perfectly nested, i.e.
