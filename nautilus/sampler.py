@@ -16,15 +16,32 @@ from tqdm import tqdm
 
 from .bounds import UnitCube, NautilusBound
 
-LIKELIHOOD = None
-
 
 def initialize_worker(likelihood):
+    """Initialize a worker for likelihood evaluations.
+
+    Parameters
+    ----------
+    likelihood : function
+        Likelihood function that each worker will evaluate.
+    """
     global LIKELIHOOD
     LIKELIHOOD = likelihood
 
 
 def likelihood_worker(*args):
+    """Have the worker evaluate the likelihood.
+
+    Parameters
+    ----------
+    *args : tuple
+        Arguments to be passed to the likelihood function.
+
+    Returns
+    -------
+    object
+        Return value of the likelihood function.
+    """
     return LIKELIHOOD(*args)
 
 
@@ -279,26 +296,24 @@ class Sampler():
         self.vectorized = vectorized
         self.pass_dict = pass_dict
 
-        if pool is None or pool == 1:
-            self.pool_l = None
-            self.pool_s = None
-        elif isinstance(pool, int):
-            self.pool_l = Pool(pool, initializer=initialize_worker,
-                               initargs=(self.likelihood, ))
-            self.likelihood = likelihood_worker
-            self.pool_s = self.pool_l
-        elif isinstance(pool, tuple):
-            self.pool_l = pool[0]
-            if isinstance(self.pool_l, int):
-                self.pool_l = Pool(self.pool_l, initializer=initialize_worker,
+        try:
+            pool = list(pool)
+        except TypeError:
+            pool = [pool]
+
+        for i in range(len(pool)):
+            if pool[i] == 1:
+                pool[i] = None
+            if isinstance(pool[i], int):
+                if i == 0:
+                    pool[i] = Pool(pool[i], initializer=initialize_worker,
                                    initargs=(self.likelihood, ))
-                self.likelihood = likelihood_worker
-            self.pool_s = pool[1]
-            if isinstance(self.pool_s, int):
-                self.pool_s = Pool(self.pool_s)
-        else:
-            self.pool_l = pool
-            self.pool_s = pool
+                    self.likelihood = likelihood_worker
+                else:
+                    pool[i] = Pool(pool[i])
+
+        self.pool_l = pool[0]
+        self.pool_s = pool[-1]
 
         if n_jobs is not None:
             warnings.warn(
