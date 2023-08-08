@@ -86,9 +86,7 @@ def test_invert_symmetric_positive_semidefinite_matrix():
         np.linalg.inv(m))
 
 
-@pytest.mark.parametrize("tol", [0, 1])
-def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary,
-                                            tol):
+def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary):
     # Test that the MVEE algorithm returns a good approximation to the MVEE.
 
     c_true = np.median(points_on_hypersphere_boundary, axis=0)
@@ -99,10 +97,9 @@ def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary,
     # first iteration.
     points = np.concatenate([points_on_hypersphere_boundary,
                              np.atleast_2d(c_true + np.random.random() - 0.5)])
-    c, A = minimum_volume_enclosing_ellipsoid(points, tol=tol,
-                                              max_iterations=1000)
-    assert np.allclose(c, c_true, rtol=0, atol=1e-3) or tol > 0
-    assert np.allclose(A, A_true, rtol=0, atol=1e-2) or tol > 0
+    c, A = minimum_volume_enclosing_ellipsoid(points)
+    assert np.allclose(c, c_true, rtol=0, atol=1e-3)
+    assert np.allclose(A, A_true, rtol=0, atol=1e-2)
 
 
 def test_ellipsoid_construction():

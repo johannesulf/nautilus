@@ -171,11 +171,11 @@ def invert_symmetric_positive_semidefinite_matrix(m):
     return m_inv_triangle + m_inv_triangle.T - np.diag(np.diag(m_inv_triangle))
 
 
-def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
+def minimum_volume_enclosing_ellipsoid(points, n_max=100, n_batch=20):
     r"""Find an approximation to the minimum volume enclosing ellipsoid (MVEE).
 
-    This functions finds an approximation to the MVEE using the Khachiyan
-    algorithm.
+    This functions finds an approximation to the MVEE using a modified version
+    of the Khachiyan algorithm.
 
     This function is based on
     http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.116.7691 but
@@ -189,9 +189,12 @@ def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
     tol : float, optional
         Tolerance parameter for early stopping. Smaller value lead to more
         accurate results. Default is 0.
-    max_iterations : int, optional
+    n_max : int, optional
         Maximum number of iterations before the function is stopped. Default
-        is 1000.
+        is 50.
+    n_batch : int, optional
+        The number of points to evaluate simultaneously. If 1, the algorithm
+        is the same as the original Khachiyan algorithm. Default is 20.
 
     Returns
     -------
@@ -202,28 +205,30 @@ def minimum_volume_enclosing_ellipsoid(points, tol=0, max_iterations=1000):
         :math:`(x - c)^T A (x - c) \leq 1`.
 
     """
-    m, n = points.shape
-    q = np.append(points, np.ones(shape=(m, 1)), axis=1)
-    u = np.repeat(1.0 / m, m)
+    n_points, n_dim = points.shape
+    q = np.append(points, np.ones(shape=(n_points, 1)), axis=1)
+    u = np.repeat(1.0 / n_points, n_points)
     q_outer = np.array([np.outer(q_i, q_i) for q_i in q])
-    e = np.diag(np.ones(m))
 
-    for i in range(max_iterations):
+    for i in range(n_max):
         if i % 1000 == 0:
             v = np.einsum('ji,j,jk', q, u, q)
-        g = np.einsum('ijk,jk', q_outer,
-                      invert_symmetric_positive_semidefinite_matrix(v))
-        j = np.argmax(g)
-        d_u = e[j] - u
-        a = (g[j] - (n + 1)) / ((n + 1) * (g[j] - 1))
-        shift = np.linalg.norm(a * d_u)
-        v = v * (1 - a) + a * q_outer[j]
-        u = u + a * d_u
-        if shift <= tol:
-            break
+            v_inv = invert_symmetric_positive_semidefinite_matrix(v)
+        g = np.einsum('ijk,jk', q_outer, v_inv)
+        for j in np.argsort(g)[-n_batch:][::-1]:
+            try:
+                g = g[j]
+            except IndexError:
+                g = np.einsum('jk,jk', q_outer[j], v_inv)
+            if g < n_dim + 1:
+                continue
+            a = (g - (n_dim + 1)) / ((n_dim + 1) * (g - 1))
+            v = v * (1 - a) + a * q_outer[j]
+            v_inv = invert_symmetric_positive_semidefinite_matrix(v)
+            u = u * (1 - a) + a * (np.arange(n_points) == j)
 
-    c = np.einsum('i,ij', u, points)
-    A_inv = (np.einsum('ji,j,jk', points, u, points) - np.outer(c, c)) * n
+    c = np.atleast_1d(np.average(points, weights=u, axis=0))
+    A_inv = np.atleast_2d(np.cov(points, aweights=u, rowvar=False, bias=True))
     A = np.linalg.inv(A_inv)
 
     scale = np.amax(np.einsum('...i,ij,...j', points - c, A, points - c))
@@ -256,8 +261,7 @@ class Ellipsoid():
     """
 
     @classmethod
-    def compute(cls, points, enlarge_per_dim=1.1, max_iterations=1000,
-                rng=None):
+    def compute(cls, points, enlarge_per_dim=1.1, rng=None):
         """Compute the bound.
 
         Parameters
@@ -267,10 +271,6 @@ class Ellipsoid():
         enlarge_per_dim : float, optional
             Along each dimension, the ellipsoid is enlarged by this factor.
             Default is 1.1.
-        max_iterations : int, optional
-            Maximum number of iterations before the minimization algorithm for
-            the minimum volume enclosing ellipsoid is stopped. Ignored if
-            `fast` is True. Default is 1000.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -298,8 +298,7 @@ class Ellipsoid():
                              'dimensions.')
 
         with threadpool_limits(limits=1):
-            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(
-                points, max_iterations=max_iterations)
+            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
 
         bound.A /= enlarge_per_dim**2.0
         bound.B = np.linalg.cholesky(np.linalg.inv(bound.A))
@@ -490,8 +489,7 @@ class UnitCubeEllipsoidMixture():
         bound = cls()
         bound.n_dim = points.shape[1]
 
-        kwargs = dict(enlarge_per_dim=enlarge_per_dim, max_iterations=1000,
-                      rng=rng)
+        kwargs = dict(enlarge_per_dim=enlarge_per_dim, rng=rng)
 
         # First, start by sampling all dimensions using an ellipsoid..
         ellipsoid = Ellipsoid.compute(points, **kwargs)
