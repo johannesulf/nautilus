@@ -16,9 +16,9 @@ all:
 	cp ../figures/rosenbrock-10_full_posterior.pdf ./
 	cp ../figures/scaling_only.pdf ./
 	bibm pdflatex ms.tex
+	zip source.zip ms.tex ms.bbl bibliography.bib *.pdf
 	latexdiff --type=CTRADITIONAL --math-markup=off ms_subm.tex ms.tex > diff_subm.tex
 	bibm pdflatex diff_subm.tex
-	zip source.zip *.tex ms.bbl bibliography.bib *.pdf rev.md
 
 clean:
 	rm -f *.log
