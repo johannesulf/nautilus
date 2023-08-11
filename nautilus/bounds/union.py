@@ -2,9 +2,11 @@
 
 import itertools
 import numpy as np
-from scipy.special import logsumexp
-from scipy.optimize import minimize
+
 from sklearn.mixture import GaussianMixture
+from scipy.optimize import minimize
+from scipy.special import logsumexp
+from scipy.stats import multivariate_normal
 
 from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
 
@@ -180,13 +182,19 @@ class Union():
         index = np.argmax(np.where(~self.block, self.log_v, -np.inf))
         points = self.bounds[index].transform(self.points_bounds[index])
 
-        labels = GaussianMixture(
-            n_components=2, n_init=10, random_state=self.rng.integers(
-                2**32 - 1)).fit_predict(points)
+        gmm = GaussianMixture(
+            n_components=2, n_init=10,
+            random_state=self.rng.integers(2**32 - 1)).fit(points)
+        p = np.vstack([multivariate_normal.logpdf(
+            points, mean=gmm.means_[i], cov=gmm.covariances_[i]) +
+            np.log(gmm.weights_[i]) for i in range(2)]).T
 
+        labels = np.argmax(p, axis=1)
+        # If one of the clusters has less than n_points_min members, re-assign
+        # the most likely members from the larger cluster to the smaller one.
         if not np.all(np.bincount(labels) >= self.n_points_min):
-            self.block[index] = True
-            return self.split_bound(allow_overlap=allow_overlap)
+            label = np.argmin(np.bincount(labels))
+            labels[np.argsort(-p[:, label])[:self.n_points_min]] = label
 
         new_bounds = []
         points = self.points_bounds[index]
@@ -365,8 +373,7 @@ class Union():
             setattr(bound, key, group.attrs[key])
 
         if group.attrs['unit']:
-            bound.cube = UnitCube.read(
-                group['cube'], rng=bound.rng)
+            bound.cube = UnitCube.read(group['cube'], rng=bound.rng)
 
         if group.attrs['bound_class'] == 'Ellipsoid':
             bound_class = Ellipsoid
