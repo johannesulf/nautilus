@@ -118,8 +118,11 @@ class NeuralBound():
         in_bound = self.outer_bound.contains(points)
         if np.any(in_bound) and self.emulator is not None:
             points_t = self.outer_bound.transform(points)
+            # In some instances, the network may predict practically the same
+            # score for all input values. Lower the score threshold to prevent
+            # no points being accepted in this case.
             in_bound[in_bound] = (self.emulator.predict(points_t[in_bound]) >
-                                  self.score_predict_min)
+                                  self.score_predict_min - 1e-9)
 
         return in_bound
 
