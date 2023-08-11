@@ -210,7 +210,7 @@ class Union():
         if (logsumexp([new_bounds[0].volume(), new_bounds[1].volume()]) >
                 self.bounds[index].volume()):
             self.block[index] = True
-            return self.split_bound(allow_overlap=allow_overlap)
+            return self.split(allow_overlap=allow_overlap)
 
         self.points_bounds.pop(index)
         self.points_bounds.append(points[labels == 0])
