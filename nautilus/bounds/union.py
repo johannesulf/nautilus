@@ -228,8 +228,8 @@ class Union():
 
         return True
 
-    def trim(self, threshold=1e6):
-        """Drop bounds with too low point density.
+    def trim(self, threshold=1e3):
+        """Drop the lowest-density bound, if possible.
 
         Density is defined as the ratio of each bound's number of points to its
         volume.
@@ -237,13 +237,14 @@ class Union():
         Parameters
         ----------
         threshold : float, optional
-            Only drop the lowest-density bound has a density at least
+            Only drop the lowest-density bound if it has a density at least
             `threshold` times lower than the median of all other bounds.
 
         Returns
         -------
         success : bool
-            Whether it was possible to drop a bound.
+            Whether it was possible to drop a bound. Will always return False
+            if there is only one bound in the union.
 
         """
         if len(self.bounds) == 1:
@@ -259,6 +260,7 @@ class Union():
                 threshold):
             self.points_bounds.pop(index)
             self.bounds.pop(index)
+            self.log_v = np.array([bound.volume() for bound in self.bounds])
             self.reset()
             return True
         else:

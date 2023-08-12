@@ -228,6 +228,34 @@ def test_union_split_stops(random_points_from_hypersphere):
                   bound.n_points_min)
 
 
+def test_union_split_and_trim(random_points_from_hypersphere):
+    # Test that trimming works as expected.
+
+    points = np.vstack([random_points_from_hypersphere,
+                        random_points_from_hypersphere + 10,
+                        random_points_from_hypersphere[:30] + 1e7])
+
+    bound = bounds.Union.compute(points, unit=False, n_points_min=50,
+                                 rng=np.random.default_rng(0))
+
+    # The volume should be large.
+    assert bound.volume() > 15
+    # We should be able to split the bound at least twice.
+    assert bound.split()
+    assert bound.split()
+    # In this case, splitting should not help substantially in reducing the
+    # volume since one ellipsoid covers points from the sphere at 1e7 and a few
+    # points outside it at ~0.
+    assert bound.volume() > 15
+    # Trimming involves removing the lowest-density ellipsoid and its points.
+    assert bound.trim()
+    # Now the volume should be reasonable.
+    assert bound.volume() < 5
+    # Removing more ellipsoid should fail since they all have similar
+    # densities.
+    assert not bound.trim()
+
+
 def test_union_sample_and_contains(random_points_from_hypersphere):
     # Test whether the union sampling and boundary work as expected.
 
