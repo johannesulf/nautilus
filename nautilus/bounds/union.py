@@ -150,7 +150,7 @@ class Union():
 
         return bound
 
-    def split_bound(self, allow_overlap=True):
+    def split(self, allow_overlap=True):
         """Split the largest bound in the union.
 
         Parameters
@@ -169,7 +169,7 @@ class Union():
         Returns
         -------
         success : bool
-            Whether it was possible to split any ellipsoid.
+            Whether it was possible to split any bound.
 
         """
         if not allow_overlap and not isinstance(self.bounds[0], Ellipsoid):
@@ -210,7 +210,7 @@ class Union():
         if (logsumexp([new_bounds[0].volume(), new_bounds[1].volume()]) >
                 self.bounds[index].volume()):
             self.block[index] = True
-            return self.split_bound(allow_overlap=allow_overlap)
+            return self.split(allow_overlap=allow_overlap)
 
         self.points_bounds.pop(index)
         self.points_bounds.append(points[labels == 0])
@@ -227,6 +227,44 @@ class Union():
         self.reset()
 
         return True
+
+    def trim(self, threshold=1e3):
+        """Drop the lowest-density bound, if possible.
+
+        Density is defined as the ratio of each bound's number of points to its
+        volume.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            Only drop the lowest-density bound if it has a density at least
+            `threshold` times lower than the median of all other bounds.
+
+        Returns
+        -------
+        success : bool
+            Whether it was possible to drop a bound. Will always return False
+            if there is only one bound in the union.
+
+        """
+        if len(self.bounds) == 1:
+            return False
+
+        log_n = np.array([np.log(len(points)) for points in
+                          self.points_bounds])
+        log_v = np.array([bound.volume() for bound in self.bounds])
+        log_r = log_n - log_v
+        index = np.argmin(log_r)
+
+        if log_r[index] - np.median(np.delete(log_r, index)) < -np.log(
+                threshold):
+            self.points_bounds.pop(index)
+            self.bounds.pop(index)
+            self.log_v = np.array([bound.volume() for bound in self.bounds])
+            self.reset()
+            return True
+        else:
+            return False
 
     def contains(self, points):
         """Check whether points are contained in the bound.

@@ -63,7 +63,7 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
 
     bound_write = bound_class.compute(*args, **kwargs, rng=rng)
     if bound_class == Union:
-        bound_write.split_bound()
+        bound_write.split()
 
     bound_write.write(h5py_group)
     rng = np.random.default_rng(1)

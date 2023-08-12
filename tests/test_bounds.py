@@ -197,15 +197,15 @@ def test_union_split(random_points_from_hypersphere):
         rng=np.random.default_rng(0))
 
     # When not allowing overlaps, only 2 ellipsoids should be possible.
-    while union.split_bound(allow_overlap=False):
+    while union.split(allow_overlap=False):
         pass
     assert len(union.bounds) == 2
     assert np.all(union.contains(points))
 
     # It should be possible to add one more ellipoids when overlaps are
     # allowed.
-    assert union.split_bound()
-    assert not union.split_bound()
+    assert union.split()
+    assert not union.split()
     assert len(union.bounds) == 3
     assert np.all(union.contains(points))
 
@@ -220,12 +220,40 @@ def test_union_split_stops(random_points_from_hypersphere):
     bound = bounds.Union.compute(points)
     n = 0
 
-    while bound.split_bound():
+    while bound.split():
         n += 1
 
     assert n > 0
     assert np.all(np.array([len(points) for points in bound.points_bounds]) >=
                   bound.n_points_min)
+
+
+def test_union_split_and_trim(random_points_from_hypersphere):
+    # Test that trimming works as expected.
+
+    points = np.vstack([random_points_from_hypersphere,
+                        random_points_from_hypersphere + 10,
+                        random_points_from_hypersphere[:30] + 1e7])
+
+    bound = bounds.Union.compute(points, unit=False, n_points_min=50,
+                                 rng=np.random.default_rng(0))
+
+    # The volume should be large.
+    assert bound.volume() > 15
+    # We should be able to split the bound at least twice.
+    assert bound.split()
+    assert bound.split()
+    # In this case, splitting should not help substantially in reducing the
+    # volume since one ellipsoid covers points from the sphere at 1e7 and a few
+    # points outside it at ~0.
+    assert bound.volume() > 15
+    # Trimming involves removing the lowest-density ellipsoid and its points.
+    assert bound.trim()
+    # Now the volume should be reasonable.
+    assert bound.volume() < 5
+    # Removing more ellipsoid should fail since they all have similar
+    # densities.
+    assert not bound.trim()
 
 
 def test_union_sample_and_contains(random_points_from_hypersphere):
@@ -235,7 +263,7 @@ def test_union_sample_and_contains(random_points_from_hypersphere):
         random_points_from_hypersphere + 50, enlarge_per_dim=1.0,
         unit=False, rng=np.random.default_rng(0))
     for i in range(4):
-        union.split_bound()
+        union.split()
 
     n_points = 100
     points = union.sample(n_points)
@@ -255,15 +283,15 @@ def test_union_rng(random_points_from_hypersphere):
     union = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
         rng=np.random.default_rng(0))
-    union.split_bound()
+    union.split()
     union_same = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
         rng=np.random.default_rng(0))
-    union_same.split_bound()
+    union_same.split()
     union_diff = bounds.Union.compute(
         random_points_from_hypersphere, unit=False,
         rng=np.random.default_rng(1))
-    union_diff.split_bound()
+    union_diff.split()
     n_points = 100
     points = union.sample(n_points)
     assert np.all(points == union_same.sample(n_points))

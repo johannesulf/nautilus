@@ -256,7 +256,7 @@ class NautilusBound():
             n_points_min=n_points_min, bound_class=Ellipsoid,
             rng=rng)
 
-        while multi_ellipsoid.split_bound(allow_overlap=False):
+        while multi_ellipsoid.split(allow_overlap=False):
             pass
 
         for ellipsoid in multi_ellipsoid.bounds:
@@ -272,9 +272,18 @@ class NautilusBound():
             n_points_min=n_points_min, bound_class=UnitCubeEllipsoidMixture,
             rng=rng)
 
+        # If the single bounding ellipsoid is too large, split ellipsoids
+        # further.
         while bound.outer_bound.volume() - log_v_target > np.log(
                 split_threshold * enlarge_per_dim**points.shape[1]):
-            if not bound.outer_bound.split_bound():
+            if not bound.outer_bound.split():
+                break
+
+        # If the ellipsoid union is still too large, check whether some
+        # ellipsoids have too low densities and should be dropped.
+        while bound.outer_bound.volume() - log_v_target > np.log(
+                split_threshold * enlarge_per_dim**points.shape[1]):
+            if not bound.outer_bound.trim():
                 break
 
         if rng is None:
