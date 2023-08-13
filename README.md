@@ -3,12 +3,14 @@
 [![Unit Testing Status](https://img.shields.io/github/actions/workflow/status/johannesulf/nautilus/tests.yml?branch=main&label=tests)](https://github.com/johannesulf/nautilus/actions)
 [![Documentation Status](https://img.shields.io/readthedocs/nautilus-sampler)](https://nautilus-sampler.readthedocs.io/en/latest/)
 [![Code Coverage](https://img.shields.io/coverallsCoverage/github/johannesulf/nautilus)](https://coveralls.io/github/johannesulf/nautilus?branch=main)
-[![PyPI](https://img.shields.io/pypi/v/nautilus-sampler?color=blue)](https://pypi.org/project/nautilus-sampler/)
-[![Conda](https://img.shields.io/conda/vn/conda-forge/nautilus-sampler?color=blue)](https://anaconda.org/conda-forge/nautilus-sampler)
-[![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus?color=blue)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/nautilus-sampler)](https://pypi.org/project/nautilus-sampler/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/nautilus-sampler)](https://pypi.org/project/nautilus-sampler/)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/nautilus-sampler)](https://anaconda.org/conda-forge/nautilus-sampler)
+[![Conda - Downloads](https://img.shields.io/conda/dn/conda-forge/nautilus-sampler)](https://anaconda.org/conda-forge/nautilus-sampler)
+[![License: MIT](https://img.shields.io/github/license/johannesulf/nautilus)](https://raw.githubusercontent.com/johannesulf/nautilus/main/LICENSE)
 ![Language: Python](https://img.shields.io/github/languages/top/johannesulf/nautilus)
 
-Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evidence estimation. It utilizes importance sampling and efficient space exploration using neural networks. Compared to traditional MCMC and Nested Sampling codes, it needs fewer likelihood calls and produces much larger posterior samples. Additionally, nautilus is highly accurate and produces Bayesian evidence estimates with percent precision.
+Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evidence estimation. It utilizes importance sampling and efficient space exploration using neural networks. Compared to traditional MCMC and Nested Sampling codes, it often needs fewer likelihood calls and produces much larger posterior samples. Additionally, nautilus is highly accurate and produces Bayesian evidence estimates with percent precision.
 
 ## Example
 
@@ -54,7 +56,7 @@ You can find the documentation at [nautilus-sampler.readthedocs.io](https://naut
 
 ## Attribution
 
-A paper describing nautilus's underlying methods and performance has been submitted for publication. A draft of the paper is available on [arXiv](https://arxiv.org/abs/2306.16923). Please cite the paper if you find nautilus helpful in your research.
+A paper describing nautilus's underlying methods and performance has been accepted for publication. A draft of the paper is available on [arXiv](https://arxiv.org/abs/2306.16923). Please cite the paper if you find nautilus helpful in your research.
 
 ## License
 
