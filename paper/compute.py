@@ -150,6 +150,10 @@ def main():
 
             elif algorithm == 'nautilus':
 
+                if nautilus.__version__ != '0.7.0':
+                    algorithm = '{}-{}'.format(
+                        'nautilus', nautilus.__version__)
+
                 sampler = nautilus.Sampler(
                     prior, likelihood, n_dim, pass_dict=False,
                     n_live=args.n_live, enlarge_per_dim=args.enlarge_per_dim,

@@ -1,4 +1,4 @@
-module load python
+module load python/3.8.6
 module load hdf5
 
 source env/bin/activate
