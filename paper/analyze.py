@@ -1,10 +1,20 @@
+import argparse
 import corner
-import numpy as np
-from pathlib import Path
-from scipy.stats import norm
 import matplotlib.pyplot as plt
+import numpy as np
+import re
+import sys
+
 from astropy.table import Table, vstack
 from likelihoods.analytic import loggamma_logpdf
+from pathlib import Path
+from scipy.stats import norm
+
+# %%
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-f', '--full')
+args = parser.parse_args()
 
 # %%
 
@@ -65,6 +75,7 @@ for path in (Path('.') / 'results').iterdir():
         summary_row['N_like'] = np.mean(results['N_like'][select])
         summary_row['efficiency'] = np.mean(
             (results['N_eff'] / results['N_like'])[select])
+        summary_row['n'] = np.sum(select)
 
         summary.append(summary_row)
         posterior[likelihood][sampler] = []
@@ -149,6 +160,86 @@ path = Path('.') / 'figures'
 
 # %%
 
+
+summary['log N_like'] = np.log(summary['N_like'])
+likelihood_list = ['loggamma-30', 'funnel-20', 'rosenbrock-10', 'cosmology',
+                   'exoplanet']
+
+versions = []
+for sampler in np.unique(summary['sampler']):
+    if re.match(r'^nautilus-[0-9]+\.[0-9]+\.[0-9]+$', sampler) is not None:
+        versions.append(sampler)
+
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+
+if len(versions) > 0:
+
+    fig, axarr = plt.subplots(figsize=(7, 7), nrows=3, ncols=2, sharex=True,
+                              sharey='row')
+
+    for i, statistic in enumerate(['log N_like', 'log Z', 'bmd']):
+        for version, color in zip(versions, colors):
+            for k, suffix in enumerate(['', '-r']):
+                for x, likelihood in enumerate(likelihood_list):
+                    i_publ = np.arange(len(summary))[
+                        (summary['sampler'] == 'nautilus' + suffix) &
+                        (summary['likelihood'] == likelihood)][0]
+                    i_vers = np.arange(len(summary))[
+                        (summary['sampler'] == version + suffix) &
+                        (summary['likelihood'] == likelihood)][0]
+                    y_publ = summary[statistic][i_publ]
+                    y_vers = summary[statistic][i_vers]
+                    if statistic == 'log N_like':
+                        y_publ_err = 0
+                        y_vers_err = 0
+                    else:
+                        y_publ_err = (
+                            summary[statistic + ' error'][i_publ] /
+                            np.sqrt(summary['n'][i_publ]))
+                        y_vers_err = (
+                            summary[statistic + ' error'][i_vers] /
+                            np.sqrt(summary['n'][i_vers]))
+                    plotline, cap, barlinecols = axarr[i, k].errorbar(
+                        x, y_vers - y_publ, color=color,
+                        yerr=np.sqrt(y_publ_err**2 + y_vers_err**2),
+                        marker='o')
+                    plt.setp(barlinecols[0], capstyle='round',
+                             label=version if x == 0 else None)
+
+    axarr[0, 0].legend(frameon=False)
+
+    for i in range(len(axarr)):
+        ymin, ymax = axarr[i, 0].get_ylim()
+        ymax = max(np.abs(ymin), np.abs(ymax))
+        ymin = - ymax
+        axarr[i, 0].set_ylim(ymin, ymax)
+        axarr[i, 0].axhline(0, ls='--', color='black')
+        axarr[i, 1].axhline(0, ls='--', color='black')
+
+    axarr[0, 0].set_ylabel(r'$\Delta \log N_{\rm like}$')
+    axarr[1, 0].set_ylabel(r'$\Delta \log \mathcal{Z}$')
+    axarr[2, 0].set_ylabel(r'$\Delta {\rm BMD}$')
+    axarr[0, 0].set_title('Without Resampling')
+    axarr[0, 1].set_title('With Resampling')
+    axarr[2, 0].set_xticks(np.arange(len(likelihood_list)))
+    axarr[2, 1].set_xticks(np.arange(len(likelihood_list)))
+    axarr[2, 0].set_xticklabels(likelihood_list, rotation=45)
+    axarr[2, 1].set_xticklabels(likelihood_list, rotation=45)
+
+    plt.tight_layout(pad=0.3)
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.savefig(path / 'new_versions.pdf')
+    plt.savefig(path / 'new_versions.png', dpi=300)
+    plt.close()
+
+    if not args.full:
+        print("Only performed version comparsion. To run full analysis " +
+              "use 'python analyze.py --full'")
+        sys.exit()
+
+# %%
+
 key_list = ['log Z', 'bmd']
 label_list = [r'Evidence $\log \mathcal{Z}$',
               r'Bayesian Model Dimensionality $d$']
@@ -197,7 +288,6 @@ sampler_list = ['nautilus', 'nautilus-r', 'UltraNest-m', 'dynesty-u',
 color_list = ['purple', 'purple', 'darkblue', 'orange', 'orange', 'orange',
               'royalblue']
 ls_list = ['-', '--', '-', ':', '-', '--', '-']
-label_set = np.zeros(len(sampler_list), dtype=bool)
 
 
 for k, (sampler, color, ls) in enumerate(
