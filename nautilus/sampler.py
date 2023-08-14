@@ -107,9 +107,10 @@ class Sampler():
         belonging to the i-th bound/shell.
     log_l : list
         Log likelihood values of each point. Same ordering as `points`.
-    blobs : list
-        Blobs associated with each point. Same ordering as `points`.
-    blobs_dtype : numpy.dtype
+    blobs : list or None
+        Blobs associated with each point, if avaiable. Same ordering as
+        `points`.
+    blobs_dtype : numpy.dtype or None
         Data type of the blobs.
     _discard_exploration : bool
         Whether to exclude points in the exploration phase.
@@ -328,7 +329,7 @@ class Sampler():
         self.bounds = []
         self.points = []
         self.log_l = []
-        self.blobs = []
+        self.blobs = None
         self.blobs_dtype = blobs_dtype
         self._discard_exploration = False
         self.shell_n = np.zeros(0, dtype=int)
@@ -365,12 +366,13 @@ class Sampler():
                         np.array(group['points_{}'.format(shell)]))
                     self.log_l.append(
                         np.array(group['log_l_{}'.format(shell)]))
-                    try:
+                    if 'blobs_{}'.format(shell) in group:
+                        if shell == 0:
+                            self.blobs = []
                         self.blobs.append(
                             np.array(group['blobs_{}'.format(shell)]))
-                        self.blobs_dtype = self.blobs[-1].dtype
-                    except KeyError:
-                        pass
+                        if shell == 0:
+                            self.blobs_dtype = self.blobs[-1].dtype
 
                 self.bounds = [
                     UnitCube.read(fstream['bound_0'], rng=self.rng), ]
@@ -425,7 +427,7 @@ class Sampler():
                     self.bounds.pop(shell)
                     self.points.pop(shell)
                     self.log_l.pop(shell)
-                    if self.blobs_dtype is not None:
+                    if self.blobs is not None:
                         self.blobs.pop(shell)
                     for key in ['shell_n', 'shell_n_sample', 'shell_n_eff',
                                 'shell_log_l_min', 'shell_log_l',
@@ -543,7 +545,7 @@ class Sampler():
         log_l = np.concatenate([l[s:] for l, s in zip(self.log_l, start)])
         log_w = log_v + log_l
         if return_blobs:
-            if self.blobs_dtype is None:
+            if self.blobs is None:
                 raise ValueError('No blobs have been calculated.')
             blobs = np.concatenate([b[s:] for b, s in zip(self.blobs, start)])
 
@@ -874,7 +876,8 @@ class Sampler():
             self.shell_log_l_min = np.append(self.shell_log_l_min, log_l_min)
             self.points.append(np.zeros((0, self.n_dim)))
             self.log_l.append(np.zeros(0))
-            self.blobs.append(np.zeros(0))
+            if self.blobs is not None:
+                self.blobs.append(np.zeros(0, dtype=self.blobs_dtype))
         else:
             self.shell_log_l_min[-1] = log_l_min
 
@@ -902,15 +905,15 @@ class Sampler():
         """
         self.points[-1] = [self.points[-1], ]
         self.log_l[-1] = [self.log_l[-1], ]
-        if len(self.blobs[-1]) > 0:
+
+        if self.blobs is not None:
             self.blobs[-1] = [self.blobs[-1], ]
-        else:
-            self.blobs[-1] = []
 
         shell_t = []
         points_t = []
         log_l_t = []
-        blobs_t = []
+        if self.blobs is not None:
+            blobs_t = []
 
         # Check which points points from previous shells could be transferred
         # to the new bound.
@@ -926,7 +929,7 @@ class Sampler():
                 log_l_t.append(self.log_l[shell][in_bound])
                 self.log_l[shell] = self.log_l[shell][~in_bound]
 
-                if self.blobs_dtype is not None:
+                if self.blobs is not None:
                     blobs_t.append(self.blobs[shell][in_bound])
                     self.blobs[shell] = self.blobs[shell][~in_bound]
 
@@ -936,7 +939,7 @@ class Sampler():
             shell_t = np.concatenate(shell_t)
             points_t = np.concatenate(points_t)
             log_l_t = np.concatenate(log_l_t)
-            if self.blobs_dtype is not None:
+            if self.blobs is not None:
                 blobs_t = np.concatenate(blobs_t)
 
         log_l_min = self.shell_log_l_min[-1]
@@ -958,7 +961,10 @@ class Sampler():
             log_l, blobs = self.evaluate_likelihood(points)
             self.points[-1].append(points)
             self.log_l[-1].append(log_l)
-            if self.blobs_dtype is not None:
+            if blobs is not None:
+                # If the very first batch, create the list of blobs.
+                if self.n_like == self.n_batch:
+                    self.blobs = [[]]
                 self.blobs[-1].append(blobs)
 
             if len(idx_t) > 0:
@@ -966,7 +972,7 @@ class Sampler():
                 points_t = np.delete(points_t, idx_t, axis=0)
                 self.log_l[-1].append(log_l_t[idx_t])
                 log_l_t = np.delete(log_l_t, idx_t)
-                if self.blobs_dtype is not None:
+                if self.blobs is not None:
                     self.blobs[-1].append(blobs_t[idx_t])
                     blobs_t = np.delete(blobs_t, idx_t, axis=0)
                 shell_t = np.delete(shell_t, idx_t)
@@ -981,10 +987,8 @@ class Sampler():
 
         self.points[-1] = np.concatenate(self.points[-1])
         self.log_l[-1] = np.concatenate(self.log_l[-1])
-        if self.blobs_dtype is not None:
+        if self.blobs is not None:
             self.blobs[-1] = np.concatenate(self.blobs[-1])
-        else:
-            self.blobs[-1] = np.zeros(0)
         self.update_shell_info(-1)
 
         if verbose:
@@ -1052,7 +1056,7 @@ class Sampler():
         log_l, blobs = self.evaluate_likelihood(points)
         self.points[shell] = np.concatenate([self.points[shell], points])
         self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
-        if self.blobs_dtype is not None:
+        if self.blobs is not None:
             self.blobs[shell] = np.concatenate([self.blobs[shell], blobs])
         self.update_shell_info(shell)
         if self.filepath is not None:
@@ -1233,7 +1237,7 @@ class Sampler():
             group.create_dataset(
                 'log_l_{}'.format(shell), data=self.log_l[shell],
                 maxshape=(None, ))
-            if self.blobs_dtype is not None:
+            if self.blobs is not None:
                 maxshape = list(self.blobs[shell].shape)
                 maxshape[0] = None
                 group.create_dataset(
@@ -1273,7 +1277,7 @@ class Sampler():
         group['points_{}'.format(shell)][...] = self.points[shell]
         group['log_l_{}'.format(shell)].resize(self.log_l[shell].shape)
         group['log_l_{}'.format(shell)][...] = self.log_l[shell]
-        if self.blobs_dtype is not None:
+        if self.blobs is not None:
             group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
             group['blobs_{}'.format(shell)][...] = self.blobs[shell]
 
