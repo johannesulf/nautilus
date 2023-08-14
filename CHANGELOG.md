@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - When passing a number to the `pool` keyword argument, the sampler automatically caches the likelihood function in the subprocesses of the multiprocessing pool. This reduces communication between processes and can substantially improve performance.
 - Changed the way ellipsoids are split, preventing rare instances where ellipsoid splitting stops prematurely. (#28)
+- Improved the performance of the algorithm for finding the minimum-volume enclosing ellipsoid.
 
 ### Fixed
 - Fixed a rare freeze when the neural networks predict the same score for all input values. (#27)
