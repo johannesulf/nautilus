@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed a rare freeze when the neural networks predict the same score for all input values. (#27)
-- Prevented a rare freeze if the likelihood is multi-modal and one has much less volume than the other. (#29)
+- Prevented a rare freeze if the likelihood is multi-modal and one mode has much less volume than the other. (#29)
+- Fixed an occasional crash when resuming a calculation without blobs from a checkpoint file. (#31)
 
 ## [0.7.2] - 2023-07-11
 
