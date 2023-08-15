@@ -882,9 +882,9 @@ class Sampler():
             self.shell_log_l_min[-1] = log_l_min
 
         if verbose:
-            print('Adding Bound {:<5} {:>6}'.format(
+            print('Adding Bound {:<4} {:>7}'.format(
                 str(len(self.bounds) + (not success)) + ':', 'done' if success
-                else 'failed'))
+                else 'skipped'))
             if isinstance(self.bounds[-1], NautilusBound):
                 n_neural, n_ell =\
                     self.bounds[-1].number_of_networks_and_ellipsoids()
