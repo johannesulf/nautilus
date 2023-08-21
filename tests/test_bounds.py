@@ -97,7 +97,7 @@ def test_minimum_volume_enclosing_ellipsoid(points_on_hypersphere_boundary):
     # first iteration.
     points = np.concatenate([points_on_hypersphere_boundary,
                              np.atleast_2d(c_true + np.random.random() - 0.5)])
-    c, A = minimum_volume_enclosing_ellipsoid(points)
+    c, A = minimum_volume_enclosing_ellipsoid(points)[:2]
     assert np.allclose(c, c_true, rtol=0, atol=1e-3)
     assert np.allclose(A, A_true, rtol=0, atol=1e-2)
 
