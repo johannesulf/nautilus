@@ -233,8 +233,9 @@ def minimum_volume_enclosing_ellipsoid(points, n_max=100, n_batch=20):
 
     scale = np.amax(np.einsum('...i,ij,...j', points - c, A, points - c))
     A /= scale
+    A_inv *= scale
 
-    return c, A
+    return c, A, A_inv
 
 
 class Ellipsoid():
@@ -298,10 +299,12 @@ class Ellipsoid():
                              'dimensions.')
 
         with threadpool_limits(limits=1):
-            bound.c, bound.A = minimum_volume_enclosing_ellipsoid(points)
+            bound.c, bound.A, A_inv = minimum_volume_enclosing_ellipsoid(
+                points)
 
         bound.A /= enlarge_per_dim**2.0
-        bound.B = np.linalg.cholesky(np.linalg.inv(bound.A))
+        A_inv *= enlarge_per_dim**2.0
+        bound.B = np.linalg.cholesky(A_inv)
         bound.B_inv = np.linalg.inv(bound.B)
         bound.log_v = (np.linalg.slogdet(bound.B)[1] +
                        bound.n_dim * np.log(2.) +
