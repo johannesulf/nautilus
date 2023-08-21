@@ -203,6 +203,8 @@ def minimum_volume_enclosing_ellipsoid(points, n_max=100, n_batch=20):
     A : numpy.ndarray
         The bounds of the ellipsoid in matrix form, i.e.
         :math:`(x - c)^T A (x - c) \leq 1`.
+    A_inv : numpy.ndarray
+        The inverse of `A`.
 
     """
     n_points, n_dim = points.shape
