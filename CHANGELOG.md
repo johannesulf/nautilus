@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.4] - 2023-08-23
 
 ### Fixed
-- Increased numerical stability when finding the minimum-volume enclosing ellipsoid. Instances of `np.linalg.LinAlgError` should be reduced or eliminated.
+- Increased numerical stability when finding the minimum-volume enclosing ellipsoid. Instances of `np.linalg.LinAlgError` should be reduced or eliminated. (#34)
 
 ## [0.7.3] - 2023-08-15
 
