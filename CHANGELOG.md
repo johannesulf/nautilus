@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Depcrecated
 - The `evidence`, `asymptotic_sampling_efficiency`, and `effective_sample_size` sampler functions are deprecated and replaced by the `log_z`, `eta`, and `n_eff` properties, respectively.
 
+### Removed
+- The `n_jobs` parameter when initializing the sampler has been removed. Use `pool`, instead.
+
 ## [0.7.4] - 2023-08-23
 
 ### Fixed
@@ -55,8 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Likelihoods with large plateaus shouldn't crash, anymore.
 - Information updates about bounds are now written during the sampling phase. Previously, if computations were interrupted and restarted during the sampling phase, the volume estimates were noisier than necessary, and some points may have been proposed twice.
 
-### Deprecated
-- The `n_jobs` keyword argument for the sampler has been deprecated. The pool used for likelihood calls is now also used for sampler parallelization, by default. To use independent pools for likelihood calls and sampler calculations, pass a tuple to `pool`.
+### Removed
+- The `n_jobs` keyword argument for the sampler has been removed. The pool used for likelihood calls is now also used for sampler parallelization, by default. To use independent pools for likelihood calls and sampler calculations, pass a tuple to `pool`.
+- The `random_state` keyword argument for the sampler has been removed. Use `seed`, instead.
+- The `enlarge` keyword argument has been removed. Use `enlarge_per_dim`, instead.
 
 ## [0.6.0] - 2023-04-22
 
@@ -94,6 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 - The `enlarge` keyword argument for the sampler has been deprecated in favor of the new keyword `enlarge_per_dim`. Specifying `enlarge` will be ignored but not raise an error.
+
+### Removed
 - The `use_neural_network` keyword argument for the sampler has been deprecated. To not use neural networks, set the new keyword argument `n_networks` to 0.
 
 ## [0.4.4] - 2023-03-14

@@ -151,8 +151,8 @@ class Sampler():
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, n_jobs=None, seed=None, blobs_dtype=None,
-                 filepath=None, resume=True):
+                 pool=None, seed=None, blobs_dtype=None, filepath=None,
+                 resume=True):
         r"""
         Initialize the sampler.
 
@@ -231,8 +231,6 @@ class Sampler():
             the specified number of processes. Finally, if specifying a tuple,
             the first one specifies the pool used for likelihood calls and the
             second one the pool for sampler calculations. Default is None.
-        n_jobs : int or string, optional
-            Deprecated.
         seed : None or int, optional
             Seed for random number generation used for reproducible results
             accross different runs. If None, results are not reproducible.
@@ -324,11 +322,6 @@ class Sampler():
 
         self.pool_l = pool[0]
         self.pool_s = pool[-1]
-
-        if n_jobs is not None:
-            warnings.warn(
-                "The 'n_jobs' keyword argument has been deprecated .Use " +
-                "'pool', instead.", DeprecationWarning, stacklevel=2)
 
         self.rng = np.random.default_rng(seed)
 
@@ -1335,19 +1328,3 @@ class Sampler():
         group.attrs['rng_uinteger'] = rng_state['uinteger']
 
         fstream.close()
-
-    def write_shell_information_update(self, filepath):
-        """Update the shell summary statistics.
-
-        Parameters
-        ----------
-        filepath : string or pathlib.Path
-            Path to the file. Must have a '.h5' or '.hdf5' extension.
-
-        """
-        with h5py.File(Path(filepath), 'r+') as fstream:
-            group = fstream['sampler']
-            for key in ['_discard_exploration', 'shell_n', 'shell_n_sample',
-                        'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                        'shell_log_v', 'shell_n_sample_exp', 'shell_end_exp']:
-                group.attrs[key] = getattr(self, key)

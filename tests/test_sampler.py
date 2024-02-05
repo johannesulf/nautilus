@@ -29,7 +29,7 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
-    sampler.run(f_live=0.45, n_eff=0, verbose=False)
+    sampler.run(f_live=0.45, n_eff=0, verbose=True)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     assert sampler.n_eff > 0
     sampler.log_z
