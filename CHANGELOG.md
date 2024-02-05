@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated the terminal output to be more compact and more friendly for log files. This also removes the dependency on `tqdm`. (#36)
+- The user can now specify a maximum number of likelihood calls. If that number is exceeded, the sampler will automatically stop. (#23)
+
+### Depcrecated
+- The `evidence`, `asymptotic_sampling_efficiency`, and `effective_sample_size` sampler functions are deprecated and replaced by the `log_z`, `eta`, and `n_eff` properties, respectively.
+
 ## [0.7.4] - 2023-08-23
 
 ### Fixed

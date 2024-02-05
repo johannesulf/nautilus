@@ -31,10 +31,10 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
         vectorized=vectorized, pass_dict=pass_dict, n_live=500)
     sampler.run(f_live=0.45, n_eff=0, verbose=False)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
-    assert sampler.effective_sample_size() > 0
-    sampler.evidence()
-    assert sampler.asymptotic_sampling_efficiency() > 0
-    assert sampler.asymptotic_sampling_efficiency() < 1
+    assert sampler.n_eff > 0
+    sampler.log_z
+    assert sampler.eta > 0
+    assert sampler.eta < 1
 
 
 @pytest.mark.parametrize("discard_exploration_start", [True, False])
@@ -56,7 +56,7 @@ def test_sampler_switch_exploration(
     assert sampler.discard_exploration == discard_exploration_start
     points, log_w, log_l = sampler.posterior()
     n_start = len(points)
-    log_z_start = sampler.evidence()
+    log_z_start = sampler.log_z
 
     if not isinstance(discard_exploration_end, bool):
         with pytest.raises(ValueError):
@@ -66,7 +66,7 @@ def test_sampler_switch_exploration(
     sampler.discard_exploration = discard_exploration_end
     points, log_w, log_l = sampler.posterior()
     n_end = len(points)
-    log_z_end = sampler.evidence()
+    log_z_end = sampler.log_z
 
     assert ((discard_exploration_start == discard_exploration_end) ==
             (n_start == n_end))
@@ -127,7 +127,7 @@ def test_sampler_accuracy(n_networks, discard_exploration):
     sampler.run(discard_exploration=discard_exploration, f_live=0.1,
                 verbose=False)
 
-    assert np.abs(sampler.evidence()) < 0.05
+    assert np.abs(sampler.log_z) < 0.05
 
     for equal_weight in [True, False]:
         points, log_w, log_l = sampler.posterior(equal_weight=equal_weight)
@@ -163,12 +163,11 @@ def test_sampler_enlarge_per_dim():
 
     # The effective sample size should be very close to the number of calls
     # since the likelihood is extremely flat.
-    assert np.isclose(sampler.n_like, sampler.effective_sample_size(), rtol=0,
-                      atol=1)
+    assert np.isclose(sampler.n_like, sampler.n_eff, rtol=0, atol=1)
     # Only one bound should be left.
     assert len(sampler.bounds) == 1
     # Check evidence accuracy.
-    assert np.isclose(sampler.evidence(), -4 * 0.5**3 / 3 * 0.001, rtol=0,
+    assert np.isclose(sampler.log_z, -4 * 0.5**3 / 3 * 0.001, rtol=0,
                       atol=1e-4)
 
 
@@ -196,7 +195,7 @@ def test_sampler_funnel():
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_networks=1, seed=0)
     sampler.run()
-    assert np.isclose(log_z_true, sampler.evidence(), rtol=0, atol=0.1)
+    assert np.isclose(log_z_true, sampler.log_z, rtol=0, atol=0.1)
     # Check whether the boundaries nautilus drew are strictly nested.
     shell_bound_occupation = sampler.shell_bound_occupation()
     if np.all(shell_bound_occupation ==
