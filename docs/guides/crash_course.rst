@@ -34,7 +34,16 @@ Now, we are ready to run the sampler.
     sampler = Sampler(prior, likelihood, n_live=1000)
     sampler.run(verbose=True)
 
-At this point, we can plot the posterior using the handy corner Python package.
+With ``verbose=True``, the sample will give updates on the status. The output will look something like this.
+
+.. code-block::
+
+    Starting the nautilus sampler...
+    Please report issues at github.com/johannesulf/nautilus.
+    Status    | Bounds | Ellipses | Networks | Calls    | f_live | N_eff | log Z 
+    Computing | 7      | 1        | 4        | 15600    | 0.3454 | 8039  | +0.01
+
+The status is either computing the likehihoods (Computing), sampling new points from boundaries (Sampling), or creating new bounds (Bounding). The subsequent entries show the total number of bounds, the number of ellipsoids in the latest bound, the number of neural networks in the latest bound, the total number of likelihood evaluations, the fractional evidence in the live set, the effective sample size and the natural log of the evidence. Once the algorithm is finished, we can plot the posterior using the handy corner Python package.
 
 .. code-block:: python
 
@@ -57,7 +66,7 @@ The Bayesian evidence :math:`\log \mathcal{Z}` was also estimated during the run
 
 .. code-block:: python
 
-    print('log Z: {:.2f}'.format(sampler.evidence()))
+    print('log Z: {:.2f}'.format(sampler.log_z))
 
 Output::
 

@@ -86,7 +86,7 @@ If one has a prior :math:`p(x)` and does not want to or cannot express this as a
 
     sampler = Sampler(prior, likelihood)
     sampler.run(verbose=True)
-    log_z = sampler.evidence()
+    log_z = sampler.log_z
 
     # Now, let's use the trick above. First, we need to choose the integration ranges.
     prior_flat = Prior()
@@ -106,11 +106,11 @@ If one has a prior :math:`p(x)` and does not want to or cannot express this as a
 
     sampler = Sampler(prior_flat, prior_probablity)
     sampler.run(verbose=True)
-    log_z_prior = sampler.evidence()
+    log_z_prior = sampler.log_z
 
     sampler = Sampler(prior_flat, likelihood_plus_prior)
     sampler.run(verbose=True)
-    log_z_likelihood_plus_prior = sampler.evidence()
+    log_z_likelihood_plus_prior = sampler.log_z
 
     # Let's compare the two evidence estimates.
     print('log Z estimates: {:.2f} vs. {:.2f}'.format(
