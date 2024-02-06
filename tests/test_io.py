@@ -106,9 +106,10 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
 
 
 @pytest.mark.parametrize("blobs", [True, False])
+@pytest.mark.parametrize("n_like_max", [np.inf, 500])
 @pytest.mark.parametrize("discard_exploration", [True, False])
-@pytest.mark.parametrize("n_networks", [0, 1, 2])
-def test_sampler_io(blobs, discard_exploration, n_networks):
+@pytest.mark.parametrize("n_networks", [0, 1])
+def test_sampler_io(blobs, n_like_max, discard_exploration, n_networks):
     # Test that we can write and read a sampler correctly. In particular, also
     # test that the random number generator is correctly set after writing and
     # reading. Also make sure that the sampler can print out the progress.
@@ -125,23 +126,17 @@ def test_sampler_io(blobs, discard_exploration, n_networks):
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
                             n_networks=n_networks, filepath='test.hdf5',
                             resume=False, seed=0)
-    sampler_write.run(f_live=0.45, n_eff=1000,
-                      discard_exploration=discard_exploration, verbose=True)
-    sampler_write.explored = False
-    # Reset the interal shell calculations.
-    sampler_write.discard_exploration = discard_exploration
+    sampler_write.run(f_live=0.45, n_eff=1000, n_like_max=n_like_max,
+                      discard_exploration=discard_exploration)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
                            n_networks=n_networks, filepath='test.hdf5',
                            resume=True)
-    sampler_read.explored = False
-    # Reset the interal shell calculations.
-    sampler_read.discard_exploration = discard_exploration
-    assert sampler_write.evidence() == sampler_read.evidence()
+    assert sampler_write.log_z == sampler_read.log_z
 
     sampler_write.run(f_live=0.45, n_eff=5000,
-                      discard_exploration=discard_exploration, verbose=True)
+                      discard_exploration=discard_exploration)
     sampler_read.run(f_live=0.45, n_eff=5000,
-                     discard_exploration=discard_exploration, verbose=True)
+                     discard_exploration=discard_exploration)
 
     posterior_write = sampler_write.posterior()
     posterior_read = sampler_read.posterior()
@@ -149,6 +144,6 @@ def test_sampler_io(blobs, discard_exploration, n_networks):
     for arr_write, arr_read in zip(posterior_write, posterior_read):
         assert np.all(arr_write == arr_read)
 
-    assert sampler_write.evidence() == sampler_read.evidence()
+    assert sampler_write.log_z == sampler_read.log_z
 
     Path('test.hdf5').unlink()

@@ -21,4 +21,4 @@ Finally, you can install the latest development version from GitHub.
     cd nautilus
     pip install .
 
-``nautilus`` depends on a small number of fairly standard packages: ``NumPy``, ``ScipPy``, ``scikit-learn``, ``tqdm`` and ``threadpoolctl``. Optionally, to use :ref:`checkpointing <Checkpointing>` you need to have ``h5py`` installed.
+``nautilus`` depends on a small number of fairly standard packages: ``NumPy``, ``ScipPy``, ``scikit-learn``, and ``threadpoolctl``. Optionally, to use :ref:`checkpointing <Checkpointing>` you need to have ``h5py`` installed.

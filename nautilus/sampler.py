@@ -12,7 +12,7 @@ from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
-from tqdm import tqdm
+from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
 
@@ -132,6 +132,15 @@ class Sampler():
     shell_end_exp : numpy.ndarray
         Index at which points are coming from the sampling phase instead of the
         exploration phase.
+    points_t : numpy.ndarray
+        Set of points that may be transferred to the latest bound if
+        exploration stage isn't finished, yet.
+    shell_t : numpy.ndarray
+        Shell indices from which the transfer points came from.
+    log_l_t : numpy.ndarray
+        Likelihood values of the points that may be transferred.
+    blobs_t : numpy.ndarray
+        Blobs of the points that may be transferred.
 
     """
 
@@ -142,8 +151,8 @@ class Sampler():
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=100,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
-                 pool=None, n_jobs=None, seed=None, blobs_dtype=None,
-                 filepath=None, resume=True):
+                 pool=None, seed=None, blobs_dtype=None, filepath=None,
+                 resume=True):
         r"""
         Initialize the sampler.
 
@@ -222,8 +231,6 @@ class Sampler():
             the specified number of processes. Finally, if specifying a tuple,
             the first one specifies the pool used for likelihood calls and the
             second one the pool for sampler calculations. Default is None.
-        n_jobs : int or string, optional
-            Deprecated.
         seed : None or int, optional
             Seed for random number generation used for reproducible results
             accross different runs. If None, results are not reproducible.
@@ -316,11 +323,6 @@ class Sampler():
         self.pool_l = pool[0]
         self.pool_s = pool[-1]
 
-        if n_jobs is not None:
-            warnings.warn(
-                "The 'n_jobs' keyword argument has been deprecated .Use " +
-                "'pool', instead.", DeprecationWarning, stacklevel=2)
-
         self.rng = np.random.default_rng(seed)
 
         # The following variables carry the information about the run.
@@ -340,6 +342,10 @@ class Sampler():
         self.shell_log_v = np.zeros(0, dtype=float)
         self.shell_n_sample_exp = np.zeros(0, dtype=int)
         self.shell_end_exp = np.zeros(0, dtype=int)
+        self.points_t = np.zeros((0, self.n_dim))
+        self.shell_t = np.zeros(0, dtype=int)
+        self.log_l_t = np.zeros(0)
+        self.blobs_t = None
 
         self.filepath = filepath
         if resume and filepath is not None and Path(filepath).exists():
@@ -358,7 +364,8 @@ class Sampler():
                 for key in ['n_like', 'explored', '_discard_exploration',
                             'shell_n', 'shell_n_sample', 'shell_n_eff',
                             'shell_log_l_min', 'shell_log_l', 'shell_log_v',
-                            'shell_n_sample_exp', 'shell_end_exp']:
+                            'shell_n_sample_exp', 'shell_end_exp',
+                            'n_update_iter', 'n_like_iter']:
                     setattr(self, key, group.attrs[key])
 
                 for shell in range(len(self.shell_n)):
@@ -374,13 +381,17 @@ class Sampler():
                         if shell == 0:
                             self.blobs_dtype = self.blobs[-1].dtype
 
+                for key in ['shell_t', 'points_t', 'log_l_t', 'blobs_t']:
+                    if key in group:
+                        setattr(self, key, np.array(group[key]))
+
                 self.bounds = [
                     UnitCube.read(fstream['bound_0'], rng=self.rng), ]
                 for i in range(1, len(self.shell_n)):
                     self.bounds.append(NautilusBound.read(
                         fstream['bound_{}'.format(i)], rng=self.rng))
 
-    def run(self, f_live=0.01, n_shell=None, n_eff=10000,
+    def run(self, f_live=0.01, n_shell=1, n_eff=10000, n_like_max=np.inf,
             discard_exploration=False, verbose=False):
         """Run the sampler until convergence.
 
@@ -391,11 +402,14 @@ class Sampler():
             building the initial shells terminates. Default is 0.01.
         n_shell : int, optional
             Minimum number of points in each shell. The algorithm will sample
-            from the shells until this is reached. Default is the batch size of
-            the sampler which is 100 unless otherwise specified.
+            from the shells until this is reached. Default is 1.
         n_eff : float, optional
             Minimum effective sample size. The algorithm will sample from the
             shells until this is reached. Default is 10000.
+        n_like_max : int, optional
+            Maximum number of likelihood evaluations. Regardless of progress,
+            the sampler will stop if this value is reached. Default is
+            infinity.
         discard_exploration : bool, optional
             Whether to discard points drawn in the exploration phase. This is
             required for a fully unbiased posterior and evidence estimate.
@@ -404,61 +418,81 @@ class Sampler():
             If True, print additional information. Default is False.
 
         """
-        if not self.explored:
+        if verbose:
+            self.print_status(None, header=True)
 
-            if verbose:
-                print('#########################')
-                print('### Exploration Phase ###')
-                print('#########################')
-                print()
+        if len(self.bounds) == 0:
+            self.add_bound()
+            self.n_update_iter = -self.n_update
+            self.n_like_iter = 0
 
-            while (self.live_evidence_fraction() > f_live or
-                   len(self.bounds) == 0):
-                self.add_bound(verbose=verbose)
-                self.fill_bound(verbose=verbose)
+        while self.n_like < n_like_max:
+
+            if not self.explored:
+
+                if (self.n_update_iter >= self.n_update or
+                        self.n_like_iter >= self.n_like_new_bound):
+                    self.add_bound(verbose=verbose)
+                    self.n_update_iter = 0
+                    self.n_like_iter = 0
+                    if self.filepath is not None:
+                        self.write(self.filepath, overwrite=True)
+
+                self.n_update_iter += self.add_samples(-1, verbose=verbose)
+                self.n_like_iter += self.n_batch
                 if self.filepath is not None:
-                    self.write(self.filepath, overwrite=True)
+                    # Write the complete file if this is the first batch.
+                    if self.n_like == self.n_batch:
+                        self.write(self.filepath, overwrite=True)
+                    self.write_shell_update(self.filepath, -1)
 
-            # If some shells are unoccupied in the end, remove them. They will
-            # contain close to 0 volume and may never yield a point when
-            # trying to sample from them.
-            for shell in reversed(range(len(self.bounds))):
-                if self.shell_n[shell] == 0:
-                    self.bounds.pop(shell)
-                    self.points.pop(shell)
-                    self.log_l.pop(shell)
-                    if self.blobs is not None:
-                        self.blobs.pop(shell)
-                    for key in ['shell_n', 'shell_n_sample', 'shell_n_eff',
-                                'shell_log_l_min', 'shell_log_l',
-                                'shell_log_v']:
-                        setattr(self, key, np.delete(
-                            getattr(self, key), shell))
+                if self.f_live <= f_live:
 
-            self.shell_n_sample_exp = np.copy(self.shell_n_sample)
-            self.shell_end_exp = np.array([len(p) for p in self.points])
-            self.explored = True
+                    # If some shells are unoccupied in the end, remove them.
+                    # They will contain close to 0 volume and may never yield a
+                    # point when trying to sample from them.
+                    if np.any(self.shell_n == 0):
+                        for shell in np.flatnonzero(self.shell_n == 0)[::-1]:
+                            self.bounds.pop(shell)
+                            self.points.pop(shell)
+                            self.log_l.pop(shell)
+                            if self.blobs is not None:
+                                self.blobs.pop(shell)
+                            for key in ['shell_n', 'shell_n_sample',
+                                        'shell_n_eff', 'shell_log_l_min',
+                                        'shell_log_l', 'shell_log_v']:
+                                setattr(self, key, np.delete(
+                                    getattr(self, key), shell))
 
-            if self.filepath is not None:
-                self.write(self.filepath, overwrite=True)
+                    self.shell_n_sample_exp = np.copy(self.shell_n_sample)
+                    self.shell_end_exp = np.array(
+                        [len(p) for p in self.points])
 
-        self.discard_exploration = discard_exploration
-        if self.filepath is not None:
-            self.write_shell_information_update(self.filepath)
+                    self.explored = True
+                    self.discard_exploration = discard_exploration
+                    if self.filepath is not None:
+                        self.write(self.filepath, overwrite=True)
 
-        if n_shell is None:
-            n_shell = self.n_batch
+            elif np.any(self.shell_n < n_shell):
+                shell = np.flatnonzero(self.shell_n < n_shell)[0]
+                self.add_samples(shell, verbose=verbose)
+                if self.filepath is not None:
+                    self.write_shell_update(self.filepath, shell)
 
-        if (np.any(self.shell_n < n_shell) or
-                self.effective_sample_size() < n_eff):
+            elif self.n_eff < n_eff:
+                shell = np.argmax(self.shell_log_l + self.shell_log_v -
+                                  0.5 * np.log(self.shell_n) -
+                                  0.5 * np.log(self.shell_n_eff))
+                self.add_samples(shell, verbose=verbose)
+                if self.filepath is not None:
+                    self.write_shell_update(self.filepath, shell)
 
-            if verbose:
-                print('#########################')
-                print('##### Sampling Phase ####')
-                print('#########################')
-                print()
+            else:
+                break
 
-            self.add_points(n_shell=n_shell, n_eff=n_eff, verbose=verbose)
+        if verbose:
+            self.print_status('Finished')
+            print()
 
     @property
     def discard_exploration(self):
@@ -570,7 +604,11 @@ class Sampler():
         if equal_weight:
             select = (self.rng.random(len(log_w)) <
                       np.exp(log_w - np.amax(log_w)))
-            points = points[select]
+            if return_as_dict:
+                for key in points.keys():
+                    points[key] = points[key][select]
+            else:
+                points = points[select]
             log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
             log_l = log_l[select]
             if return_blobs:
@@ -584,7 +622,8 @@ class Sampler():
         else:
             return points, log_w, log_l
 
-    def effective_sample_size(self):
+    @property
+    def n_eff(self):
         r"""Estimate the total effective sample size :math:`N_{\rm eff}`.
 
         Returns
@@ -599,7 +638,22 @@ class Sampler():
         sum_w_sq = sum_w**2 / self.shell_n_eff[select]
         return np.sum(sum_w)**2 / np.sum(sum_w_sq)
 
-    def evidence(self):
+    def effective_sample_size(self):
+        r"""Estimate the total effective sample size :math:`N_{\rm eff}`.
+
+        Returns
+        -------
+        n_eff : float
+            Estimate of the total effective sample size :math:`N_{\rm eff}`.
+
+        """
+        warn("The function 'effective_sample_size' is deprecated. " +
+             "Please use the property 'n_eff', instead.",
+             DeprecationWarning, stacklevel=2)
+        return self.n_eff
+
+    @property
+    def log_z(self):
         r"""Estimate the global evidence :math:`\log \mathcal{Z}`.
 
         Returns
@@ -611,7 +665,21 @@ class Sampler():
         select = ~np.isnan(self.shell_log_l)
         return logsumexp(self.shell_log_l[select] + self.shell_log_v[select])
 
-    def asymptotic_sampling_efficiency(self):
+    def evidence(self):
+        r"""Estimate the global evidence :math:`\log \mathcal{Z}`.
+
+        Returns
+        -------
+        log_z : float
+            Estimate of the global evidence :math:`\log \mathcal{Z}`.
+
+        """
+        warn("The function 'evidence' is deprecated. Please use the " +
+             "property 'log_z', instead.", DeprecationWarning, stacklevel=2)
+        return self.log_z
+
+    @property
+    def eta(self):
         r"""Estimate the asymptotic sampling efficiency :math:`\eta`.
 
         The asymptotic sampling efficiency is defined as
@@ -632,6 +700,25 @@ class Sampler():
         shell_eta = shell_eta[select]
         return np.exp(2 * logsumexp(shell_log_z) - 2 * logsumexp(
             shell_log_z - 0.5 * np.log(shell_eta)))
+
+    def asymptotic_sampling_efficiency(self):
+        r"""Estimate the asymptotic sampling efficiency :math:`\eta`.
+
+        The asymptotic sampling efficiency is defined as
+        :math:`\eta = \lim_{N_{\rm like} \to \infty} N_{\rm eff} / N_{\rm like}`.
+        This is set after the exploration phase. However, the estimate will be
+        updated based on what is found in the sampling phase.
+
+        Returns
+        -------
+        eta : float
+            Estimate of the asymptotic sampling efficiency.
+
+        """
+        warn("The function 'asymptotic_sampling_efficiency' is deprecated. " +
+             "Please use the property 'log_z', instead.", DeprecationWarning,
+             stacklevel=2)
+        return self.eta
 
     def sample_shell(self, index, shell_t=None):
         """Sample a batch of points uniformly from a shell.
@@ -819,25 +906,77 @@ class Sampler():
             self.shell_log_l[index] = np.nan
             self.shell_n_eff[index] = 0
 
-    def print_status(self):
-        """Print current summary statistics."""
-        print('N_like: {:>17}'.format(self.n_like))
-        print('N_eff: {:>18.0f}'.format(self.effective_sample_size()))
-        print('log Z: {:>18.3f}'.format(self.evidence()))
-        if not self.explored:
-            print('log V: {:>18.3f}'.format(self.shell_log_v[-1]))
-            print('f_live: {:>17.3f}'.format(self.live_evidence_fraction()))
+    def print_status(self, status='', header=False):
+        """
+        Print current summary statistics.
+
+        Parameters
+        ----------
+        status: string, optional
+            Status of the sampler to be printed. Default is ''.
+        header : bool, optional
+            If True, print a static header. Default is False.
+
+        """
+        if header:
+            status = 'Status'
+            n_bounds = 'Bounds'
+            n_ell = 'Ellipses'
+            n_net = 'Networks'
+            n_like = 'Calls'
+            f_live = 'f_live'
+            n_eff = 'N_eff'
+            log_z = 'log Z'
+            if header:
+                print('Starting the nautilus sampler...')
+                print(
+                    'Please report issues at github.com/johannesulf/nautilus.')
+        else:
+            n_bounds = len(self.bounds)
+            if n_bounds > 1:
+                n_net, n_ell = self.bounds[-1].number_of_networks_and_ellipsoids()
+            else:
+                n_net = 0
+                n_ell = 0
+            n_net = str(n_net)
+            n_ell = str(n_ell)
+            n_like = str(self.n_like)
+            if np.all(self.shell_n > 0) and np.all(self.shell_n_sample > 0):
+                f_live = '{:.4f}'.format(self.f_live)
+                if len('{:.0f}'.format(self.n_eff)) >= 5:
+                    n_eff = '{:.0f}'.format(self.n_eff)
+                else:
+                    n_eff = '{:.{}f}'.format(self.n_eff, 4 - len(
+                        '{:.0f}'.format(self.n_eff)))
+                log_z = '{:+.2f}'.format(self.log_z)
+            else:
+                f_live = '???'
+                n_eff = '???'
+                log_z = '???'
+            if self.explored:
+                f_live = 'N/A'
+
+        output = [status, n_bounds, n_ell, n_net, n_like, f_live, n_eff, log_z]
+        for i, length in enumerate([9, 6, 8, 8, 8, 6, 5, 7]):
+            output[i] = '{:<{}}'.format(output[i], length)
+
+        print(*output, sep=' | ', end='\n' if header else '\r')
 
     def add_bound(self, verbose=False):
         """Try building a new bound from existing points.
 
-        If the new bound would be larger than the previious bound, we will
-        reject the new bound.
+        If the new bound would be larger than the previous bound, reject the
+        new bound.
 
         Parameters
         ----------
         verbose : bool, optional
             If True, print additional information. Default is False.
+
+        Returns
+        -------
+        success : boolean
+            Whether a new bound has been added.
 
         """
         success = False
@@ -848,14 +987,14 @@ class Sampler():
             success = True
         else:
             if verbose:
-                print('Adding Bound {}'.format(len(self.bounds) + 1), end='\r')
+                self.print_status('Bounding')
             log_l = np.concatenate(self.log_l)
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
             log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
             with threadpool_limits(limits=1):
                 bound = NautilusBound.compute(
-                    points, log_l, log_l_min, self.live_volume(),
+                    points, log_l, log_l_min, self.log_v_live,
                     enlarge_per_dim=self.enlarge_per_dim,
                     n_points_min=self.n_points_min,
                     split_threshold=self.split_threshold,
@@ -880,132 +1019,102 @@ class Sampler():
                 self.blobs.append(np.zeros(0, dtype=self.blobs_dtype))
         else:
             self.shell_log_l_min[-1] = log_l_min
-
-        if verbose:
-            print('Adding Bound {:<4} {:>7}'.format(
-                str(len(self.bounds) + (not success)) + ':', 'done' if success
-                else 'skipped'))
-            if isinstance(self.bounds[-1], NautilusBound):
-                n_neural, n_ell =\
-                    self.bounds[-1].number_of_networks_and_ellipsoids()
-            else:
-                n_neural, n_ell = 0, 0
-            if success:
-                print("Ellipsoids: {:>13}".format(n_ell))
-                print("Neural Networks: {:>8}".format(n_neural))
-
-    def fill_bound(self, verbose=False):
-        """Fill a new bound with points until a new bound should be created.
-
-        Parameters
-        ----------
-        verbose : bool, optional
-            If True, print additional information. Default is False.
-
-        """
-        self.points[-1] = [self.points[-1], ]
-        self.log_l[-1] = [self.log_l[-1], ]
-
-        if self.blobs is not None:
-            self.blobs[-1] = [self.blobs[-1], ]
-
-        shell_t = []
-        points_t = []
-        log_l_t = []
-        if self.blobs is not None:
-            blobs_t = []
+            return False
 
         # Check which points points from previous shells could be transferred
         # to the new bound.
         if len(self.bounds) > 1:
+
+            self.shell_t = []
+            self.points_t = []
+            self.log_l_t = []
+            if self.blobs is not None:
+                self.blobs_t = []
+
             for shell in range(len(self.bounds) - 1):
 
                 in_bound = self.bounds[-1].contains(self.points[shell])
-                shell_t.append(np.repeat(shell, np.sum(in_bound)))
+                self.shell_t.append(np.repeat(shell, np.sum(in_bound)))
 
-                points_t.append(self.points[shell][in_bound])
+                self.points_t.append(self.points[shell][in_bound])
                 self.points[shell] = self.points[shell][~in_bound]
 
-                log_l_t.append(self.log_l[shell][in_bound])
+                self.log_l_t.append(self.log_l[shell][in_bound])
                 self.log_l[shell] = self.log_l[shell][~in_bound]
 
                 if self.blobs is not None:
-                    blobs_t.append(self.blobs[shell][in_bound])
+                    self.blobs_t.append(self.blobs[shell][in_bound])
                     self.blobs[shell] = self.blobs[shell][~in_bound]
 
                 self.shell_n[shell] -= np.sum(in_bound)
                 self.update_shell_info(shell)
 
-            shell_t = np.concatenate(shell_t)
-            points_t = np.concatenate(points_t)
-            log_l_t = np.concatenate(log_l_t)
+            self.shell_t = np.concatenate(self.shell_t)
+            self.points_t = np.concatenate(self.points_t)
+            self.log_l_t = np.concatenate(self.log_l_t)
             if self.blobs is not None:
-                blobs_t = np.concatenate(blobs_t)
+                self.blobs_t = np.concatenate(self.blobs_t)
 
-        log_l_min = self.shell_log_l_min[-1]
-        n_update = 0
-        n_like = 0
-        n_update_max = self.n_update
-        n_like_max = self.n_like_new_bound
-        if len(self.bounds) == 1:
-            n_update_max += self.n_live
-            n_like_max = np.inf
+    def add_samples(self, shell, verbose=False):
+        """Add samples to a shell.
 
+        The number of new points added is always equal to the batch size.
+
+        Parameters
+        ----------
+        shell : int
+            The index of the shell for which to add points.
+        verbose : bool, optional
+            If True, print additional information. Default is False.
+
+        Returns
+        -------
+        n_update : int
+            Number of new samples with likelihood equal or higher than the
+            likelihood threshold of the bound.
+
+        """
         if verbose:
-            pbar = tqdm(desc='Filling Bound {}'.format(len(self.bounds)),
-                        total=n_update_max, leave=False)
+            self.print_status('Sampling')
 
-        while n_update < n_update_max and n_like < n_like_max:
-            points, n_bound, idx_t = self.sample_shell(-1, shell_t)
+        if shell == -1 and len(self.shell_t) > 0:
+            points, n_bound, idx_t = self.sample_shell(-1, self.shell_t)
             assert len(points) + len(idx_t) == n_bound
-            log_l, blobs = self.evaluate_likelihood(points)
-            self.points[-1].append(points)
-            self.log_l[-1].append(log_l)
-            if blobs is not None:
-                # If the very first batch, create the list of blobs.
-                if self.n_like == self.n_batch:
-                    self.blobs = [[]]
-                self.blobs[-1].append(blobs)
-
             if len(idx_t) > 0:
-                self.points[-1].append(points_t[idx_t])
-                points_t = np.delete(points_t, idx_t, axis=0)
-                self.log_l[-1].append(log_l_t[idx_t])
-                log_l_t = np.delete(log_l_t, idx_t)
+                self.points[-1] = np.concatenate((
+                    self.points[-1], self.points_t[idx_t]))
+                self.log_l[-1] = np.concatenate((
+                    self.log_l[-1], self.log_l_t[idx_t]))
                 if self.blobs is not None:
-                    self.blobs[-1].append(blobs_t[idx_t])
-                    blobs_t = np.delete(blobs_t, idx_t, axis=0)
-                shell_t = np.delete(shell_t, idx_t)
+                    self.blobs[-1] = np.concatenate((
+                        self.blobs[-1], self.blobs_t[idx_t]))
+        else:
+            points, n_bound = self.sample_shell(shell)
 
-            self.shell_n[-1] += n_bound
-            self.shell_n_sample[-1] += n_bound
-            n_update += np.sum(log_l >= log_l_min)
-            n_like += len(points)
-
-            if verbose:
-                pbar.update(np.sum(log_l >= log_l_min))
-
-        self.points[-1] = np.concatenate(self.points[-1])
-        self.log_l[-1] = np.concatenate(self.log_l[-1])
-        if self.blobs is not None:
-            self.blobs[-1] = np.concatenate(self.blobs[-1])
-        self.update_shell_info(-1)
-
+        self.shell_n_sample[shell] += n_bound
         if verbose:
-            pbar.close()
-            print('Filling Bound {:<6} done'.format(
-                str(len(self.bounds)) + ':'))
-            self.print_status()
-            print('')
+            self.print_status('Computing')
+        log_l, blobs = self.evaluate_likelihood(points)
+        self.points[shell] = np.append(self.points[shell], points, axis=0)
+        self.log_l[shell] = np.append(self.log_l[shell], log_l, axis=0)
+        if blobs is not None:
+            if self.blobs is None:
+                self.blobs = [blobs]
+            else:
+                self.blobs[shell] = np.append(self.blobs[shell], blobs, axis=0)
+        self.update_shell_info(shell)
 
-    def live_evidence_fraction(self):
+        return np.sum(log_l >= self.shell_log_l_min[shell])
+
+    @property
+    def f_live(self):
         """Estimate the fraction of the evidence contained in the live set.
 
         This estimate can be used as a stopping criterion.
 
         Returns
         -------
-        log_z : float
+        f_live : float
             Estimate of the fraction of the evidence in the live set.
 
         """
@@ -1020,12 +1129,13 @@ class Sampler():
             log_w_live = log_w[np.argsort(log_l)][-self.n_live:]
             return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
 
-    def live_volume(self):
+    @property
+    def log_v_live(self):
         """Estimate the volume that is currently contained in the live set.
 
         Returns
         -------
-        log_v : float
+        log_v_live : float
             Estimate of the volume in the live set.
 
         """
@@ -1039,87 +1149,6 @@ class Sampler():
             log_v_live = log_v[np.argsort(log_l)][-self.n_live:]
 
             return logsumexp(log_v_live)
-
-    def add_samples_to_shell(self, shell):
-        """Add samples to a shell.
-
-        The number of points added is always equal to the batch size.
-
-        Parameters
-        ----------
-        shell : int
-            The index of the shell for which to add points.
-
-        """
-        points, n_bound = self.sample_shell(shell)
-        self.shell_n_sample[shell] += n_bound
-        log_l, blobs = self.evaluate_likelihood(points)
-        self.points[shell] = np.concatenate([self.points[shell], points])
-        self.log_l[shell] = np.concatenate([self.log_l[shell], log_l])
-        if self.blobs is not None:
-            self.blobs[shell] = np.concatenate([self.blobs[shell], blobs])
-        self.update_shell_info(shell)
-        if self.filepath is not None:
-            self.write_shell_update(self.filepath, shell)
-
-    def add_points(self, n_eff=0, n_shell=0, verbose=False):
-        """Add samples to shells.
-
-        This function add samples to the shell until very shell has a minimum
-        number of points and a minimum effective sample size is achieved.
-
-        Parameters
-        ----------
-        n_eff : float, optional
-            Minimum effective sample size. The algorithm will sample from the
-            shells until this is reached. Default is 0.
-        n_shell : int, optional
-            Minimum number of points in each shell. The algorithm will sample
-            from the shells until this is reached. Default is 0.
-        verbose : bool, optional
-            If True, print additional information. Default is False.
-
-        """
-        idx = np.flatnonzero(self.shell_n < n_shell)
-        if verbose and len(idx) > 0:
-            pbar = tqdm(desc='Sampling shells ', total=len(idx),
-                        leave=False)
-
-        for index in idx:
-            while self.shell_n[index] < n_shell:
-                self.add_samples_to_shell(index)
-            if verbose:
-                pbar.update(1)
-
-        if verbose and len(idx) > 0:
-            pbar.close()
-            print('Sampling shells:     done')
-            self.print_status()
-            print('')
-
-        d_n_eff = n_eff - self.effective_sample_size()
-
-        if verbose and d_n_eff > 0:
-            pbar = tqdm(desc='Sampling posterior', total=n_eff,
-                        leave=False, initial=self.effective_sample_size(),
-                        bar_format="{l_bar}{bar}{n:.0f}/{total_fmt} " +
-                        "[{elapsed}<{remaining}, {rate_fmt}{postfix}]")
-
-        while self.effective_sample_size() < n_eff:
-            index = np.argmax(
-                self.shell_log_l + self.shell_log_v -
-                0.5 * np.log(self.shell_n) - 0.5 * np.log(self.shell_n_eff))
-            n_eff_old = self.effective_sample_size()
-            self.add_samples_to_shell(index)
-            n_eff_new = self.effective_sample_size()
-            if verbose:
-                pbar.update(n_eff_new - n_eff_old)
-
-        if verbose and d_n_eff > 0:
-            pbar.close()
-            print('Sampling posterior:  done')
-            self.print_status()
-            print('')
 
     def shell_association(self, points, n_max=None):
         """Determine the shells each point belongs to.
@@ -1223,7 +1252,7 @@ class Sampler():
                     'n_like', 'explored', '_discard_exploration', 'shell_n',
                     'shell_n_sample', 'shell_n_eff', 'shell_log_l_min',
                     'shell_log_l', 'shell_log_v', 'shell_n_sample_exp',
-                    'shell_end_exp']:
+                    'shell_end_exp', 'n_update_iter', 'n_like_iter']:
             group.attrs[key] = getattr(self, key)
 
         for key in self.neural_network_kwargs.keys():
@@ -1243,6 +1272,14 @@ class Sampler():
                 group.create_dataset(
                     'blobs_{}'.format(shell), data=self.blobs[shell],
                     maxshape=tuple(maxshape))
+
+        group.create_dataset('points_t', data=self.points_t,
+                             maxshape=(None, self.n_dim))
+        group.create_dataset('shell_t', data=self.shell_t, maxshape=(None, ))
+        group.create_dataset('log_l_t', data=self.log_l_t, maxshape=(None, ))
+        if self.blobs_t is not None:
+            group.create_dataset('blobs_t', data=self.blobs_t,
+                                 maxshape=tuple(maxshape))
 
         for i, bound in enumerate(self.bounds):
             bound.write(fstream.create_group('bound_{}'.format(i)))
@@ -1266,11 +1303,14 @@ class Sampler():
             Shell index for which to write the upate.
 
         """
+        if shell < 0:
+            shell = len(self.bounds) + shell
         fstream = h5py.File(Path(filepath), 'r+')
         group = fstream['sampler']
 
         for key in ['n_like', 'shell_n', 'shell_n_sample', 'shell_n_eff',
-                    'shell_log_l_min', 'shell_log_l', 'shell_log_v']:
+                    'shell_log_l_min', 'shell_log_l', 'shell_log_v',
+                    'n_update_iter', 'n_like_iter']:
             group.attrs[key] = getattr(self, key)
 
         group['points_{}'.format(shell)].resize(self.points[shell].shape)
@@ -1280,6 +1320,11 @@ class Sampler():
         if self.blobs is not None:
             group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
             group['blobs_{}'.format(shell)][...] = self.blobs[shell]
+
+        for key in ['points_t', 'shell_t', 'log_l_t', 'blobs_t']:
+            if getattr(self, key) is not None:
+                group[key].resize(getattr(self, key).shape)
+                group[key][...] = getattr(self, key)
 
         if isinstance(self.bounds[shell], NautilusBound):
             self.bounds[shell].update(fstream['bound_{}'.format(shell)])
@@ -1291,19 +1336,3 @@ class Sampler():
         group.attrs['rng_uinteger'] = rng_state['uinteger']
 
         fstream.close()
-
-    def write_shell_information_update(self, filepath):
-        """Update the shell summary statistics.
-
-        Parameters
-        ----------
-        filepath : string or pathlib.Path
-            Path to the file. Must have a '.h5' or '.hdf5' extension.
-
-        """
-        with h5py.File(Path(filepath), 'r+') as fstream:
-            group = fstream['sampler']
-            for key in ['_discard_exploration', 'shell_n', 'shell_n_sample',
-                        'shell_n_eff', 'shell_log_l_min', 'shell_log_l',
-                        'shell_log_v', 'shell_n_sample_exp', 'shell_end_exp']:
-                group.attrs[key] = getattr(self, key)
