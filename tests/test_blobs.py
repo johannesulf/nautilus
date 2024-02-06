@@ -27,6 +27,8 @@ def test_blobs_single(prior, dtype, vectorized, discard_exploration):
                       vectorized=vectorized)
     sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
+    points, log_w, log_l, blobs = sampler.posterior(return_blobs=True,
+                                                    equal_weight=True)
 
     assert len(points) == len(blobs)
     assert blobs.dtype == dtype

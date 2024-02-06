@@ -604,7 +604,11 @@ class Sampler():
         if equal_weight:
             select = (self.rng.random(len(log_w)) <
                       np.exp(log_w - np.amax(log_w)))
-            points = points[select]
+            if return_as_dict:
+                for key in points.keys():
+                    points[key] = points[key][select]
+            else:
+                points = points[select]
             log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
             log_l = log_l[select]
             if return_blobs:
@@ -696,6 +700,25 @@ class Sampler():
         shell_eta = shell_eta[select]
         return np.exp(2 * logsumexp(shell_log_z) - 2 * logsumexp(
             shell_log_z - 0.5 * np.log(shell_eta)))
+
+    def asymptotic_sampling_efficiency(self):
+        r"""Estimate the asymptotic sampling efficiency :math:`\eta`.
+
+        The asymptotic sampling efficiency is defined as
+        :math:`\eta = \lim_{N_{\rm like} \to \infty} N_{\rm eff} / N_{\rm like}`.
+        This is set after the exploration phase. However, the estimate will be
+        updated based on what is found in the sampling phase.
+
+        Returns
+        -------
+        eta : float
+            Estimate of the asymptotic sampling efficiency.
+
+        """
+        warn("The function 'asymptotic_sampling_efficiency' is deprecated. " +
+             "Please use the property 'log_z', instead.", DeprecationWarning,
+             stacklevel=2)
+        return self.eta
 
     def sample_shell(self, index, shell_t=None):
         """Sample a batch of points uniformly from a shell.
@@ -1105,21 +1128,6 @@ class Sampler():
             log_w = log_v + log_l
             log_w_live = log_w[np.argsort(log_l)][-self.n_live:]
             return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
-
-    def live_evidence_fraction(self):
-        """Estimate the fraction of the evidence contained in the live set.
-
-        This estimate can be used as a stopping criterion.
-
-        Returns
-        -------
-        f_live : float
-            Estimate of the fraction of the evidence in the live set.
-
-        """
-        warn("The function 'live_evidence_fraction' is deprecated. " +
-             "Please use the property 'f_live', instead.",
-             DeprecationWarning, stacklevel=2)
 
     @property
     def log_v_live(self):

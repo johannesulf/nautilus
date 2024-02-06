@@ -28,13 +28,48 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
 
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
-        vectorized=vectorized, pass_dict=pass_dict, n_live=500)
-    sampler.run(f_live=0.45, n_eff=0, verbose=True)
+        vectorized=vectorized, pass_dict=pass_dict, n_live=200)
+    sampler.run(n_like_max=500, verbose=True)
+    sampler = Sampler(
+        prior, likelihood, n_dim=2, n_networks=n_networks,
+        vectorized=vectorized, pass_dict=None, n_live=200)
+    sampler.run(n_like_max=500, verbose=True)
+    points, log_w, log_l = sampler.posterior()
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
+    points, log_w, log_l = sampler.posterior(
+        return_as_dict=pass_dict, equal_weight=True)
     assert sampler.n_eff > 0
     sampler.log_z
     assert sampler.eta > 0
     assert sampler.eta < 1
+
+
+def test_sampler_errors_and_warnings():
+    # Test that the sampler correctly raises errors and warnings.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+
+    with pytest.raises(ValueError):
+        Sampler(prior, likelihood)
+
+    with pytest.raises(ValueError):
+        Sampler(prior, likelihood, 1)
+
+    sampler = Sampler(prior, likelihood, 2, n_live=300)
+    sampler.run(n_like_max=1000)
+
+    with pytest.warns(DeprecationWarning):
+        sampler.evidence()
+    with pytest.warns(DeprecationWarning):
+        sampler.effective_sample_size()
+    with pytest.warns(DeprecationWarning):
+        sampler.asymptotic_sampling_efficiency()
+    with pytest.raises(ValueError):
+        sampler.posterior(return_blobs=True)
 
 
 @pytest.mark.parametrize("discard_exploration_start", [True, False])
