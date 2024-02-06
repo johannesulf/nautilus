@@ -85,12 +85,13 @@ class UnitCube():
         points = self.rng.random(size=(n_points, self.n_dim))
         return points
 
-    def volume(self):
+    @property
+    def log_v(self):
         """Return the natural log of the volume of the bound.
 
         Returns
         -------
-        float
+        log_v : float
             The natural log of the volume of the bound.
 
         """
@@ -256,8 +257,6 @@ class Ellipsoid():
         Cholesky decomposition of the inverse of A.
     B_inv : numpy.ndarray
         Inverse of B.
-    log_v : float
-        Natural log of the volume of the ellipsoid.
     rng : numpy.random.Generator
         Determines random number generation.
 
@@ -308,10 +307,6 @@ class Ellipsoid():
         A_inv *= enlarge_per_dim**2.0
         bound.B = np.linalg.cholesky(A_inv)
         bound.B_inv = np.linalg.inv(bound.B)
-        bound.log_v = (np.linalg.slogdet(bound.B)[1] +
-                       bound.n_dim * np.log(2.) +
-                       bound.n_dim * gammaln(1.5) -
-                       gammaln(bound.n_dim / 2.0 + 1))
 
         if rng is None:
             bound.rng = np.random.default_rng()
@@ -385,7 +380,8 @@ class Ellipsoid():
         points = self.transform(points, inverse=True)
         return points
 
-    def volume(self):
+    @property
+    def log_v(self):
         """Return the natural log of the volume of the bound.
 
         Returns
@@ -394,7 +390,8 @@ class Ellipsoid():
             The natural log of the volume.
 
         """
-        return self.log_v
+        return (np.linalg.slogdet(self.B)[1] + self.n_dim * np.log(2.) +
+                self.n_dim * gammaln(1.5) - gammaln(self.n_dim / 2.0 + 1))
 
     def write(self, group):
         """Write the bound to an HDF5 group.
@@ -406,7 +403,7 @@ class Ellipsoid():
 
         """
         group.attrs['type'] = 'Ellipsoid'
-        for key in ['n_dim', 'c', 'A', 'B', 'B_inv', 'log_v']:
+        for key in ['n_dim', 'c', 'A', 'B', 'B_inv']:
             group.attrs[key] = getattr(self, key)
 
     @classmethod
@@ -433,7 +430,7 @@ class Ellipsoid():
         else:
             bound.rng = rng
 
-        for key in ['n_dim', 'c', 'A', 'B', 'B_inv', 'log_v']:
+        for key in ['n_dim', 'c', 'A', 'B', 'B_inv']:
             setattr(bound, key, group.attrs[key])
 
         return bound
@@ -524,7 +521,7 @@ class UnitCubeEllipsoidMixture():
             ellipsoid_proj = Ellipsoid.compute(
                 points[:, ~bound.dim_cube], **kwargs)
 
-            if ellipsoid_proj.volume() < ellipsoid.volume():
+            if ellipsoid_proj.log_v < ellipsoid.log_v:
                 ellipsoid = ellipsoid_proj
             else:
                 bound.dim_cube[dim] = False
@@ -535,7 +532,7 @@ class UnitCubeEllipsoidMixture():
         # ellipsoid may have a volume larger than the unit cube. If that's the
         # case, start from the unit cube and add dimensions to sample from
         # ellipsoids until volume doesn't decrease.
-        if ellipsoid.volume() > 0:
+        if ellipsoid.log_v > 0:
             ellipsoid = UnitCube.compute(points)
             bound.dim_cube = np.ones(bound.n_dim, dtype=bool)
             # Check which dimensions are better sampled from an ellipsoid,
@@ -547,7 +544,7 @@ class UnitCubeEllipsoidMixture():
                     tested[dim] = True
                     ellipsoid_test = Ellipsoid.compute(
                         points[:, ~bound.dim_cube], **kwargs)
-                    if ellipsoid.volume() > ellipsoid_test.volume():
+                    if ellipsoid.log_v > ellipsoid_test.log_v:
                         ellipsoid = ellipsoid_test
                         tested[bound.dim_cube] = False
                     else:
@@ -642,7 +639,8 @@ class UnitCubeEllipsoidMixture():
             points[:, idx] = self.ellipsoid.sample(n_points)
         return points
 
-    def volume(self):
+    @property
+    def log_v(self):
         """Return the natural log of the volume of the bound.
 
         Returns
@@ -654,7 +652,7 @@ class UnitCubeEllipsoidMixture():
         if self.ellipsoid is None:
             return 0
         else:
-            return self.ellipsoid.volume()
+            return self.ellipsoid.log_v
 
     def write(self, group):
         """Write the bound to an HDF5 group.

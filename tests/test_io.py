@@ -83,7 +83,7 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
 
     if ((rng_sync or bound_class in [UnitCube, Ellipsoid]) and not
             bound_class == NeuralBound):
-        assert bound_write.volume() == bound_read.volume()
+        assert bound_write.log_v == bound_read.log_v
 
     points = np.random.random((10000, n_dim))
     assert np.all(bound_write.contains(points) == bound_read.contains(points))
@@ -102,7 +102,7 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
                 == rng_sync)
 
         if rng_sync:
-            assert bound_write.volume() == bound_read.volume()
+            assert bound_write.log_v == bound_read.log_v
 
 
 @pytest.mark.parametrize("blobs", [True, False])

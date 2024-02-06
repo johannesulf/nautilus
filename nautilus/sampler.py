@@ -865,13 +865,13 @@ class Sampler():
             start = 0
 
         log_l = self.log_l[index][start:]
-        self.shell_n[index] = len(log_l)
+        shell_n = len(log_l)
+        self.shell_n[index] = shell_n
 
         if self.shell_n[index] > 0:
-            self.shell_log_v[index] = (
-                self.bounds[index].volume() +
-                np.log(self.shell_n[index] / shell_n_sample))
-            self.shell_log_l[index] = logsumexp(log_l) - np.log(len(log_l))
+            self.shell_log_v[index] = (self.bounds[index].log_v +
+                                       np.log(shell_n / shell_n_sample))
+            self.shell_log_l[index] = logsumexp(log_l) - np.log(shell_n)
             if not np.all(log_l == -np.inf):
                 self.shell_n_eff[index] = np.exp(2 * logsumexp(log_l) -
                                                  logsumexp(2 * log_l))
@@ -910,12 +910,13 @@ class Sampler():
         else:
             n_bounds = len(self.bounds)
             if n_bounds > 1:
-                n_net, n_ell = self.bounds[-1].number_of_networks_and_ellipsoids()
+                n_ell = self.bounds[-1].n_ell
+                n_net = self.bounds[-1].n_net
             else:
-                n_net = 0
                 n_ell = 0
-            n_net = str(n_net)
+                n_net = 0
             n_ell = str(n_ell)
+            n_net = str(n_net)
             n_like = str(self.n_like)
             if np.all(self.shell_n > 0) and np.all(self.shell_n_sample > 0):
                 f_live = '{:.4f}'.format(self.f_live)
@@ -978,7 +979,7 @@ class Sampler():
                     neural_network_kwargs=self.neural_network_kwargs,
                     pool=self.pool_s, rng=self.rng)
                 bound.sample(1000, return_points=False, pool=self.pool_s)
-            if bound.volume() < self.bounds[-1].volume():
+            if bound.log_v < self.bounds[-1].log_v:
                 self.bounds.append(bound)
                 success = True
 
@@ -1030,6 +1031,8 @@ class Sampler():
             self.log_l_t = np.concatenate(self.log_l_t)
             if self.blobs is not None:
                 self.blobs_t = np.concatenate(self.blobs_t)
+
+        return True
 
     def add_samples(self, shell, verbose=False):
         """Add samples to a shell.

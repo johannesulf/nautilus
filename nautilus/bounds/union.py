@@ -59,7 +59,7 @@ class Union():
         further.
     bounds : list
         List of individual bounds.
-    log_v : numpy.ndarray
+    log_v_all : numpy.ndarray
         Natural log of the volume of each individual bound.
     block : numpy.ndarray
         List indicating whether a bound should not be split further because
@@ -136,7 +136,7 @@ class Union():
         bound.bounds = [bound_class.compute(
             points, enlarge_per_dim=enlarge_per_dim,
             rng=rng)]
-        bound.log_v = np.array([bound.bounds[0].volume()])
+        bound.log_v_all = np.array([bound.bounds[0].log_v])
         bound.block = np.atleast_1d(len(points) < 2 * bound.n_points_min)
 
         bound.points = np.zeros((0, points.shape[1]))
@@ -179,7 +179,7 @@ class Union():
         if not np.any(~self.block):
             return False
 
-        index = np.argmax(np.where(~self.block, self.log_v, -np.inf))
+        index = np.argmax(np.where(~self.block, self.log_v_all, -np.inf))
         points = self.bounds[index].transform(self.points_bounds[index])
 
         gmm = GaussianMixture(
@@ -207,8 +207,8 @@ class Union():
                 self.bounds[:index] + self.bounds[index+1:] + new_bounds):
             return False
 
-        if (logsumexp([new_bounds[0].volume(), new_bounds[1].volume()]) >
-                self.bounds[index].volume()):
+        if (logsumexp([new_bounds[0].log_v, new_bounds[1].log_v]) >
+                self.bounds[index].log_v):
             self.block[index] = True
             return self.split(allow_overlap=allow_overlap)
 
@@ -217,7 +217,7 @@ class Union():
         self.points_bounds.append(points[labels == 1])
         self.bounds.pop(index)
         self.bounds = self.bounds + new_bounds
-        self.log_v = np.array([bound.volume() for bound in self.bounds])
+        self.log_v_all = np.array([bound.log_v for bound in self.bounds])
         self.block = np.concatenate(
             (np.delete(self.block, index),
              [len(self.points_bounds[-2]) < 2 * self.n_points_min,
@@ -252,7 +252,7 @@ class Union():
 
         log_n = np.array([np.log(len(points)) for points in
                           self.points_bounds])
-        log_v = np.array([bound.volume() for bound in self.bounds])
+        log_v = np.array([bound.log_v for bound in self.bounds])
         log_r = log_n - log_v
         index = np.argmin(log_r)
 
@@ -260,7 +260,7 @@ class Union():
                 threshold):
             self.points_bounds.pop(index)
             self.bounds.pop(index)
-            self.log_v = np.array([bound.volume() for bound in self.bounds])
+            self.log_v_all = np.array([bound.log_v for bound in self.bounds])
             self.reset()
             return True
         else:
@@ -305,7 +305,7 @@ class Union():
         while len(self.points) < n_points:
             n_sample = 1000
 
-            p = np.exp(np.array(self.log_v) - logsumexp(self.log_v))
+            p = np.exp(np.array(self.log_v_all) - logsumexp(self.log_v_all))
             n_per_bound = self.rng.multinomial(n_sample, p)
 
             points = np.vstack([bound.sample(n) for bound, n in
@@ -326,7 +326,8 @@ class Union():
         self.points = self.points[n_points:]
         return points
 
-    def volume(self):
+    @property
+    def log_v(self):
         """Return the natural log of the volume of the bound.
 
         Returns
@@ -338,7 +339,7 @@ class Union():
         if self.n_sample == 0:
             self.sample()
 
-        return logsumexp(self.log_v) + np.log(
+        return logsumexp(self.log_v_all) + np.log(
             1.0 - self.n_reject / self.n_sample)
 
     def write(self, group):
@@ -351,7 +352,7 @@ class Union():
 
         """
         group.attrs['type'] = 'MultiEllipsoid'
-        for key in ['n_dim', 'log_v', 'enlarge_per_dim', 'n_points_min',
+        for key in ['n_dim', 'log_v_all', 'enlarge_per_dim', 'n_points_min',
                     'n_sample', 'n_reject']:
             group.attrs[key] = getattr(self, key)
 
@@ -406,7 +407,7 @@ class Union():
         else:
             bound.rng = rng
 
-        for key in ['n_dim', 'log_v', 'enlarge_per_dim', 'n_points_min',
+        for key in ['n_dim', 'log_v_all', 'enlarge_per_dim', 'n_points_min',
                     'n_sample', 'n_reject']:
             setattr(bound, key, group.attrs[key])
 
@@ -420,9 +421,9 @@ class Union():
 
         bound.bounds = [bound_class.read(
             group['bound_{}'.format(i)], rng=bound.rng)
-            for i in range(len(bound.log_v))]
+            for i in range(len(bound.log_v_all))]
         bound.points_bounds = [np.array(group['points_bound_{}'.format(i)]) for
-                               i in range(len(bound.log_v))]
+                               i in range(len(bound.log_v_all))]
         bound.points = np.array(group['points'])
 
         return bound

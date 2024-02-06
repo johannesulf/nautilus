@@ -275,14 +275,14 @@ class NautilusBound():
 
         # If the single bounding ellipsoid is too large, split ellipsoids
         # further.
-        while bound.outer_bound.volume() - log_v_target > np.log(
+        while bound.outer_bound.log_v - log_v_target > np.log(
                 split_threshold * enlarge_per_dim**points.shape[1]):
             if not bound.outer_bound.split():
                 break
 
         # If the ellipsoid union is still too large, check whether some
         # ellipsoids have too low densities and should be dropped.
-        while bound.outer_bound.volume() - log_v_target > np.log(
+        while bound.outer_bound.log_v - log_v_target > np.log(
                 split_threshold * enlarge_per_dim**points.shape[1]):
             if not bound.outer_bound.trim():
                 break
@@ -394,7 +394,8 @@ class NautilusBound():
             self.points = self.points[n_points:]
             return points
 
-    def volume(self):
+    @property
+    def log_v(self):
         """Return the natural log of the volume.
 
         Returns
@@ -407,30 +408,35 @@ class NautilusBound():
         if self.n_sample == 0:
             self.sample(return_points=False)
 
-        return self.outer_bound.volume() + np.log(
+        return self.outer_bound.log_v + np.log(
             1.0 - self.n_reject / self.n_sample)
 
-    def number_of_networks_and_ellipsoids(self):
-        """Return the number of neural networks and sample ellipsoids.
+    @property
+    def n_ell(self):
+        """Return the number of ellipsoids in the bound.
 
         Returns
         -------
-        n_networks : int
+        n_ell : int
+            The number of ellipsoids.
+        """
+        return np.sum([np.any(~bound.dim_cube) for bound in
+                       self.outer_bound.bounds])
+
+    @property
+    def n_net(self):
+        """Return the number of neural networks in the bound.
+
+        Returns
+        -------
+        n_net : int
             The number of neural networks.
-        n_ellipsoids : int
-            The number of sample ellipsoids.
         """
         if self.neural_bounds[0].emulator is not None:
-            n_networks = len(self.neural_bounds) * len(
+            return len(self.neural_bounds) * len(
                 self.neural_bounds[0].emulator.neural_networks)
         else:
-            n_networks = 0
-
-        n_ellipsoids = 0
-        for bound in self.outer_bound.bounds:
-            n_ellipsoids += np.any(~bound.dim_cube)
-
-        return n_networks, n_ellipsoids
+            return 0
 
     def write(self, group):
         """Write the bound to an HDF5 group.

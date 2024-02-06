@@ -53,8 +53,7 @@ def test_unit_cube():
     assert points.shape == (n_points, n_dim)
     assert np.all((points >= 0) & (points < 1))
     assert np.all(cube.contains(points))
-
-    assert cube.volume() == 0
+    assert cube.log_v == 0
 
 
 def test_unit_cube_rng():
@@ -142,8 +141,8 @@ def test_ellipsoid_volume(points_on_hypersphere_boundary):
             points_on_hypersphere_boundary, enlarge_per_dim=enlarge_per_dim)
         n_dim = points_on_hypersphere_boundary.shape[1]
         assert np.isclose(
-            ell.volume(), np.log(enlarge_per_dim**n_dim * np.pi**(n_dim / 2) /
-                                 gamma(n_dim / 2 + 1)))
+            ell.log_v, np.log(enlarge_per_dim**n_dim * np.pi**(n_dim / 2) /
+                               gamma(n_dim / 2 + 1)))
 
 
 def test_ellipsoid_transform(random_points_from_hypersphere):
@@ -236,18 +235,18 @@ def test_union_split_and_trim(random_points_from_hypersphere):
                                  rng=np.random.default_rng(0))
 
     # The volume should be large.
-    assert bound.volume() > 15
+    assert bound.log_v > 15
     # We should be able to split the bound at least twice.
     assert bound.split()
     assert bound.split()
     # In this case, splitting should not help substantially in reducing the
     # volume since one ellipsoid covers points from the sphere at 1e7 and a few
     # points outside it at ~0.
-    assert bound.volume() > 15
+    assert bound.log_v > 15
     # Trimming involves removing the lowest-density ellipsoid and its points.
     assert bound.trim()
     # Now the volume should be reasonable.
-    assert bound.volume() < 5
+    assert bound.log_v < 5
     # Removing more ellipsoid should fail since they all have similar
     # densities.
     assert not bound.trim()
@@ -356,11 +355,11 @@ def test_nautilus_bound_gaussian_shell():
     points = nbound.sample(10000)
     log_l = -((np.linalg.norm(points - 0.5, axis=1) - radius) / width)**2
     # The volume should be close to the true volume where log_l > log_l_min.
-    assert np.isclose(nbound.volume(), log_v_target, rtol=0, atol=np.log(2))
+    assert np.isclose(nbound.log_v, log_v_target, rtol=0, atol=np.log(2))
     # Most sampled points should have log_l > log_l_min.
     assert np.mean(log_l > log_l_min) > 0.5
     # We should have only one neural network.
-    assert nbound.number_of_networks_and_ellipsoids()[0] == 1
+    assert nbound.n_net == 1
 
 
 def test_nautilus_bound_two_peaks():
@@ -387,11 +386,11 @@ def test_nautilus_bound_two_peaks():
     points = nbound.sample(10000)
     log_l = likelihood(points)
     # The volume should be close to the true volume where log_l > log_l_min.
-    assert np.isclose(nbound.volume(), log_v_target, rtol=0, atol=0.1)
+    assert np.isclose(nbound.log_v, log_v_target, rtol=0, atol=0.1)
     # Most sampled points should have log_l > log_l_min.
     assert np.mean(log_l > log_l_min) > 0.9
     # We should have two neural networks.
-    assert nbound.number_of_networks_and_ellipsoids()[0] == 2
+    assert nbound.n_net == 2
 
 
 @pytest.mark.parametrize("n_jobs", [1, 2])
@@ -414,10 +413,10 @@ def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
 
     nbound.reset(np.random.default_rng(0))
     points_1 = nbound.sample(10000, pool=pool)
-    volume_1 = nbound.volume()
+    volume_1 = nbound.log_v
     nbound.reset(np.random.default_rng(0))
     points_2 = nbound.sample(10000, pool=pool)
-    volume_2 = nbound.volume()
+    volume_2 = nbound.log_v
 
     if n_jobs > 1:
         pool.close()
