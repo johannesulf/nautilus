@@ -5,7 +5,7 @@ Top-Level Interface
 ===================
 
 .. autoclass:: nautilus.Sampler
-    :members: run, posterior, effective_sample_size, evidence, shell_bound_occupation
+    :members: run, posterior, n_eff, log_z, eta, shell_bound_occupation
     :member-order: bysource
 
 .. autoclass:: nautilus.Prior
