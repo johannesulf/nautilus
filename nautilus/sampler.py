@@ -5,7 +5,6 @@ try:
 except ImportError:
     pass
 import numpy as np
-import warnings
 
 from functools import partial
 from multiprocessing import Pool
@@ -399,15 +398,16 @@ class Sampler():
 
         if len(self.bounds) == 0:
             self.add_bound()
-            self.n_update_iter = -self.n_update
+            self.n_update_iter = -self.n_live
             self.n_like_iter = 0
 
         while self.n_like < n_like_max:
 
             if not self.explored:
 
-                if (self.n_update_iter >= self.n_update or
-                        self.n_like_iter >= self.n_like_new_bound):
+                if ((self.n_update_iter >= self.n_update or
+                     self.n_like_iter >= self.n_like_new_bound) and
+                        np.sum(self.shell_n) > self.n_live):
                     self.add_bound(verbose=verbose)
                     self.n_update_iter = 0
                     self.n_like_iter = 0
@@ -883,8 +883,7 @@ class Sampler():
             self.shell_n_eff[index] = 0
 
     def print_status(self, status='', header=False):
-        """
-        Print current summary statistics.
+        """Print current summary statistics.
 
         Parameters
         ----------

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed a crash when returning the posterior as a dictionary and with equal weight.
+- Fixed a potential crash when `n_update` is extremely low.
 
 ### Depcrecated
 - The `evidence`, `asymptotic_sampling_efficiency`, and `effective_sample_size` sampler functions are deprecated and replaced by the `log_z`, `eta`, and `n_eff` properties, respectively.

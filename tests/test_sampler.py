@@ -206,6 +206,45 @@ def test_sampler_enlarge_per_dim():
                       atol=1e-4)
 
 
+def test_sampler_empty_shells():
+    # Test that the sampler can correctly deal with shells that are empty at
+    # the end of the run. This is a somewhat contrived example that should
+    # result in empty shells since each one should only have one sample, on
+    # average.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5)**2 * 0.001
+
+    sampler = Sampler(prior, likelihood, n_dim=2,
+                      n_networks=0, seed=0, n_update=1, n_live=10, n_batch=1)
+    sampler.run(f_live=1e-3, n_eff=0)
+
+
+def test_sampler_n_like_max():
+    # Test that the sampler correctly stops when hitting the maximum number of
+    # likelihood calls and can resume afterwards.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5)**2 * 0.001
+
+    sampler_a = Sampler(prior, likelihood, n_dim=2, n_networks=0, seed=0)
+    sampler_b = Sampler(prior, likelihood, n_dim=2, n_networks=0, seed=0)
+
+    sampler_a.run()
+    for n_like_max in range(sampler_a.n_like + 1):
+        sampler_b.run(n_like_max=n_like_max)
+        assert sampler_b.n_like <= n_like_max + sampler_b.n_batch
+
+    assert sampler_a.log_z == sampler_b.log_z
+    assert sampler_a.n_eff == sampler_b.n_eff
+
+
 def test_sampler_funnel():
     # Test the sampler on a funnel distribution. This is a great, challenging
     # distribution. Also, the nature of the likelihood leads to nautilus
