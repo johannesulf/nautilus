@@ -8,6 +8,7 @@ from threadpoolctl import threadpool_limits
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
 from ..neural import NeuralNetworkEmulator
+from ..pool import pool_size
 
 
 class NeuralBound():
@@ -373,13 +374,7 @@ class NautilusBound():
                     self.n_sample += n_sample
                     self.n_reject += n_sample - len(points)
             else:
-                n_jobs = None
-                for attr in ['_processes', '_max_workers', 'size']:
-                    if hasattr(pool, attr):
-                        n_jobs = getattr(pool, attr)
-                        break
-                if n_jobs is None:
-                    raise ValueError('Cannot determine size of pool.')
+                n_jobs = pool_size(pool)
                 n_points_per_job = (
                     (max(n_points - len(self.points), 10000)) // n_jobs) + 1
                 func = partial(self._reset_and_sample, n_points_per_job)

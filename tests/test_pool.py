@@ -41,3 +41,5 @@ def test_pool(pool):
         n_jobs = pool._processes
 
     assert len(np.unique(blobs)) == n_jobs
+    assert sampler.n_batch >= 100
+    assert (sampler.n_batch % n_jobs) == 0

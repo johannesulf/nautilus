@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated the terminal output to be more compact and more friendly for log files. This also removes the dependency on `tqdm`. (#36)
 - The user can now specify a maximum number of likelihood calls. If that number is exceeded, the sampler will automatically stop. (#23)
+- By default, the batch size is now dynamically determined at the start based on the pool size. This should prevent issues for new users parallelizing over a large number of CPUs.
 
 ### Fixed
 - Fixed a crash when returning the posterior as a dictionary and with equal weight.

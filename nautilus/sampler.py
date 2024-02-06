@@ -15,34 +15,7 @@ from threadpoolctl import threadpool_limits
 from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
-
-
-def initialize_worker(likelihood):
-    """Initialize a worker for likelihood evaluations.
-
-    Parameters
-    ----------
-    likelihood : function
-        Likelihood function that each worker will evaluate.
-    """
-    global LIKELIHOOD
-    LIKELIHOOD = likelihood
-
-
-def likelihood_worker(*args):
-    """Have the worker evaluate the likelihood.
-
-    Parameters
-    ----------
-    *args : tuple
-        Arguments to be passed to the likelihood function.
-
-    Returns
-    -------
-    object
-        Return value of the likelihood function.
-    """
-    return LIKELIHOOD(*args)
+from .pool import initialize_worker, likelihood_worker, pool_size
 
 
 class Sampler():
@@ -149,7 +122,7 @@ class Sampler():
                  split_threshold=100, n_networks=4,
                  neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
-                 likelihood_kwargs=dict(), n_batch=100,
+                 likelihood_kwargs=dict(), n_batch=None,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
                  pool=None, seed=None, blobs_dtype=None, filepath=None,
                  resume=True):
@@ -201,13 +174,12 @@ class Sampler():
             List of extra positional arguments for `likelihood`.
         likelihood_kwargs : dict, optional
             Dictionary of extra keyword arguments for `likelihood`.
-        n_batch : int, optional
+        n_batch : int or None, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
-            of the number of parallel processes. Very large numbers can
-            lead to new bounds being created long after `n_update` additions to
-            the live set have been achieved. This will not cause any bias but
-            could reduce efficiency. Default is 100.
+            of the number of parallel processes. If None, will be the smallest
+            multiple of the pool size used for likelihood calls that is at
+            least 100. Default is None.
         n_like_new_bound : None or int, optional
             The maximum number of likelihood calls before a new bounds is
             created. If None, use 10 times `n_live`. Default is None.
@@ -300,7 +272,6 @@ class Sampler():
         self.n_networks = n_networks
 
         self.neural_network_kwargs = neural_network_kwargs
-        self.n_batch = n_batch
         self.vectorized = vectorized
         self.pass_dict = pass_dict
 
@@ -322,6 +293,11 @@ class Sampler():
 
         self.pool_l = pool[0]
         self.pool_s = pool[-1]
+
+        if n_batch is None:
+            s = 1 if self.pool_l is None else pool_size(self.pool_l)
+            n_batch = (100 // s + (100 % s != 0)) * s
+        self.n_batch = n_batch
 
         self.rng = np.random.default_rng(seed)
 
