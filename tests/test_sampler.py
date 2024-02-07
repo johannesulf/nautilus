@@ -60,7 +60,7 @@ def test_sampler_errors_and_warnings():
         Sampler(prior, likelihood, 1)
 
     sampler = Sampler(prior, likelihood, 2, n_live=300)
-    sampler.run(n_like_max=1000)
+    sampler.run(n_like_max=1000, verbose=True)
 
     with pytest.warns(DeprecationWarning):
         sampler.evidence()
@@ -86,7 +86,7 @@ def test_sampler_switch_exploration(
 
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=1, vectorized=True, n_live=500)
-    sampler.run(f_live=0.45, n_eff=10000, verbose=False,
+    sampler.run(f_live=0.45, n_eff=10000, verbose=True,
                 discard_exploration=discard_exploration_start)
     assert sampler.discard_exploration == discard_exploration_start
     points, log_w, log_l = sampler.posterior()
@@ -135,7 +135,7 @@ def test_sampler_prior(custom_prior, vectorized, pass_dict):
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=1, vectorized=vectorized,
         pass_dict=pass_dict, n_live=500)
-    sampler.run(f_live=0.45, n_eff=0, verbose=False)
+    sampler.run(f_live=0.45, n_eff=0, verbose=True)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     if custom_prior and pass_dict:
         with pytest.raises(ValueError):
@@ -160,7 +160,7 @@ def test_sampler_accuracy(n_networks, discard_exploration):
     sampler = Sampler(prior, likelihood, n_dim=n_dim, n_live=500,
                       n_networks=n_networks, seed=0)
     sampler.run(discard_exploration=discard_exploration, f_live=0.1,
-                verbose=False)
+                verbose=True)
 
     assert np.abs(sampler.log_z) < 0.05
 
@@ -194,7 +194,7 @@ def test_sampler_enlarge_per_dim():
 
     sampler = Sampler(prior, likelihood, n_dim=2, enlarge_per_dim=100,
                       n_networks=0, seed=0)
-    sampler.run(f_live=0.1, n_eff=0)
+    sampler.run(f_live=0.1, n_eff=0, verbose=True)
 
     # The effective sample size should be very close to the number of calls
     # since the likelihood is extremely flat.
@@ -220,7 +220,7 @@ def test_sampler_empty_shells():
 
     sampler = Sampler(prior, likelihood, n_dim=2,
                       n_networks=0, seed=0, n_update=1, n_live=10, n_batch=1)
-    sampler.run(f_live=1e-3, n_eff=0)
+    sampler.run(f_live=1e-3, n_eff=0, verbose=True)
 
 
 def test_sampler_n_like_max():
@@ -236,9 +236,9 @@ def test_sampler_n_like_max():
     sampler_a = Sampler(prior, likelihood, n_dim=2, n_networks=0, seed=0)
     sampler_b = Sampler(prior, likelihood, n_dim=2, n_networks=0, seed=0)
 
-    sampler_a.run()
+    sampler_a.run(verbose=True)
     for n_like_max in range(sampler_a.n_like + 1):
-        sampler_b.run(n_like_max=n_like_max)
+        sampler_b.run(n_like_max=n_like_max, verbose=True)
         assert sampler_b.n_like <= n_like_max + sampler_b.n_batch
 
     assert sampler_a.log_z == sampler_b.log_z
@@ -268,7 +268,7 @@ def test_sampler_funnel():
     log_z_true = np.log(np.mean((x_0 > 0) & (x_0 < 1) & (x_1 > 0) & (x_1 < 1)))
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_networks=1, seed=0)
-    sampler.run()
+    sampler.run(verbose=True)
     assert np.isclose(log_z_true, sampler.log_z, rtol=0, atol=0.1)
     # Check whether the boundaries nautilus drew are strictly nested.
     shell_bound_occupation = sampler.shell_bound_occupation()

@@ -10,6 +10,7 @@ from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
+from shutil import get_terminal_size
 from threadpoolctl import threadpool_limits
 from warnings import warn
 
@@ -390,11 +391,14 @@ class Sampler():
             required for a fully unbiased posterior and evidence estimate.
             Default is False.
         verbose : bool, optional
-            If True, print additional information. Default is False.
+            If True, print information about sampler progress. Default is
+            False.
 
         """
         if verbose:
-            self.print_status(None, header=True)
+            print('Starting the nautilus sampler...')
+            print('Please report issues at github.com/johannesulf/nautilus.')
+            self.print_status(header=True)
 
         if len(self.bounds) == 0:
             self.add_bound()
@@ -468,7 +472,6 @@ class Sampler():
 
         if verbose:
             self.print_status('Finished')
-            print()
 
     @property
     def discard_exploration(self):
@@ -608,6 +611,8 @@ class Sampler():
             Estimate of the total effective sample size :math:`N_{\rm eff}`.
 
         """
+        if np.all(self.shell_n_eff == 0):
+            return 0
         select = self.shell_n_eff > 0
         sum_w = np.exp(self.shell_log_l + self.shell_log_v -
                        np.nanmax(self.shell_log_l + self.shell_log_v))[select]
@@ -634,10 +639,12 @@ class Sampler():
 
         Returns
         -------
-        log_z : float
+        log_z : float or None
             Estimate of the global evidence :math:`\log \mathcal{Z}`.
 
         """
+        if np.sum(self.shell_n) == 0:
+            return None
         select = ~np.isnan(self.shell_log_l)
         return logsumexp(self.shell_log_l[select] + self.shell_log_v[select])
 
@@ -882,7 +889,7 @@ class Sampler():
             self.shell_log_l[index] = np.nan
             self.shell_n_eff[index] = 0
 
-    def print_status(self, status='', header=False):
+    def print_status(self, status='', header=False, end='\n'):
         """Print current summary statistics.
 
         Parameters
@@ -891,52 +898,33 @@ class Sampler():
             Status of the sampler to be printed. Default is ''.
         header : bool, optional
             If True, print a static header. Default is False.
+        end : str, optional
+            String printed at the end. Default is newline.
 
         """
         if header:
-            status = 'Status'
-            n_bounds = 'Bounds'
-            n_ell = 'Ellipses'
-            n_net = 'Networks'
-            n_like = 'Calls'
-            f_live = 'f_live'
-            n_eff = 'N_eff'
-            log_z = 'log Z'
-            if header:
-                print('Starting the nautilus sampler...')
-                print(
-                    'Please report issues at github.com/johannesulf/nautilus.')
+            data = ['Status', 'Bounds', 'Ellipses', 'Networks', 'Calls',
+                    'f_live', 'N_eff', 'log Z']
         else:
-            n_bounds = len(self.bounds)
-            if n_bounds > 1:
-                n_ell = self.bounds[-1].n_ell
-                n_net = self.bounds[-1].n_net
+            data = [status, len(self.bounds)]
+            if len(self.bounds) > 1:
+                data.extend([self.bounds[-1].n_ell, self.bounds[-1].n_net])
             else:
-                n_ell = 0
-                n_net = 0
-            n_ell = str(n_ell)
-            n_net = str(n_net)
-            n_like = str(self.n_like)
-            if np.all(self.shell_n > 0) and np.all(self.shell_n_sample > 0):
-                f_live = '{:.4f}'.format(self.f_live)
-                if len('{:.0f}'.format(self.n_eff)) >= 5:
-                    n_eff = '{:.0f}'.format(self.n_eff)
-                else:
-                    n_eff = '{:.{}f}'.format(self.n_eff, 4 - len(
-                        '{:.0f}'.format(self.n_eff)))
-                log_z = '{:+.2f}'.format(self.log_z)
-            else:
-                f_live = '???'
-                n_eff = '???'
-                log_z = '???'
-            if self.explored:
-                f_live = 'N/A'
+                data.extend([0, 0])
+            data.extend([self.n_like, self.f_live, self.n_eff, self.log_z])
 
-        output = [status, n_bounds, n_ell, n_net, n_like, f_live, n_eff, log_z]
+            fmt = ['{}', '{:d}', '{:d}', '{:d}', '{:d}', '{:.4f}', '{:.0f}',
+                   '{:+.2f}']
+            for i in range(len(data)):
+                data[i] = 'N/A' if data[i] is None else fmt[i].format(data[i])
+
         for i, length in enumerate([9, 6, 8, 8, 8, 6, 5, 7]):
-            output[i] = '{:<{}}'.format(output[i], length)
+            data[i] = '{:<{}}'.format(data[i], length)
 
-        print(*output, sep=' | ', end='\n' if header else '\r')
+        output = ' | '.join(data)
+        width = get_terminal_size((80, 24)).columns
+        output = output.ljust(width)[:width]
+        print(output, end=end)
 
     def add_bound(self, verbose=False):
         """Try building a new bound from existing points.
@@ -963,7 +951,7 @@ class Sampler():
             success = True
         else:
             if verbose:
-                self.print_status('Bounding')
+                self.print_status('Bounding', end='\r')
             log_l = np.concatenate(self.log_l)
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
@@ -1053,11 +1041,13 @@ class Sampler():
 
         """
         if verbose:
-            self.print_status('Sampling')
+            self.print_status('Sampling', end='\r')
 
         if shell == -1 and len(self.shell_t) > 0:
             points, n_bound, idx_t = self.sample_shell(-1, self.shell_t)
             assert len(points) + len(idx_t) == n_bound
+            if verbose:
+                self.print_status('Computing', end='\r')
             if len(idx_t) > 0:
                 self.points[-1] = np.concatenate((
                     self.points[-1], self.points_t[idx_t]))
@@ -1068,10 +1058,10 @@ class Sampler():
                         self.blobs[-1], self.blobs_t[idx_t]))
         else:
             points, n_bound = self.sample_shell(shell)
+            if verbose:
+                self.print_status('Computing', end='\r')
 
         self.shell_n_sample[shell] += n_bound
-        if verbose:
-            self.print_status('Computing')
         log_l, blobs = self.evaluate_likelihood(points)
         self.points[shell] = np.append(self.points[shell], points, axis=0)
         self.log_l[shell] = np.append(self.log_l[shell], log_l, axis=0)
@@ -1096,7 +1086,9 @@ class Sampler():
             Estimate of the fraction of the evidence in the live set.
 
         """
-        if len(self.bounds) == 0:
+        if self.explored:
+            return None
+        elif np.sum(self.shell_n) == 0:
             return 1.0
         else:
             log_v = np.repeat(
