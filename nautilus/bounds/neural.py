@@ -84,7 +84,7 @@ class NeuralBound():
 
         points_t = bound.outer_bound.transform(points)
         score = np.zeros(len(points))
-        select = log_l > log_l_min
+        select = log_l >= log_l_min
         score[select] = 0.5 * (
             1 + (rankdata(log_l[select]) - 0.5) / np.sum(select))
         score[~select] = 0.5 * (

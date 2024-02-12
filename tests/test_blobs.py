@@ -19,13 +19,15 @@ def test_blobs_single(prior, dtype, vectorized, discard_exploration):
 
     def likelihood(x):
         if vectorized:
-            return np.ones(len(x)), (10 * x[:, 0]).astype(dtype)
+            return (-np.linalg.norm(x - 0.5, axis=-1) * 0.001,
+                    (10 * x[:, 0]).astype(dtype))
         else:
-            return 1, dtype(10 * x[0])
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, dtype(10 * x[0])
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized)
-    sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
+                      vectorized=vectorized, n_networks=0)
+    sampler.run(f_live=0.2, n_like_max=2000,
+                discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True,
                                                     equal_weight=True)
@@ -42,14 +44,16 @@ def test_blobs_multi(prior, vectorized, discard_exploration):
 
     def likelihood(x):
         if vectorized:
-            return (np.ones(len(x)), x[:, 0].astype(np.float32),
-                    x[:, 1].astype(np.float32))
+            return (-np.linalg.norm(x - 0.5, axis=-1) * 0.001,
+                    x[:, 0].astype(np.float32), x[:, 1].astype(np.float32))
         else:
-            return 1, np.float32(x[0]), np.float32(x[1])
+            return (-np.linalg.norm(x - 0.5, axis=-1) * 0.001,
+                    np.float32(x[0]), np.float32(x[1]))
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized)
-    sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
+                      vectorized=vectorized, n_networks=0)
+    sampler.run(f_live=0.2, n_like_max=2000,
+                discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
     assert len(points) == len(blobs)
@@ -66,14 +70,16 @@ def test_blobs_dtype(prior, vectorized, discard_exploration):
 
     def likelihood(x):
         if vectorized:
-            return np.ones(len(x)), x[:, 0], x[:, 1]
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:, 0], x[:, 1]
         else:
-            return 1, x[0], x[1]
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[0], x[1]
 
     blobs_dtype = [('a', '|S10'), ('b', np.int16)]
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized, blobs_dtype=blobs_dtype)
-    sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
+                      vectorized=vectorized, n_networks=0,
+                      blobs_dtype=blobs_dtype)
+    sampler.run(f_live=0.2, n_like_max=2000,
+                discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
 
     assert len(points) == len(blobs)
@@ -91,14 +97,40 @@ def test_blobs_single_dtype(prior, vectorized, discard_exploration):
 
     def likelihood(x):
         if vectorized:
-            return np.ones(len(x)), x[:, 0], x[:, 1]
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:, 0], x[:, 1]
         else:
-            return 1, x[0], x[1]
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[0], x[1]
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=10,
-                      vectorized=vectorized, blobs_dtype=float)
-    sampler.run(f_live=1.0, n_eff=200, discard_exploration=discard_exploration)
+    blobs_dtype = np.float32
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
+                      vectorized=vectorized, n_networks=0,
+                      blobs_dtype=blobs_dtype)
+    sampler.run(f_live=0.2, n_like_max=2000,
+                discard_exploration=discard_exploration)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
     assert len(points) == len(blobs)
-    assert np.all(points[:, 0] == blobs[:, 0])
-    assert np.all(points[:, 1] == blobs[:, 1])
+    assert np.all(points[:, 0].astype(blobs_dtype) == blobs[:, 0])
+    assert np.all(points[:, 1].astype(blobs_dtype) == blobs[:, 1])
+
+
+@pytest.mark.parametrize("vectorized", [True, False])
+@pytest.mark.parametrize("discard_exploration", [True, False])
+def test_blobs_array(prior, vectorized, discard_exploration):
+    # Test that blobs work when returning multiple blobs via one array.
+
+    def likelihood(x):
+        if vectorized:
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:, :2]
+        else:
+            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:2]
+
+    blobs_dtype = np.float32
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
+                      vectorized=vectorized, n_networks=0,
+                      blobs_dtype=blobs_dtype)
+    sampler.run(f_live=0.2, n_like_max=2000,
+                discard_exploration=discard_exploration)
+    points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
+    assert len(points) == len(blobs)
+    assert np.all(points[:, 0].astype(blobs_dtype) == blobs[:, 0])
+    assert np.all(points[:, 1].astype(blobs_dtype) == blobs[:, 1])

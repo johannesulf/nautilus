@@ -980,7 +980,8 @@ class Sampler():
             self.points.append(np.zeros((0, self.n_dim)))
             self.log_l.append(np.zeros(0))
             if self.blobs is not None:
-                self.blobs.append(np.zeros(0, dtype=self.blobs_dtype))
+                self.blobs.append(
+                    np.zeros(self.blobs[-1][:0].shape, dtype=self.blobs_dtype))
         else:
             self.shell_log_l_min[-1] = log_l_min
             return False

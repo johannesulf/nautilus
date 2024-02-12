@@ -29,11 +29,11 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
         vectorized=vectorized, pass_dict=pass_dict, n_live=200)
-    sampler.run(n_like_max=500, verbose=True)
+    sampler.run(n_like_max=600, verbose=True)
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
         vectorized=vectorized, pass_dict=None, n_live=200)
-    sampler.run(n_like_max=500, verbose=True)
+    sampler.run(n_like_max=600, verbose=True)
     points, log_w, log_l = sampler.posterior()
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     points, log_w, log_l = sampler.posterior(
