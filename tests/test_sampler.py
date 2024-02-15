@@ -275,3 +275,64 @@ def test_sampler_funnel():
     if np.all(shell_bound_occupation ==
               np.tril(np.ones_like(shell_bound_occupation))):
         warnings.warn('The funnel distribution was too easy.', RuntimeWarning)
+
+
+def test_sampler_constant():
+    # Test that the sampler handles a single constant likelihood gracefully.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return 0
+
+    sampler = Sampler(prior, likelihood, 2, n_live=500, seed=0)
+    sampler.run(verbose=True, f_live=0.1, n_eff=0)
+
+    assert np.isclose(sampler.log_z, 0)
+    # The sampler should not have build any boundaries.
+    assert len(sampler.bounds) == 1
+
+
+def test_sampler_plateau_1():
+    # Test that the sampler can deal with a pleateau.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        if x[0] < 0.9:
+            return -np.inf
+        else:
+            return np.log(x[0] - 0.9)
+
+    log_z_true = np.log(0.5 * 0.1**2)
+
+    for i in range(10):
+        sampler = Sampler(prior, likelihood, 2, n_live=1000, n_networks=1,
+                          seed=i)
+        sampler.run(verbose=True, f_live=0.1)
+        assert np.isclose(sampler.log_z, log_z_true, rtol=0, atol=0.1)
+
+
+def test_sampler_plateau_2():
+    # Test that the sampler can deal with a pleateau.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return np.ceil(-np.log10(1 - x[0]))
+
+    log_z_true = np.log(
+        np.sum(0.9 * 0.1**np.arange(100) * np.exp(1 + np.arange(100))))
+
+    for i in range(10):
+        sampler = Sampler(prior, likelihood, 2,
+                          n_live=2000, n_networks=1, seed=0)
+        sampler.run(verbose=True, f_live=1e-6)
+        assert np.isclose(sampler.log_z, log_z_true, atol=0.1)
+        # The minimum likelihood values should correspond to the different
+        # plateaus.
+        assert np.all(np.isclose(sampler.shell_log_l_min[1:],
+                      np.arange(len(sampler.bounds) - 1) + 2, rtol=0))

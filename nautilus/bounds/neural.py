@@ -94,7 +94,8 @@ class NeuralBound():
             neural_network_kwargs=neural_network_kwargs, pool=pool)
 
         bound.score_predict_min = np.polyval(np.polyfit(
-            score, bound.emulator.predict(points_t), 3), 0.5)
+            score, bound.emulator.predict(points_t), 3),
+            np.amin(score[select]))
 
         return bound
 

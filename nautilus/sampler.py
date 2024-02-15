@@ -943,7 +943,6 @@ class Sampler():
             Whether a new bound has been added.
 
         """
-        success = False
         # If this is the first bound, use the UnitCube bound.
         if len(self.bounds) == 0:
             log_l_min = -np.inf
@@ -955,20 +954,35 @@ class Sampler():
             log_l = np.concatenate(self.log_l)
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
-            log_l_min = 0.5 * (log_l[-self.n_live] + log_l[-self.n_live - 1])
-            with threadpool_limits(limits=1):
-                bound = NautilusBound.compute(
-                    points, log_l, log_l_min, self.log_v_live,
-                    enlarge_per_dim=self.enlarge_per_dim,
-                    n_points_min=self.n_points_min,
-                    split_threshold=self.split_threshold,
-                    n_networks=self.n_networks,
-                    neural_network_kwargs=self.neural_network_kwargs,
-                    pool=self.pool_s, rng=self.rng)
-                bound.sample(1000, return_points=False, pool=self.pool_s)
-            if bound.log_v < self.bounds[-1].log_v:
-                self.bounds.append(bound)
-                success = True
+            log_l_min = log_l[-self.n_live]
+
+            # If log_l_min is part of a likelihood plateau and there exist
+            # enough points above the plateau, skip the plateau.
+            if (np.sum(log_l == log_l_min) > 1 and
+                    np.sum(log_l > log_l_min) >= self.n_points_min):
+                log_l_min = np.amin(log_l[log_l > log_l_min])
+
+            # If there are no points below the plateau, don't zoom in.
+            if np.all(log_l >= log_l_min):
+                success = False
+            else:
+                with threadpool_limits(limits=1):
+                    bound = NautilusBound.compute(
+                        points, log_l, log_l_min, self.log_v_live,
+                        enlarge_per_dim=self.enlarge_per_dim,
+                        n_points_min=self.n_points_min,
+                        split_threshold=self.split_threshold,
+                        n_networks=self.n_networks,
+                        neural_network_kwargs=self.neural_network_kwargs,
+                        pool=self.pool_s, rng=self.rng)
+                    bound.sample(1000, return_points=False, pool=self.pool_s)
+
+                # Only accept a new bound if it's smaller.
+                if bound.log_v < self.bounds[-1].log_v:
+                    self.bounds.append(bound)
+                    success = True
+                else:
+                    success = False
 
         if success:
             self.shell_n = np.append(self.shell_n, 0)
