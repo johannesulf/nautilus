@@ -9,11 +9,13 @@ readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
-dependencies = ["numpy", "scipy", "scikit-learn", "threadpoolctl"]
+requires-python = ">= 3.7"
+dependencies = ["numpy>=1.18.0", "scipy>=1.4.0", "scikit-learn>=0.22.0",
+                "threadpoolctl>=3.0.0"]
 
 [project.optional-dependencies]
-checkpointing = ["h5py"]
-tests = ["h5py"]
+checkpointing = ["h5py>=3.0.0"]
+tests = ["h5py>=3.0.0"]
 
 [project.urls]
 Home = "https://nautilus-sampler.readthedocs.io"
