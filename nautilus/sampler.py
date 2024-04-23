@@ -12,6 +12,7 @@ from pathlib import Path
 from scipy.special import logsumexp
 from shutil import get_terminal_size
 from threadpoolctl import threadpool_limits
+from time import time
 from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
@@ -368,7 +369,7 @@ class Sampler():
                         fstream['bound_{}'.format(i)], rng=self.rng))
 
     def run(self, f_live=0.01, n_shell=1, n_eff=10000, n_like_max=np.inf,
-            discard_exploration=False, verbose=False):
+            discard_exploration=False, timeout=np.inf, verbose=False):
         """Run the sampler until convergence.
 
         Parameters
@@ -383,18 +384,35 @@ class Sampler():
             Minimum effective sample size. The algorithm will sample from the
             shells until this is reached. Default is 10000.
         n_like_max : int, optional
-            Maximum number of likelihood evaluations. Regardless of progress,
-            the sampler will stop if this value is reached. Default is
-            infinity.
+            Maximum total (accross multiple runs) number of likelihood
+            evaluations. Regardless of progress, the sampler will not start new
+            likelihood computations if this value is reached. Note that this
+            value includes likelihood calls from previous runs, if applicable.
+            Default is infinity.
         discard_exploration : bool, optional
             Whether to discard points drawn in the exploration phase. This is
             required for a fully unbiased posterior and evidence estimate.
             Default is False.
+        timeout : float, optional
+            Timeout interval in seconds. The sampler will not start new
+            likelihood computations if this limit is reached. Unlike for
+            `n_like_max`, this maximum only refers to the current function
+            call. Default is infinity.
         verbose : bool, optional
             If True, print information about sampler progress. Default is
             False.
 
+        Returns
+        -------
+        success : bool
+            Whether the run finished successfully. False if it finished because
+            the `n_like_max` or `timeout` limits were reached and True
+            otherwise.
+
         """
+        t_start = time()
+        success = True
+
         if verbose:
             print('Starting the nautilus sampler...')
             print('Please report issues at github.com/johannesulf/nautilus.')
@@ -405,7 +423,7 @@ class Sampler():
             self.n_update_iter = -self.n_live
             self.n_like_iter = 0
 
-        while self.n_like < n_like_max:
+        while self.n_like < n_like_max and time() - t_start < timeout:
 
             if not self.explored:
 
@@ -470,8 +488,16 @@ class Sampler():
             else:
                 break
 
+        else:
+            success = False
+
         if verbose:
-            self.print_status('Finished')
+            if success:
+                self.print_status('Finished')
+            else:
+                self.print_status('Stopped')
+
+        return success
 
     @property
     def discard_exploration(self):
