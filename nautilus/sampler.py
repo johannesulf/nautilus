@@ -405,13 +405,12 @@ class Sampler():
         Returns
         -------
         success : bool
-            Whether the run finished successfully. False if it finished because
-            the `n_like_max` or `timeout` limits were reached and True
-            otherwise.
+            Whether the run finished successfully without stopping prematurely.
+            False if the run finished because the `n_like_max` or `timeout`
+            limits were reached and True otherwise.
 
         """
         t_start = time()
-        success = True
 
         if verbose:
             print('Starting the nautilus sampler...')
@@ -423,7 +422,11 @@ class Sampler():
             self.n_update_iter = -self.n_live
             self.n_like_iter = 0
 
-        while self.n_like < n_like_max and time() - t_start < timeout:
+        success = (self.explored and np.all(self.shell_n >= n_shell) and
+                   self.n_eff >= n_eff)
+
+        while ((self.n_like < n_like_max) and (time() - t_start < timeout) and
+               not success):
 
             if not self.explored:
 
@@ -485,11 +488,8 @@ class Sampler():
                 if self.filepath is not None:
                     self.write_shell_update(self.filepath, shell)
 
-            else:
-                break
-
-        else:
-            success = False
+            success = (self.explored and np.all(self.shell_n >= n_shell) and
+                       self.n_eff >= n_eff)
 
         if verbose:
             if success:

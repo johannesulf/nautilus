@@ -5,6 +5,12 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- The user can now specify a timeout interval for the sampler. If that time is exceeded, the sampler will not start new calculations. (#46)
+- The sampler now returns whether it finished normally or stopped because the timeout or maximum number of likelihood computations was reached. (#46)
+
 ## [1.0.2] - 2023-02-15
 
 ### Changed
@@ -17,9 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2023-02-12
 
+### Added
+- The user can now specify a maximum number of likelihood calls. If that number is exceeded, the sampler will automatically stop. (#23)
+
 ### Changed
 - Updated the terminal output to be more compact and more friendly for log files. This also removes the dependency on `tqdm`. (#36)
-- The user can now specify a maximum number of likelihood calls. If that number is exceeded, the sampler will automatically stop. (#23)
 - By default, the batch size is now dynamically determined at the start based on the pool size. This should prevent issues for new users parallelizing over a large number of CPUs.
 
 ### Fixed
@@ -64,10 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - 2023-06-20
 
+### Added
+- Added the function `sampler.asymptotic_sampling_efficiency` which returns an estimate of the sampling efficiency in the sampling phase.
+
 ### Changed
 - One can now change whether to discard points in the exploration phase after calling `run` by changing the `discard_exploration` argument of the sampler. To achieve this, information about points in the exploration phase is never dropped. Consequently, the sampler does not create a backup of the end of the exploration stage under "filename_exp.hdf5", anymore.
 - The computational overhead was slightly reduced when new bounds are rejected. Also, the output now specifically mentions when adding a new bound failed because the volume increased.
-- Added the function `sampler.asymptotic_sampling_efficiency` which returns an estimate of the sampling efficiency in the sampling phase.
 
 ### Fixed
 - Likelihoods with large plateaus shouldn't crash, anymore.
@@ -80,14 +90,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2023-04-22
 
+### Added
+- Added the keyword arguments `n_points_min` and `split_threshold` to the sampler. Previously, they were not accessible.
+- Sampling new points can now be parallelized using the `n_jobs` keyword argument.
+
 ### Changed
 - The code now uses the more modern `numpy.random.Generator` framework instead of `numpy.random.RandomState`.
-- Added the keyword arguments `n_points_min` and `split_threshold` to the sampler. Previously, they were not accessible.
 - The default value for `n_points_min` is now the number of dimensions plus 50. Previously, it was hard-coded to be the number of dimensions plus 1.
 - The multi-ellipsoidal decomposition has been tweaked with the goal of reducing computational overhead for high-dimensional problems.
 - The default number of parallel processes has been changed to one. By default, the sampler will not use parallelization.
 - Multi-ellipsoidal decomposition now uses Gaussian mixture modeling instead of K-Means. The former typically results in better performance, i.e., smaller boundaries with fewer ellipsoids.
-- Sampling new points can now be parallelized using the `n_jobs` keyword argument.
 
 ### Fixed
 - The sampler now correctly writes the random number generator in the sampling phase.
