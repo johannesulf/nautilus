@@ -238,11 +238,30 @@ def test_sampler_n_like_max():
 
     sampler_a.run(verbose=True)
     for n_like_max in range(sampler_a.n_like + 1):
-        sampler_b.run(n_like_max=n_like_max, verbose=True)
+        success = sampler_b.run(n_like_max=n_like_max, verbose=True)
         assert sampler_b.n_like <= n_like_max + sampler_b.n_batch
+        assert not success if sampler_a.n_like != sampler_b.n_like else success
 
     assert sampler_a.log_z == sampler_b.log_z
     assert sampler_a.n_eff == sampler_b.n_eff
+
+
+def test_sampler_timeout():
+    # Test that the sampler correctly stops when reaching the timeout limits.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5)**2 * 0.001
+
+    sampler = Sampler(prior, likelihood, n_dim=10, n_networks=0, seed=0)
+    # The sampler shouldn't finish within 1 second.
+    success = sampler.run(verbose=True, timeout=1)
+    assert not success
+
+    # We should be able to continue afterwards.
+    success = sampler.run(verbose=True, timeout=5)
 
 
 def test_sampler_funnel():
