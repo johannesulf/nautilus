@@ -257,11 +257,11 @@ def test_sampler_timeout():
 
     sampler = Sampler(prior, likelihood, n_dim=10, n_networks=0, seed=0)
     # The sampler shouldn't finish within 1 second.
-    success = sampler.run(verbose=True, timeout=False)
+    success = sampler.run(verbose=True, timeout=1)
     assert not success
 
     # We should be able to continue afterwards.
-    success = sampler.run(verbose=True, timeout=False)
+    success = sampler.run(verbose=True, timeout=5)
 
 
 def test_sampler_funnel():
