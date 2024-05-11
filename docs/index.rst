@@ -1,6 +1,12 @@
-.. image:: nautilus_text.png
+.. image:: nautilus_text_black.png
    :width: 100 %
    :align: center
+   :class: only-light
+
+.. image:: nautilus_text_white.png
+   :width: 100 %
+   :align: center
+   :class: only-dark
 
 |
 
@@ -15,7 +21,7 @@
 |
 
 Overview
---------
+========
 
 Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evidence estimation. It utilizes importance sampling and efficient space exploration using neural networks. Compared to traditional MCMC and Nested Sampling codes, it often needs fewer likelihood calls and produces much larger posterior samples. Additionally, nautilus is highly accurate and produces Bayesian evidence estimates with percent precision. It is widely used in many areas of astrophysical research.
 
@@ -43,7 +49,8 @@ Nautilus is an MIT-licensed pure-Python package for Bayesian posterior and evide
     :maxdepth: 1
     :caption: API Documentation
 
-    api
+    api_high
+    api_full
 
 Support
 -------

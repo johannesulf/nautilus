@@ -45,11 +45,10 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
-html_logo = 'nautilus_text_image_lowres.png'
+html_theme = 'furo'
+html_logo = 'nautilus_text_image.png'
 html_theme_options = {
-    'logo_only': True,
-    'display_version': False,
+    'sidebar_hide_name': True,
 }
 
 
