@@ -1,5 +1,5 @@
-Prior Probability
-=================
+Priors
+======
 
 In Bayesian statistics, one needs to specify a prior probability :math:`p(\theta)` of model parameters :math:`\theta` where :math:`\theta = (\theta_1, \theta_2, ..., \theta_n)`. However, nested sampling algorithms generally assume that model parameters :math:`u` are uniformly distributed in the unit hypercube. Thus, one needs to perform a variable transformation :math:`\theta = f(u)`. A general recipe for separable priors, i.e. :math:`p(\theta) = p_1(\theta_1) \times ... \times p_n(\theta_n)`, is to use
 

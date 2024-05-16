@@ -1,5 +1,5 @@
-Crash Course
-============
+Quickstart
+==========
 
 The best way to get started with ``nautilus`` is to apply it to a problem. Here, we give a minimal example of using the code to estimate parameter posteriors and the Bayesian evidence :math:`\mathcal{Z}`. In this example, our "model" has three parameters: :math:`a`, :math:`b` and :math:`c`. Furthermore, let's assume flat priors for :math:`a` and :math:`b` in the range :math:`[-5, +5]` and a Gaussian prior for :math:`c` with :math:`0` mean and :math:`2` scatter. The priors can be specified as follows.
 
@@ -51,14 +51,11 @@ The status is either computing the likehihoods (Computing), sampling new points 
     import matplotlib.pyplot as plt
 
     points, log_w, log_l = sampler.posterior()
-    ndim = points.shape[1]
-    fig, axes = plt.subplots(ndim, ndim, figsize=(3.5, 3.5))
-    corner.corner(points, weights=np.exp(log_w), bins=20, labels=prior.keys,
-                  plot_datapoints=False, plot_density=False,
-                  fill_contours=True, levels=(0.68, 0.95),
-                  range=np.ones(ndim) * 0.999, fig=fig)
+    corner.corner(
+        points, weights=np.exp(log_w), bins=20, labels=prior.keys, color='purple',
+        plot_datapoints=False, range=np.repeat(0.999, len(prior.keys)))
 
-.. image:: crash_course.png
+.. image:: quickstart.png
    :width: 70 %
    :align: center
 
