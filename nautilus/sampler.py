@@ -16,7 +16,7 @@ from time import time
 from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
-from .pool import initialize_worker, likelihood_worker, pool_size
+from .pool import initialize_worker, likelihood_worker, pool_size, Dask_pool
 
 
 class Sampler():
@@ -275,6 +275,10 @@ class Sampler():
         self.neural_network_kwargs = neural_network_kwargs
         self.vectorized = vectorized
         self.pass_dict = pass_dict
+
+        # So the user don't need to call the wrapper class.
+        if 'distributed.client.Client' in str(type(pool)):
+            pool = Dask_pool(pool)
 
         try:
             pool = list(pool)

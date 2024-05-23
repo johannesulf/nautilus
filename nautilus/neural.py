@@ -92,6 +92,11 @@ class NeuralNetworkEmulator():
 
         if pool is None:
             emulator.neural_networks = list(map(f, range(n_networks)))
+        elif hasattr(pool, 'client'):
+            # Not strictly needed, but the Dask wrapper had a problem when
+            # working from source.
+            tmp = list(pool.client.map(f, range(n_networks)))
+            emulator.neural_networks = pool.client.gather(tmp)
         else:
             emulator.neural_networks = list(pool.map(f, range(n_networks)))
 

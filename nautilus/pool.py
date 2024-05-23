@@ -55,3 +55,21 @@ def pool_size(pool):
         if hasattr(pool, attr):
             return getattr(pool, attr)
     raise ValueError('Cannot determine size of pool.')
+
+class Dask_pool:
+    """Wrapper for avoiding Dask specific details other
+       places in the code.
+    """
+
+    def __init__(self, client):
+        self.client = client
+    
+    def map(self, f, x):
+        res = self.client.map(f, x)
+        res = self.client.gather(res)
+        
+        return res
+    
+    @property
+    def size(self):
+        return len(self.client.nthreads())
