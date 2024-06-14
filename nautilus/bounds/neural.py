@@ -8,7 +8,6 @@ from threadpoolctl import threadpool_limits
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
 from ..neural import NeuralNetworkEmulator
-from ..pool import pool_size
 
 
 class NeuralBound():
@@ -50,8 +49,8 @@ class NeuralBound():
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
-        pool : multiprocessing.Pool, optional
-            Pool used for parallel processing.
+        pool : nautilus.pool.NautilusPool or None, optional
+            Pool used for parallel processing. Default is None.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -237,8 +236,8 @@ class NautilusBound():
         neural_network_kwargs : dict, optional
             Non-default keyword arguments passed to the constructor of
             MLPRegressor.
-        pool : multiprocessing.Pool, optional
-            Pool used for parallel processing.
+        pool : nautilus.pool.NautilusPool or None, optional
+            Pool used for parallel processing. Default is None.
         rng : None or numpy.random.Generator, optional
             Determines random number generation. Default is None.
 
@@ -354,8 +353,8 @@ class NautilusBound():
         return_points : bool, optional
             If True, return sampled points. Otherwise, sample internally until
             at least `n_points` are saved.
-        pool : multiprocessing.Pool, optional
-            Pool used for parallel processing.
+        pool : nautilus.pool.NautilusPool or None, optional
+            Pool used for parallel processing. Default is None.
 
         Returns
         -------
@@ -375,7 +374,7 @@ class NautilusBound():
                     self.n_sample += n_sample
                     self.n_reject += n_sample - len(points)
             else:
-                n_jobs = pool_size(pool)
+                n_jobs = pool.size
                 n_points_per_job = (
                     (max(n_points - len(self.points), 10000)) // n_jobs) + 1
                 func = partial(self._reset_and_sample, n_points_per_job)

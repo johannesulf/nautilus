@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from multiprocessing import Pool
 from scipy.special import gamma
 
 from nautilus import bounds
 from nautilus.bounds.basic import minimum_volume_enclosing_ellipsoid
 from nautilus.bounds.basic import invert_symmetric_positive_semidefinite_matrix
+from nautilus.pool import NautilusPool
 
 
 @pytest.fixture
@@ -403,7 +403,7 @@ def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
     log_l_min = np.median(log_l)
 
     if n_jobs > 1:
-        pool = Pool(n_jobs)
+        pool = NautilusPool(n_jobs)
     else:
         pool = None
 
@@ -419,7 +419,7 @@ def test_nautilus_bound_reset_and_sample(random_points_from_hypercube, n_jobs):
     volume_2 = nbound.log_v
 
     if n_jobs > 1:
-        pool.close()
+        pool.pool.close()
 
     assert np.all(points_1 == points_2)
     assert volume_1 == volume_2

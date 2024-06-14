@@ -76,6 +76,8 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
             rng.bit_generator.state = bound_write.rng.bit_generator.state
 
     bound_read = bound_class.read(h5py_group, rng=rng)
+    # Reading a boundary without specifying an RGN shouldn't crash.
+    bound_class.read(h5py_group, rng=None)
 
     if bound_class != NeuralBound:
         assert (np.all(bound_write.sample(10000) == bound_read.sample(10000))
