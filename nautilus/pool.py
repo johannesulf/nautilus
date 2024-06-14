@@ -82,7 +82,7 @@ class NautilusPool:
 
         """
         if 'distributed.client.Client' in str(type(self.pool)):
-            return list(self.client.gather(self.client.map(func, iterable)))
+            return list(self.pool.gather(self.pool.map(func, iterable)))
         else:
             return list(self.pool.map(func, iterable))
 
@@ -103,7 +103,7 @@ class NautilusPool:
 
         """
         if 'distributed.client.Client' in str(type(self.pool)):
-            return len(self.client.nthreads())
+            return len(self.pool.nthreads())
         for attr in ['_processes', '_max_workers', 'size', 'nt']:
             if hasattr(self.pool, attr):
                 return getattr(self.pool, attr)
