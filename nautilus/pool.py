@@ -56,8 +56,6 @@ class NautilusPool:
             workers.
 
         """
-        if pool is None or pool == 1:
-            self.pool = None
         if isinstance(pool, int):
             self.pool = Pool(pool, initializer=initialize_worker,
                              initargs=(likelihood, ))
