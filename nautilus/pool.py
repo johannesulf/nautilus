@@ -1,5 +1,7 @@
 """Module implementing helper functions for working with pools."""
 
+from multiprocessing import Pool
+
 
 def initialize_worker(likelihood):
     """
@@ -31,27 +33,76 @@ def likelihood_worker(*args):
     return LIKELIHOOD(*args)
 
 
-def pool_size(pool):
+class NautilusPool:
     """
-    Determine the size of a pool, i.e., how many workers it has.
+    Wrapper for avoiding implementation-specific details elsewhere.
 
-    Parameters
+    Attributes
     ----------
-    pool : object
-        The pool object.
-
-    Returns
-    -------
-    size : int
-        The size of the pool.
-
-    Raises
-    ------
-    ValueError
-        If the pool size cannot be determined.
+    pool : object or None
+        Pool used for parallelization.
 
     """
-    for attr in ['_processes', '_max_workers', 'size']:
-        if hasattr(pool, attr):
-            return getattr(pool, attr)
-    raise ValueError('Cannot determine size of pool.')
+
+    def __init__(self, pool, likelihood=None):
+        """
+        Initialize a pool.
+
+        Parameters
+        ----------
+        pool : object
+            Pool used for parallelization. If a number, initialize a pool
+            from the `multiprocessing` library with the specified number of
+            workers.
+
+        """
+        if isinstance(pool, int):
+            self.pool = Pool(pool, initializer=initialize_worker,
+                             initargs=(likelihood, ))
+        else:
+            self.pool = pool
+
+    def map(self, func, iterable):
+        """
+        Loop a function over an iterable, similar to the built-in map function.
+
+        Parameters
+        ----------
+        func : function
+            Function to use.
+        iterable : object
+            Iterable object such as a list or numpy array.
+
+        Returns
+        -------
+        result : list
+            Result of applying the function to all values in the iterable.
+
+        """
+        if 'distributed.client.Client' in str(type(self.pool)):
+            return list(self.pool.gather(self.pool.map(func, iterable)))
+        else:
+            return list(self.pool.map(func, iterable))
+
+    @property
+    def size(self):
+        """Determine the number of workers in the pool.
+
+        Returns
+        -------
+        size : int
+            Size of the pool.
+
+        Raises
+        ------
+        ValueError
+            If the pool size cannot be determined.
+
+
+        """
+        if 'distributed.client.Client' in str(type(self.pool)):
+            return len(self.pool.nthreads())
+        for attr in ['_processes', '_max_workers', 'size', 'nt']:
+            if hasattr(self.pool, attr):
+                return getattr(self.pool, attr)
+        raise ValueError('Cannot determine size of pool.')

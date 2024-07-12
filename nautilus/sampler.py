@@ -16,7 +16,7 @@ from time import time
 from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
-from .pool import initialize_worker, likelihood_worker, pool_size
+from .pool import initialize_worker, likelihood_worker, NautilusPool
 
 
 class Sampler():
@@ -203,7 +203,9 @@ class Sampler():
             integer, the sampler will use a multiprocessing.Pool object with
             the specified number of processes. Finally, if specifying a tuple,
             the first one specifies the pool used for likelihood calls and the
-            second one the pool for sampler calculations. Default is None.
+            second one the pool for sampler calculations. Supported pools
+            include instances of `multiprocessing.Pool` and
+            `dask.distributed.client.Client`. Default is None.
         seed : None or int, optional
             Seed for random number generation used for reproducible results
             accross different runs. If None, results are not reproducible.
@@ -282,21 +284,19 @@ class Sampler():
             pool = [pool]
 
         for i in range(len(pool)):
-            if pool[i] == 1:
+            if pool[i] in [None, 1]:
                 pool[i] = None
-            if isinstance(pool[i], int):
-                if i == 0:
-                    pool[i] = Pool(pool[i], initializer=initialize_worker,
-                                   initargs=(self.likelihood, ))
-                    self.likelihood = likelihood_worker
-                else:
-                    pool[i] = Pool(pool[i])
+            elif i == 0 and isinstance(pool[i], int):
+                pool[i] = NautilusPool(pool[i], likelihood=self.likelihood)
+                self.likelihood = likelihood_worker
+            else:
+                pool[i] = NautilusPool(pool[i])
 
         self.pool_l = pool[0]
         self.pool_s = pool[-1]
 
         if n_batch is None:
-            s = 1 if self.pool_l is None else pool_size(self.pool_l)
+            s = 1 if self.pool_l is None else self.pool_l.size
             n_batch = (100 // s + (100 % s != 0)) * s
         self.n_batch = n_batch
 

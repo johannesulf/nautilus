@@ -15,7 +15,7 @@ dependencies = ["numpy>=1.18.0", "scipy>=1.4.0", "scikit-learn>=0.22.0",
 
 [project.optional-dependencies]
 checkpointing = ["h5py>=3.0.0"]
-tests = ["h5py>=3.0.0"]
+tests = ["h5py>=3.0.0", "dask[distributed]>=2022.2.0"]
 
 [project.urls]
 Home = "https://nautilus-sampler.readthedocs.io"
