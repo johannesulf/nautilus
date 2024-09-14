@@ -165,13 +165,26 @@ def test_sampler_accuracy(n_networks, discard_exploration):
     assert np.abs(sampler.log_z) < 0.05
 
     for equal_weight in [True, False]:
-        points, log_w, log_l = sampler.posterior(equal_weight=equal_weight)
-        weights = np.exp(log_w)
+        for equal_weight_boost in [1, 3, 10]:
+            points, log_w, log_l = sampler.posterior(
+                equal_weight=equal_weight,
+                equal_weight_boost=equal_weight_boost)
+            weights = np.exp(log_w)
 
-        mean_sampler = np.average(points, weights=weights, axis=0)
-        cov_sampler = np.cov(points, aweights=weights, rowvar=False)
-        assert np.all(np.isclose(mean_sampler, mean, atol=0.01, rtol=0))
-        assert np.all(np.isclose(cov_sampler, cov, atol=0.001, rtol=0))
+            mean_sampler = np.average(points, weights=weights, axis=0)
+            cov_sampler = np.cov(points, aweights=weights, rowvar=False)
+            assert np.all(np.isclose(mean_sampler, mean, atol=0.01, rtol=0))
+            assert np.all(np.isclose(cov_sampler, cov, atol=0.001, rtol=0))
+
+    equal_weight_boost = 3
+    n_eq = len(sampler.posterior(
+        equal_weight=True, equal_weight_boost=1)[0])
+    n_eq_err = np.sqrt(n_eq)  # This is actually on overestimate.
+    n_eqw = len(sampler.posterior(
+        equal_weight=True, equal_weight_boost=equal_weight_boost)[0])
+    n_eqw_err = np.sqrt(n_eqw)  # This is actually on overestimate.
+    assert np.abs(n_eq * equal_weight_boost - n_eqw) < 5 * np.sqrt(
+        equal_weight_boost**2 * n_eq_err**2 + n_eqw_err**2)
 
     # This is a simple problem so the bounds should be perfectly nested, i.e.
     # bound i+1 is fully contained within bound i.

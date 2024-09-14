@@ -534,7 +534,7 @@ class Sampler():
             self.update_shell_info(index)
 
     def posterior(self, return_as_dict=None, equal_weight=False,
-                  return_blobs=False):
+                  equal_weight_boost=1.0, return_blobs=False):
         """Return the posterior sample estimate.
 
         Parameters
@@ -544,7 +544,23 @@ class Sampler():
             False unless one uses custom prior that only returns dictionaries.
             Default is None.
         equal_weight : bool, optional
-            If True, return an equal weighted posterior. Default is False.
+            If True, return an equal-weighted posterior. This is done by
+            randomly sampling each point from the unequal-weighted posterior
+            proportional to its weight. Note that this effectively downgrades
+            the posterior. For high-precision estimates of the posterior,
+            use the unequal-weighted posterior. Default is False.
+        equal_weight_boost : float, optional
+            For the equal-weighted posterior, each point is sampled n times
+            where n is drawn from a nearest-integer distribution with
+            mean value w / max(w) * `equal_weight_boost`. Here, max(w) is the
+            maximum weight across all points in the posterior. For
+            `equal_weight_boost`=1, this means that each point is at most
+            sampled once, i.e., the posterior estimate contains no
+            duplicates. For `equal_weight_boost` > 1, duplicates are possible
+            but the equal-weighted posterior is a better approximation to the
+            unequal-weight posterior. Note that the number of poins returned
+            is, on average, proportional to `equal_weight_boost`. Default is
+            1.0.
         return_blobs : bool, optional
             If True, return the blobs. Default is False.
 
@@ -588,6 +604,17 @@ class Sampler():
                 raise ValueError('No blobs have been calculated.')
             blobs = np.concatenate([b[s:] for b, s in zip(self.blobs, start)])
 
+        if equal_weight:
+            repeats = np.exp(log_w - np.amax(log_w)) * equal_weight_boost
+            repeats = np.floor(repeats).astype(int) + (
+                self.rng.random(len(repeats)) < repeats - np.floor(repeats)
+                ).astype(int)
+            points = np.repeat(points, repeats, axis=0)
+            log_w = np.zeros(np.sum(repeats))
+            log_l = np.repeat(log_l, repeats, axis=0)
+            if return_blobs:
+                blobs = np.repeat(blobs, repeats, axis=0)
+
         if callable(self.prior):
             transform = self.prior
         else:
@@ -605,19 +632,6 @@ class Sampler():
             raise ValueError(
                 'Cannot return points as numpy array. The prior function' +
                 ' only returns dictionaries.')
-
-        if equal_weight:
-            select = (self.rng.random(len(log_w)) <
-                      np.exp(log_w - np.amax(log_w)))
-            if return_as_dict:
-                for key in points.keys():
-                    points[key] = points[key][select]
-            else:
-                points = points[select]
-            log_w = np.ones(len(points)) * np.log(1.0 / np.sum(select))
-            log_l = log_l[select]
-            if return_blobs:
-                blobs = blobs[select]
 
         # Normalize weights.
         log_w = log_w - logsumexp(log_w)
