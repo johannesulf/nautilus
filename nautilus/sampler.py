@@ -550,7 +550,7 @@ class Sampler():
             the posterior. For high-precision estimates of the posterior,
             use the unequal-weighted posterior. Default is False.
         equal_weight_boost : float, optional
-            For the equal-weighted posterior, each point is sampled n times
+            For the equal-weighted posterior, each point is sampled n times,
             where n is drawn from a nearest-integer distribution with
             mean value w / max(w) * `equal_weight_boost`. Here, max(w) is the
             maximum weight across all points in the posterior. For
@@ -558,7 +558,7 @@ class Sampler():
             sampled once, i.e., the posterior estimate contains no
             duplicates. For `equal_weight_boost` > 1, duplicates are possible
             but the equal-weighted posterior is a better approximation to the
-            unequal-weight posterior. Note that the number of poins returned
+            unequal-weight posterior. Note that the number of points returned
             is, on average, proportional to `equal_weight_boost`. Default is
             1.0.
         return_blobs : bool, optional
