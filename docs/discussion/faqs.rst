@@ -29,3 +29,12 @@ Why is the posterior noisy despite having a large effective sample size?
 This commonly happens if users are working with equal-weight posteriors by setting ``equal_weight=True``. However, ``nautilus`` naturally produces an unequal-weight posterior. The equal-weight posterior is effectively a noisy estimate of the unequal-weight posterior. It is not recommended to work with the equal-weight posterior if one wants the most precise posterior estimate.
 
 By default, the equal-weight posterior is drawn under the condition that no posterior point appears twice and can be very noisy. However, by setting ``equal_weight_boost`` to a value larger than unity, the equal-weight posterior is allowed to have duplicates. The higher the value of ``equal_weight_boost``, the better the equal-weight posterior approximates the unequal-weight posterior, increasing its precision. This is the recommended solution if the downstream analysis cannot handle unequal-weight posteriors. This feature was introduced in ``nautilus`` version 1.0.5.
+
+What is the uncertainty in the evidence :math:`\log \mathcal{Z}`?
+-----------------------------------------------------------------
+
+In general, there are two sources of uncertainty for :math:`\log \mathcal{Z}`: statistical and systematic. "Statistical" here refers to the scatter in :math:`\log \mathcal{Z}` between repeated runs with the same settings while "systematic" denotes any potential bias in :math:`\log \mathcal{Z}` from the true result over repeated runs. The latter would be non-zero in case nautilus was run using settings that aren't sufficiently "converged."
+
+In practice, the statistical uncertainty on :math:`\log \mathcal{Z}` can be very well approximated by :math:`1 / \sqrt{N_\mathrm{eff}}`, where :math:`N_\mathrm{eff}` is the effective sample size. That means, by default (:math:`N_\mathrm{eff} = 10,000`), nautilus will determine :math:`\log \mathcal{Z}` with a statistical uncertainty of around :math:`\Delta \log \mathcal{Z} \approx 0.01`. This turns out to be substantially smaller than typical uncertainties from traditional nested samplers.
+
+On the other hand, quantitatively assessing the systematic uncertainty is very hard and requires repeated runs with different settings. Fortunately, given the very small statistical uncertainty, even small systematic biases are easy to detect. One recommendation is to vary the number of live points. Additionally, it is always recommended  to set ``discard_exploration=True`` for publication results.
