@@ -38,8 +38,9 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
     points, log_w, log_l = sampler.posterior(
         return_as_dict=pass_dict, equal_weight=True)
-    # All points should be unique (unless equal_weight_boost > 1).
-    assert len(np.unique(points, axis=0)) == len(points)
+    if not pass_dict:
+        # All points should be unique (unless equal_weight_boost > 1).
+        assert len(np.unique(points, axis=0)) == len(points)
     assert sampler.n_eff > 0
     sampler.log_z
     assert sampler.eta > 0
