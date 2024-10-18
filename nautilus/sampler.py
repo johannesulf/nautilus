@@ -7,7 +7,6 @@ except ImportError:
 import numpy as np
 
 from functools import partial
-from multiprocessing import Pool
 from pathlib import Path
 from scipy.special import logsumexp
 from shutil import get_terminal_size
@@ -16,7 +15,7 @@ from time import time
 from warnings import warn
 
 from .bounds import UnitCube, NautilusBound
-from .pool import initialize_worker, likelihood_worker, NautilusPool
+from .pool import likelihood_worker, NautilusPool
 
 
 class Sampler():
@@ -608,7 +607,7 @@ class Sampler():
             repeats = np.exp(log_w - np.amax(log_w)) * equal_weight_boost
             repeats = np.floor(repeats).astype(int) + (
                 self.rng.random(len(repeats)) < repeats - np.floor(repeats)
-                ).astype(int)
+            ).astype(int)
             points = np.repeat(points, repeats, axis=0)
             log_w = np.zeros(np.sum(repeats))
             log_l = np.repeat(log_l, repeats, axis=0)
