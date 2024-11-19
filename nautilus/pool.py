@@ -56,6 +56,7 @@ class NautilusPool:
             workers.
 
         """
+        print("iniating...")
         if isinstance(pool, int):
             self.pool = Pool(pool, initializer=initialize_worker,
                              initargs=(likelihood, ))
@@ -106,3 +107,12 @@ class NautilusPool:
             if hasattr(self.pool, attr):
                 return getattr(self.pool, attr)
         raise ValueError('Cannot determine size of pool.')
+
+    def __del__(self):
+        """
+        Close the pool.
+
+        """
+        for attr in ['close', 'shutdown']:
+            if hasattr(self.pool, attr):
+                getattr(self.pool, attr)()
