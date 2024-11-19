@@ -113,6 +113,7 @@ class NautilusPool:
         Close the pool.
 
         """
-        for attr in ['close', 'shutdown']:
+        for attr in ['shutdown', 'close']:
             if hasattr(self.pool, attr):
                 getattr(self.pool, attr)()
+                return
