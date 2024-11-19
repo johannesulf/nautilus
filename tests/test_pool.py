@@ -8,7 +8,6 @@ from multiprocessing import Pool
 from dask.distributed import Client
 
 from nautilus import Sampler
-from nautilus.pool import NautilusPool
 
 
 def prior(x):
@@ -36,7 +35,7 @@ def test_pool(pool):
             pool = Pool(n_jobs)
         else:
             pool = Client()
-            n_jobs = NautilusPool(pool).size
+            n_jobs = len(pool.nthreads())
 
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, n_networks=1,
                       pool=pool)
