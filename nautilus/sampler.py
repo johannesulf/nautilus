@@ -119,7 +119,7 @@ class Sampler():
 
     def __init__(self, prior, likelihood, n_dim=None, n_live=2000,
                  n_update=None, enlarge_per_dim=1.1, n_points_min=None,
-                 split_threshold=100, n_networks=4,
+                 split_threshold=100, periodic=None, n_networks=4,
                  neural_network_kwargs=dict(), prior_args=[],
                  prior_kwargs=dict(), likelihood_args=[],
                  likelihood_kwargs=dict(), n_batch=None,
@@ -159,6 +159,8 @@ class Sampler():
             sampling. If the volume of the bound prior enlarging is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
+        periodic : numpy.ndarray or None
+            Indices of the parameters that are periodic.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
@@ -270,6 +272,7 @@ class Sampler():
         self.n_points_min = n_points_min
 
         self.split_threshold = split_threshold
+        self.periodic = periodic
 
         self.n_networks = n_networks
 
@@ -1011,6 +1014,7 @@ class Sampler():
                         enlarge_per_dim=self.enlarge_per_dim,
                         n_points_min=self.n_points_min,
                         split_threshold=self.split_threshold,
+                        periodic=self.periodic,
                         n_networks=self.n_networks,
                         neural_network_kwargs=self.neural_network_kwargs,
                         pool=self.pool_s, rng=self.rng)

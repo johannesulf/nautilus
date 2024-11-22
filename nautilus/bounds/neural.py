@@ -7,6 +7,7 @@ from threadpoolctl import threadpool_limits
 
 from .basic import Ellipsoid, UnitCubeEllipsoidMixture
 from .union import Union
+from .periodic import PhaseShift
 from ..neural import NeuralNetworkEmulator
 
 
@@ -203,8 +204,8 @@ class NautilusBound():
     @classmethod
     def compute(cls, points, log_l, log_l_min, log_v_target,
                 enlarge_per_dim=1.1, n_points_min=None, split_threshold=100,
-                n_networks=4, neural_network_kwargs={}, pool=None,
-                rng=None):
+                periodic=None, n_networks=4, neural_network_kwargs={},
+                pool=None, rng=None):
         """Compute a union of multiple neural network-based bounds.
 
         Parameters
@@ -231,6 +232,8 @@ class NautilusBound():
             sampling. If the volume of the bound is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
+        periodic : numpy.ndarray or None
+            Indices of the parameters that are periodic.
         n_networks : int, optional
             Number of networks used in the emulator. Default is 4.
         neural_network_kwargs : dict, optional
@@ -249,6 +252,13 @@ class NautilusBound():
         """
         bound = cls()
         bound.n_dim = points.shape[1]
+
+        if periodic is not None:
+            bound.shift = PhaseShift.compute(points[log_l >= log_l_min],
+                                             periodic)
+            points = bound.shift.transform(points)
+        else:
+            bound.shift = None
 
         bound.neural_bounds = []
 
@@ -314,6 +324,8 @@ class NautilusBound():
             the bound.
 
         """
+        if self.shift is not None:
+            points = self.shift.transform(points)
         in_bound = self.outer_bound.contains(points)
         if len(self.neural_bounds) > 0:
             in_bound = in_bound & np.any(
@@ -392,6 +404,8 @@ class NautilusBound():
         if return_points:
             points = self.points[:n_points]
             self.points = self.points[n_points:]
+            if self.shift is not None:
+                points = self.shift.transform(points, inverse=True)
             return points
 
     @property
@@ -501,6 +515,11 @@ class NautilusBound():
             bound.rng = rng
 
         bound.n_dim = group.attrs['n_dim']
+
+        if 'shift' in group:
+            bound.shift = PhaseShift.read(group['shift'])
+        else:
+            bound.shift = None
 
         bound.neural_bounds = []
         i = 0
