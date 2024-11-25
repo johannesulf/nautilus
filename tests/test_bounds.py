@@ -142,7 +142,7 @@ def test_ellipsoid_volume(points_on_hypersphere_boundary):
         n_dim = points_on_hypersphere_boundary.shape[1]
         assert np.isclose(
             ell.log_v, np.log(enlarge_per_dim**n_dim * np.pi**(n_dim / 2) /
-                               gamma(n_dim / 2 + 1)))
+                              gamma(n_dim / 2 + 1)))
 
 
 def test_ellipsoid_transform(random_points_from_hypersphere):
@@ -309,6 +309,22 @@ def test_neural_bound_contains(random_points_from_hypercube):
     log_l = -np.linalg.norm(points - 0.5, axis=1)
     in_bound = nbound.contains(points)
     assert np.mean(log_l[in_bound] > log_l_min) >= 0.9
+
+
+def test_phase_shift():
+    # Test whether the phase-shift correctly centers periodic dimensions.
+
+    np.random.seed(0)
+    for i in range(100):
+        n_points = 10  # 100
+        n_dim = 2  # 10
+        points = (np.random.random(size=(n_points, n_dim)) * 0.1 +
+                  np.random.random(size=n_dim)) % 1
+        shift = bounds.PhaseShift.compute(points, np.arange(n_dim // 2))
+        assert np.amin(shift.transform(points)[:, :n_dim // 2]) >= 0.45
+        assert np.amax(shift.transform(points)[:, :n_dim // 2]) <= 0.55
+        assert np.allclose(points, shift.transform(shift.transform(
+            points), inverse=True), rtol=0, atol=1e-12)
 
 
 def test_nautilus_bound_sample_and_contains(random_points_from_hypercube):

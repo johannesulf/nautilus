@@ -36,8 +36,6 @@ class PhaseShift():
 
         """
         bound = cls()
-        if periodic is None:
-            periodic = np.zeros(0, dtype=bool)
         bound.periodic = periodic
         bound.centers = np.zeros(len(periodic))
 
@@ -67,13 +65,10 @@ class PhaseShift():
             Transformed points.
 
         """
-        if not np.any(self.periodic):
-            return points
-
         points_t = np.copy(points)
         for dim in self.periodic:
             points_t[:, dim] = (points_t[:, dim] + (-1 if inverse else +1) *
-                                (self.centers[dim] + 0.5)) % 1
+                                (-self.centers[dim] + 0.5)) % 1
         return points_t
 
     def write(self, group):

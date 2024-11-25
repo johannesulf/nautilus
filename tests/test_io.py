@@ -6,8 +6,8 @@ from pathlib import Path
 
 from nautilus import Sampler
 from nautilus.bounds import (
-    UnitCube, Ellipsoid, Union, UnitCubeEllipsoidMixture, NeuralBound,
-    NautilusBound)
+    Ellipsoid, NautilusBound, NeuralBound, PhaseShift, Union, UnitCube,
+    UnitCubeEllipsoidMixture)
 from nautilus.neural import NeuralNetworkEmulator
 
 
@@ -31,9 +31,9 @@ def test_neural_io(h5py_group):
                   emulator_read.predict(points))
 
 
-@pytest.mark.parametrize("bound_class", [UnitCube, Ellipsoid, Union,
-                                         UnitCubeEllipsoidMixture, NeuralBound,
-                                         NautilusBound])
+@pytest.mark.parametrize("bound_class", [Ellipsoid, NautilusBound, NeuralBound,
+                                         Union, UnitCube,
+                                         UnitCubeEllipsoidMixture])
 @pytest.mark.parametrize("rng_sync", [True, False])
 def test_bounds_io(h5py_group, bound_class, rng_sync):
     # Test that we can write and read a bound correctly. In particular, also
@@ -61,7 +61,10 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
             args = (points, log_l, log_l_min, np.log(0.5))
         kwargs = dict(n_networks=1, pool=None)
 
-    bound_write = bound_class.compute(*args, **kwargs, rng=rng)
+    if bound_class != PhaseShift:
+        kwargs['rng'] = rng
+
+    bound_write = bound_class.compute(*args, **kwargs)
     if bound_class == Union:
         bound_write.split()
 
@@ -111,7 +114,9 @@ def test_bounds_io(h5py_group, bound_class, rng_sync):
 @pytest.mark.parametrize("n_like_max", [np.inf, 500])
 @pytest.mark.parametrize("discard_exploration", [True, False])
 @pytest.mark.parametrize("n_networks", [0, 1])
-def test_sampler_io(blobs, n_like_max, discard_exploration, n_networks):
+@pytest.mark.parametrize("periodic", [None, np.arange(1)])
+def test_sampler_io(blobs, n_like_max, discard_exploration, n_networks,
+                    periodic):
     # Test that we can write and read a sampler correctly. In particular, also
     # test that the random number generator is correctly set after writing and
     # reading. Also make sure that the sampler can print out the progress.
@@ -126,13 +131,13 @@ def test_sampler_io(blobs, n_like_max, discard_exploration, n_networks):
             return -np.linalg.norm(x - 0.5) * 0.001
 
     sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                            n_networks=n_networks, filepath='test.hdf5',
-                            resume=False, seed=0)
+                            n_networks=n_networks, periodic=periodic,
+                            filepath='test.hdf5', resume=False, seed=0)
     sampler_write.run(f_live=0.45, n_eff=1000, n_like_max=n_like_max,
                       discard_exploration=discard_exploration)
     sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
-                           n_networks=n_networks, filepath='test.hdf5',
-                           resume=True)
+                           n_networks=n_networks, periodic=periodic,
+                           filepath='test.hdf5', resume=True)
     assert sampler_write.log_z == sampler_read.log_z
 
     sampler_write.run(f_live=0.45, n_eff=5000,
