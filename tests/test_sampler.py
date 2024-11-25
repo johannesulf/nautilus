@@ -371,3 +371,27 @@ def test_sampler_plateau_2():
         # plateaus.
         assert np.all(np.isclose(sampler.shell_log_l_min[1:],
                       np.arange(len(sampler.bounds) - 1) + 2, rtol=0))
+
+
+@pytest.mark.parametrize("periodic", [False, True])
+def test_sampler_periodic(periodic):
+    # Test that the periodic boundary conditions work correctly. In particular,
+    # the sampler shouldn't split modes extending over a boundary.
+
+    n_dim = 2
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return multivariate_normal.logpdf(
+            np.abs(x - 0.5), mean=[0.5] * n_dim, cov=0.1)
+
+    sampler = Sampler(prior, likelihood, n_dim,
+                      periodic=np.arange(n_dim) if periodic else None,
+                      n_networks=0, seed=0)
+    sampler.run(verbose=True)
+    points, log_w, log_l = sampler.posterior()
+
+    for bound in sampler.bounds[1:]:
+        assert len(bound.neural_bounds) == 1 if periodic else 4
