@@ -39,10 +39,10 @@ class PhaseShift():
         bound.periodic = periodic
         bound.centers = np.zeros(len(periodic))
 
-        for dim in periodic:
+        for i, dim in enumerate(periodic):
             x = np.sort(points[:, dim])
             dx = np.append(np.diff(x), x[0] - (x[-1] - 1))
-            bound.centers[dim] = (
+            bound.centers[i] = (
                 x[np.argmax(dx)] + np.amax(dx) / 2.0 + 0.5) % 1
 
         return bound
@@ -66,9 +66,9 @@ class PhaseShift():
 
         """
         points_t = np.copy(points)
-        for dim in self.periodic:
+        for i, dim in enumerate(self.periodic):
             points_t[:, dim] = (points_t[:, dim] + (-1 if inverse else +1) *
-                                (-self.centers[dim] + 0.5)) % 1
+                                (-self.centers[i] + 0.5)) % 1
         return points_t
 
     def write(self, group):
