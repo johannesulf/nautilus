@@ -49,6 +49,8 @@ class Sampler():
         sampling. If the volume of the bound prior enlarging is larger than
         `split_threshold` times the target volume, the multi-ellipsiodal
         bound is split further, if possible.
+    periodic : numpy.ndarray or None
+        Indices of the parameters that are periodic.
     n_networks : int
         Number of networks used in the estimator.
     neural_network_kwargs : dict
@@ -159,8 +161,8 @@ class Sampler():
             sampling. If the volume of the bound prior enlarging is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
-        periodic : numpy.ndarray or None
-            Indices of the parameters that are periodic.
+        periodic : numpy.ndarray or None, optional
+            Indices of the parameters that are periodic. Default is None.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict, optional
