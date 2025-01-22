@@ -4,21 +4,20 @@ from multiprocessing import Pool
 
 
 def initialize_worker(likelihood):
-    """
-    Initialize a worker for likelihood evaluations.
+    """Initialize a worker for likelihood evaluations.
 
     Parameters
     ----------
     likelihood : function
         Likelihood function that each worker will evaluate.
+
     """
     global LIKELIHOOD
     LIKELIHOOD = likelihood
 
 
 def likelihood_worker(*args):
-    """
-    Have the worker evaluate the likelihood.
+    """Have the worker evaluate the likelihood.
 
     Parameters
     ----------
@@ -29,13 +28,13 @@ def likelihood_worker(*args):
     -------
     object
         Return value of the likelihood function.
+
     """
     return LIKELIHOOD(*args)
 
 
 class NautilusPool:
-    """
-    Wrapper for avoiding implementation-specific details elsewhere.
+    """Wrapper for avoiding implementation-specific details elsewhere.
 
     Attributes
     ----------
@@ -45,8 +44,7 @@ class NautilusPool:
     """
 
     def __init__(self, pool, likelihood=None):
-        """
-        Initialize a pool.
+        """Initialize a pool.
 
         Parameters
         ----------
@@ -54,6 +52,8 @@ class NautilusPool:
             Pool used for parallelization. If a number, initialize a pool
             from the `multiprocessing` library with the specified number of
             workers.
+        likelihood : function, optional
+            Likelihood function to cache. Defaul is None.
 
         """
         if isinstance(pool, int):
@@ -63,8 +63,7 @@ class NautilusPool:
             self.pool = pool
 
     def map(self, func, iterable):
-        """
-        Loop a function over an iterable, similar to the built-in map function.
+        """Loop a function over an iterable like the built-in map function.
 
         Parameters
         ----------

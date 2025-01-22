@@ -33,6 +33,7 @@ class NautilusBound():
     n_reject : int
         Number of points rejected due to not falling into the neural
         network-based bounds.
+
     """
 
     @classmethod
@@ -267,6 +268,7 @@ class NautilusBound():
         -------
         n_ell : int
             The number of ellipsoids.
+
         """
         return np.sum([np.any(~bound.dim_cube) for bound in
                        self.outer_bound.bounds])
@@ -279,6 +281,7 @@ class NautilusBound():
         -------
         n_net : int
             The number of neural networks.
+
         """
         if self.neural_bounds[0].emulator is not None:
             return len(self.neural_bounds) * len(

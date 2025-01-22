@@ -22,6 +22,7 @@ class NeuralBound():
     score_predict_min : float
         Minimum score predicted by the emulator to be considered part of the
         bound.
+
     """
 
     @classmethod

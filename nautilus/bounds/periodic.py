@@ -92,6 +92,8 @@ class PhaseShift():
         ----------
         group : h5py.Group
             HDF5 group to write to.
+        rng : None or numpy.random.Generator, optional
+            Determines random number generation. Default is None.
 
         Returns
         -------

@@ -45,6 +45,7 @@ class Prior():
         ValueError
             If a new key already exists in the key list or if `dist` is a
             string but does not refer to a previously defined key.
+
         """
         if key is None:
             self.keys.append('x_{}'.format(len(self.keys)))
@@ -76,6 +77,7 @@ class Prior():
         -------
         n_dim : int
             The number of free model parameters.
+
         """
         return sum(not isinstance(dist, (numbers.Number, str)) for dist in
                    self.dists)

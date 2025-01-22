@@ -19,8 +19,7 @@ from .pool import likelihood_worker, NautilusPool
 
 
 class Sampler():
-    """
-    A dynamic sampler built upon the framework of importance nested sampling.
+    """A dynamic sampler built upon the framework of importance nested sampling.
 
     Attributes
     ----------
@@ -128,8 +127,7 @@ class Sampler():
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
                  pool=None, seed=None, blobs_dtype=None, filepath=None,
                  resume=True):
-        r"""
-        Initialize the sampler.
+        r"""Initialize the sampler.
 
         Parameters
         ----------
@@ -601,7 +599,7 @@ class Sampler():
         points = np.concatenate([p[s:] for p, s in zip(self.points, start)])
         log_v = np.repeat(self.shell_log_v -
                           np.log(np.maximum(self.shell_n, 1)), self.shell_n)
-        log_l = np.concatenate([l[s:] for l, s in zip(self.log_l, start)])
+        log_l = np.concatenate([ll[s:] for ll, s in zip(self.log_l, start)])
         log_w = log_v + log_l
         if return_blobs:
             if self.blobs is None:
