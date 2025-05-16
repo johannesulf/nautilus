@@ -38,3 +38,29 @@ In general, there are two sources of uncertainty for :math:`\log \mathcal{Z}`: s
 In practice, the statistical uncertainty on :math:`\log \mathcal{Z}` can be very well approximated by :math:`1 / \sqrt{N_\mathrm{eff}}`, where :math:`N_\mathrm{eff}` is the effective sample size. That means, by default (:math:`N_\mathrm{eff} = 10,000`), nautilus will determine :math:`\log \mathcal{Z}` with a statistical uncertainty of around :math:`\Delta \log \mathcal{Z} \approx 0.01`. This turns out to be substantially smaller than typical uncertainties from traditional nested samplers.
 
 On the other hand, quantitatively assessing the systematic uncertainty is very hard and requires repeated runs with different settings. Fortunately, given the very small statistical uncertainty, even small systematic biases are easy to detect. One recommendation is to vary the number of live points. Additionally, it is always recommended  to set ``discard_exploration=True`` for publication results.
+
+`nautilus` hangs when using parallelization in Jupyter notebooks. What can I do?
+--------------------------------------------------------------------------------
+
+If this happens, the easiest solutions is to create a pool using the `multiprocess` module as opposed to the standard `multiprocessing` library. Here's a simple example.
+
+.. code-block:: python
+
+    import multiprocess as mp
+    import numpy as np
+    from nautilus import Prior, Sampler
+    from scipy.stats import multivariate_normal
+
+    prior = Prior()
+    for key in 'abc':
+        prior.add_parameter(key)
+
+    def likelihood(param_dict):
+        x = [param_dict[key] for key in 'abc']
+        return multivariate_normal.logpdf(x, mean=[0.4, 0.5, 0.6], cov=0.01)
+
+        with mp.Pool(50) as pool:
+            sampler = Sampler(prior, likelihood, pool=pool)
+            sampler.run(verbose=True)
+
+Thanks to `Paul Shah <https://github.com/johannesulf/nautilus/issues/64>`_ for this suggestion!
