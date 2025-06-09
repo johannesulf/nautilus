@@ -3,7 +3,14 @@
 
 name: tests
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    paths: ['.github/**', 'nautilus/**', 'tests/**', 'pyproject.toml']
+  pull_request:
+    paths: ['.github/**', 'nautilus/**', 'tests/**', 'pyproject.toml']
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -12,10 +19,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         exclude:
-          - os: macos-latest
-            python-version: "3.8"
           - os: macos-latest
             python-version: "3.9"
     runs-on: ${{ matrix.os }}
