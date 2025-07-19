@@ -64,3 +64,23 @@ If this happens, the easiest solutions is to create a pool using the `multiproce
             sampler.run(verbose=True)
 
 Thanks to `Paul Shah <https://github.com/johannesulf/nautilus/issues/64>`_ for this suggestion!
+
+When using checkpointing, I occasionally get `BlockingIOError`. What can I do?
+------------------------------------------------------------------------------
+
+`nautilus` uses HDF5 for writing checkpoint files via the `h5py` library. Occasionally, `h5py` may encounter a `BlockingIOError`. This is typically caused by file system delays in the release of the lock file, making it appear as if another process is still writing to the checkpoint file. However, `nautilus` writes to the checkpoint file sequentially. Thus, disabling file locking is generally a safe and effective workaround for this issue. To disable file locking, you can set an environment variable before calling the python script or starting a jupyter notebook via the following shell command.
+
+.. code-block:: bash
+
+    export HDF5_USE_FILE_LOCKING=FALSE
+
+Alternatively, you may use the following Python code.
+
+.. code-block:: python
+
+    import os
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
+**Important**: To make sure this works, you should call this Python command before importing `nautilus`, `h5py` or any other package making use of HDF5.
+
+Thanks to `Ho-Hin Leung <https://github.com/johannesulf/nautilus/issues/47>`_ for help investigating this issue!
