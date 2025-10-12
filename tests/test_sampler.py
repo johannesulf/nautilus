@@ -10,7 +10,9 @@ from nautilus import Prior, Sampler
 @pytest.mark.parametrize("n_networks", [0, 1, 2])
 @pytest.mark.parametrize("vectorized", [True, False])
 @pytest.mark.parametrize("pass_dict", [True, False])
-def test_sampler_basic(n_networks, vectorized, pass_dict):
+@pytest.mark.parametrize("pool", [None, 2])
+@pytest.mark.parametrize("n_blobs", [0, 1, 2])
+def test_sampler_basic(n_networks, vectorized, pass_dict, pool, n_blobs):
     # Test that the sampler does not crash.
 
     if pass_dict:
@@ -24,27 +26,37 @@ def test_sampler_basic(n_networks, vectorized, pass_dict):
     def likelihood(x):
         if pass_dict:
             x = np.squeeze(np.column_stack([x['a'], x['b']]))
-        return -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+        log_l = -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+        if n_blobs == 0:
+            return log_l
+        elif n_blobs == 1:
+            return log_l, x[..., 0]
+        else:
+            return log_l, x[..., 0], x[..., 1]
 
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
-        vectorized=vectorized, pass_dict=pass_dict, n_live=200)
+        vectorized=vectorized, pass_dict=pass_dict, n_live=200, pool=pool)
     sampler.run(n_like_max=600, verbose=True)
-    sampler = Sampler(
-        prior, likelihood, n_dim=2, n_networks=n_networks,
-        vectorized=vectorized, pass_dict=None, n_live=200)
-    sampler.run(n_like_max=600, verbose=True)
-    points, log_w, log_l = sampler.posterior()
+    sampler.posterior()
+    sampler.posterior(equal_weight=True)
     points, log_w, log_l = sampler.posterior(return_as_dict=pass_dict)
-    points, log_w, log_l = sampler.posterior(
-        return_as_dict=pass_dict, equal_weight=True)
-    if not pass_dict:
-        # All points should be unique (unless equal_weight_boost > 1).
-        assert len(np.unique(points, axis=0)) == len(points)
+    if pass_dict:
+        assert isinstance(points, dict)
+        points = np.column_stack([points[key] for key in points])
+    # All points should be unique (unless equal_weight_boost > 1).
+    assert len(np.unique(points, axis=0)) == len(points)
     assert sampler.n_eff > 0
     sampler.log_z
     assert sampler.eta > 0
     assert sampler.eta < 1
+    if n_blobs == 1:
+        blobs = sampler.posterior(return_blobs=True)[-1]
+        assert np.allclose(points[:, 0], blobs)
+    elif n_blobs == 2:
+        blobs = sampler.posterior(return_blobs=True)[-1]
+        assert np.allclose(points[:, 0], blobs['blob_0'])
+        assert np.allclose(points[:, 1], blobs['blob_1'])
 
 
 def test_sampler_errors_and_warnings():

@@ -852,45 +852,41 @@ class Sampler():
         # likelihood function.
         if callable(self.prior):
             transform = self.prior
+        elif self.pass_dict:
+            transform = self.prior.unit_to_dictionary
         else:
-            if self.pass_dict:
-                transform = self.prior.unit_to_dictionary
-            else:
-                transform = self.prior.unit_to_physical
+            transform = self.prior.unit_to_physical
 
         if not self.vectorized:
             args = list(map(transform, np.copy(points)))
         else:
-            args = transform(np.copy(points))
+            args = list(map(transform, np.array_split(
+                points, 1 if self.pool_l is None else self.pool_l.size)))
 
         # Evaluate the likelihood.
-        if self.vectorized:
-            result = self.likelihood(args)
-            if isinstance(result, tuple):
-                result = list(zip(*result))
-        elif self.pool_l is not None:
+        if self.pool_l is not None:
             result = list(self.pool_l.map(self.likelihood, args))
         else:
             result = list(map(self.likelihood, args))
 
         if isinstance(result[0], tuple):
-            log_l = np.array([r[0] for r in result])
-            blobs = [r[1:] for r in result]
+            result = [np.concatenate([
+                np.atleast_1d(result[row][col]) for row in range(len(result))])
+                for col in range(len(result[0]))]
+            log_l = result[0]
+            blobs = result[1:]
             if self.blobs_dtype is None:
-                if len(blobs[0]) > 1:
-                    self.blobs_dtype = [
-                        ('blob_{}'.format(i), np.array([b]).dtype) for i, b in
-                        enumerate(blobs[0])]
+                if len(blobs) > 1:
+                    self.blobs_dtype = [('blob_{}'.format(i), b.dtype) for
+                                        i, b in enumerate(blobs)]
                 else:
-                    self.blobs_dtype = np.array([blobs[0][0]]).dtype
-            blobs = np.squeeze(np.array(blobs, dtype=self.blobs_dtype))
+                    print(blobs)
+                    self.blobs_dtype = blobs[0].dtype
+            blobs = np.squeeze(
+                np.array(list(zip(*blobs)), dtype=self.blobs_dtype))
         else:
-            log_l = np.array(result)
+            log_l = np.concatenate([np.atleast_1d(log_l) for log_l in result])
             blobs = None
-
-        if blobs is None and self.blobs_dtype is not None:
-            raise ValueError("'blobs_dtype' was specified but the likelihood" +
-                             " function does not return blobs.")
 
         self.n_like += len(log_l)
 

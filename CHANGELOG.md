@@ -8,35 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- One can now specify periodic parameters via the `periodic` keyword argument. This should increase sampling efficency and reduce computational overhead in cases where certain parameters are periodic such as angles.
+- One can now specify periodic parameters via the `periodic` keyword argument. This should increase sampling efficiency and reduce computational overhead in cases where certain parameters are periodic, such as angles.
 
-## [1.0.5] - 2023-10-18
+### Fixed
+- The combination of vectorization and parallelization is now properly implemented and does not crash. (#69)
+
+## [1.0.5] - 2024-10-18
 
 ### Added
 - The equal-weighted posterior can now be made larger and more precise using the `equal_weight_boost` keyword argument of `sampler.posterior`.
 
-## [1.0.4] - 2023-07-27
+## [1.0.4] - 2024-07-27
 
 ### Added
-- Nautilus can now use Dask clusters for parallelization (#49).
+- Nautilus can now use Dask clusters for parallelization. (#49)
 
-## [1.0.3] - 2023-04-29
+## [1.0.3] - 2024-04-29
 
 ### Added
 - The user can now specify a timeout interval for the sampler. If that time is exceeded, the sampler will not start new calculations. (#46)
 - The sampler now returns whether it finished normally or stopped because the timeout or maximum number of likelihood computations was reached. (#46)
 
-## [1.0.2] - 2023-02-15
+## [1.0.2] - 2024-02-15
 
 ### Changed
 - Further improved the way the sampler handles plateaus. For example, if the lowest-likelihood point in the live set is part of a plateau, the sampler will jump past the plateau if enough live points with higher likelihood exist. The sampler also behaves reasonably if most or all points are part of a plateau. This leads to less freezes and better performance.
 
-## [1.0.1] - 2023-02-12
+## [1.0.1] - 2024-02-12
 
 ### Fixed
 - Fixed a crash when multiple blobs per likelihood call are returned as a single array.
 
-## [1.0.0] - 2023-02-12
+## [1.0.0] - 2024-02-12
 
 ### Added
 - The user can now specify a maximum number of likelihood calls. If that number is exceeded, the sampler will automatically stop. (#23)
@@ -49,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a crash when returning the posterior as a dictionary and with equal weight.
 - Fixed a potential crash when `n_update` is extremely low.
 
-### Depcrecated
+### Deprecated
 - The `evidence`, `asymptotic_sampling_efficiency`, and `effective_sample_size` sampler functions are deprecated and replaced by the `log_z`, `eta`, and `n_eff` properties, respectively.
 
 ### Removed
