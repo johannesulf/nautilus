@@ -1,3 +1,4 @@
+import multiprocessing
 import numpy as np
 import pytest
 import warnings
@@ -14,6 +15,9 @@ from nautilus import Prior, Sampler
 @pytest.mark.parametrize("n_blobs", [0, 1, 2])
 def test_sampler_basic(n_networks, vectorized, pass_dict, pool, n_blobs):
     # Test that the sampler does not crash.
+
+    if multiprocessing.get_start_method() == 'spawn' and pool is not None:
+        pytest.skip("Skipping test for spawn start method.")
 
     if pass_dict:
         prior = Prior()

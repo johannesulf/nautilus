@@ -869,24 +869,36 @@ class Sampler():
         else:
             result = list(map(self.likelihood, args))
 
+        # Extracts the blobs, if present.
         if isinstance(result[0], tuple):
-            result = [np.concatenate([
-                np.atleast_1d(result[row][col]) for row in range(len(result))])
-                for col in range(len(result[0]))]
-            log_l = result[0]
-            blobs = result[1:]
+            log_l = [result[i][0] for i in range(len(result))]
+            blobs = [result[i][1:] for i in range(len(result))]
+        else:
+            log_l = result
+            blobs = None
+
+        if self.vectorized:
+            log_l = np.concatenate(log_l)
+        else:
+            log_l = np.array(log_l)
+
+        if blobs is not None:
+            if self.vectorized:
+                blobs = [np.concatenate([
+                    blobs[row][col] for row in range(len(blobs))])
+                    for col in range(len(blobs[0]))]
+            else:
+                blobs = [np.array([
+                    blobs[row][col] for row in range(len(blobs))])
+                    for col in range(len(blobs[0]))]
             if self.blobs_dtype is None:
                 if len(blobs) > 1:
                     self.blobs_dtype = [('blob_{}'.format(i), b.dtype) for
                                         i, b in enumerate(blobs)]
                 else:
-                    print(blobs)
                     self.blobs_dtype = blobs[0].dtype
             blobs = np.squeeze(
                 np.array(list(zip(*blobs)), dtype=self.blobs_dtype))
-        else:
-            log_l = np.concatenate([np.atleast_1d(log_l) for log_l in result])
-            blobs = None
 
         self.n_like += len(log_l)
 

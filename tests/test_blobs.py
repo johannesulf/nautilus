@@ -119,10 +119,7 @@ def test_blobs_array(prior, vectorized, discard_exploration):
     # Test that blobs work when returning multiple blobs via one array.
 
     def likelihood(x):
-        if vectorized:
-            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:, :2]
-        else:
-            return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[:2]
+        return -np.linalg.norm(x - 0.5, axis=-1) * 0.001, x[..., :2]
 
     blobs_dtype = np.float32
     sampler = Sampler(prior, likelihood, n_dim=2, n_live=200,
