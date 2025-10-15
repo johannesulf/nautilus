@@ -31,7 +31,7 @@ For this example, the computation took around 330 seconds. Let's see how to spee
 SMP Parallelization
 -------------------
 
-If you're running ``nautilus`` on a computer or laptop, shared-memory multiprocessing (SMP) is likely the most straightforward way to distribute computations. All you need to do is give a number to the `pool` keyword argument. In this example, let's run the computation on 4 CPU cores.
+If you're running ``nautilus`` on a computer or laptop, shared-memory multiprocessing (SMP) is likely the most straightforward way to distribute computations. All you need to do is give a number to the ``pool`` keyword argument. In this example, let's run the computation on 4 CPU cores.
 
 .. code-block:: python
 
@@ -43,10 +43,39 @@ If you're running ``nautilus`` on a computer or laptop, shared-memory multiproce
 
 Using 4 CPU cores, the computation took around 100 seconds, i.e., it was about 3.3 times faster than without parallelization.
 
+.. note::
+
+    On MacOS and Windows, due to how the ``multiprocessing`` library works on these operating systems, you will likely need to enclose the ``Sampler`` calls into a ``main()`` block while the likelihood function should be defined at the top level, i.e., not inside another function.
+
+    .. code-block:: python
+
+        import numpy as np
+        import time
+
+        from nautilus import Prior, Sampler
+
+        def likelihood(x):
+            time.sleep(0.01)
+            return np.sum(-(x - 0.5)**2 / (2 * 0.1**2))
+
+        def main():
+            prior = Prior()
+            for i in range(3):
+	        prior.add_parameter()
+
+            sampler = Sampler(prior, likelihood, pass_dict=False, pool=4)
+            t_start = time.time()
+            sampler.run(verbose=True)
+            t_end = time.time()
+            print('Total time: {:.1f}s'.format(t_end - t_start))
+
+        if __name__ == '__main__':
+            main()
+
 MPI Parallelization
 -------------------
 
-On an HPC cluster with multiple distinct CPUs and nodes without shared memory, SMP parallelization will not work. In this case, use Message Passing Interface (MPI) parallelization. Here, we use that ``pool`` can also be any pool, i.e., an instance of ``mpi4py.futures.MPIPoolExecutor``.
+On an HPC cluster with multiple distinct CPUs and nodes without shared memory, SMP parallelization will not work. In this case, use Message Passing Interface (MPI) parallelization. Here, we use that ``pool`` can be any pool, i.e., an instance of ``mpi4py.futures.MPIPoolExecutor``.
 
 .. code-block:: python
 
@@ -72,6 +101,6 @@ Here are a few additional notes about parallelization. First, note that some fun
     
     os.environ["OMP_NUM_THREADS"] = "1"
 
-Also note that when using parallelization, the likelihood function is repeatedly pickled and sent to the workers in the pool for evaluation. If the likelihood function is complex, this communication between the primary process and workers may become a bottleneck. Thus, it is advisable to initialize the pool in a way that avoids the need for passing the full likelihood function for evaluations. Fortunately, when specifying a number for the `pool` keyword argument, ``nautilus`` takes care of that automatically.
+Also note that when using parallelization, the likelihood function is repeatedly pickled and sent to the workers in the pool for evaluation. If the likelihood function is complex, this communication between the primary process and workers may become a bottleneck. Thus, it is advisable to initialize the pool in a way that avoids the need for passing the full likelihood function for evaluations. Fortunately, when specifying a number for the ``pool`` keyword argument, ``nautilus`` takes care of that automatically.
 
 Finally, in some situations, it may be beneficial to use different parallelization schemes for the likelihood evaluations and the sampler calculations. The keyword argument ``pool`` also be a tuple defining two pools. In this case, the first is used for likelihood calculations and the second for sampler calculations. For example, to parallelize likelihood evaluations but not sampler calculations, use ``pool=(4, None)``.
