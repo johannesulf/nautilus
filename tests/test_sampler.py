@@ -3,9 +3,24 @@ import numpy as np
 import pytest
 import warnings
 
+from functools import partial
 from scipy.stats import multivariate_normal, norm
 
 from nautilus import Prior, Sampler
+
+
+def likelihood_basic(x, pass_dict, n_blobs):
+    # Likelihood used for the test below. It's defined at the module scope
+    # so it's pickleable with 'spawn' and 'forkserver' multiprocessing methods.
+    if pass_dict:
+        x = np.squeeze(np.column_stack([x['a'], x['b']]))
+    log_l = -np.linalg.norm(x - 0.5, axis=-1) * 0.001
+    if n_blobs == 0:
+        return log_l
+    elif n_blobs == 1:
+        return log_l, x[..., 0]
+    else:
+        return log_l, x[..., 0], x[..., 1]
 
 
 @pytest.mark.parametrize("n_networks", [0, 1, 2])
@@ -16,9 +31,6 @@ from nautilus import Prior, Sampler
 def test_sampler_basic(n_networks, vectorized, pass_dict, pool, n_blobs):
     # Test that the sampler does not crash.
 
-    if multiprocessing.get_start_method() == 'spawn' and pool is not None:
-        pytest.skip("Skipping test for spawn start method.")
-
     if pass_dict:
         prior = Prior()
         prior.add_parameter('a')
@@ -27,16 +39,8 @@ def test_sampler_basic(n_networks, vectorized, pass_dict, pool, n_blobs):
         def prior(x):
             return x
 
-    def likelihood(x):
-        if pass_dict:
-            x = np.squeeze(np.column_stack([x['a'], x['b']]))
-        log_l = -np.linalg.norm(x - 0.5, axis=-1) * 0.001
-        if n_blobs == 0:
-            return log_l
-        elif n_blobs == 1:
-            return log_l, x[..., 0]
-        else:
-            return log_l, x[..., 0], x[..., 1]
+    likelihood = partial(likelihood_basic, pass_dict=pass_dict,
+                         n_blobs=n_blobs)
 
     sampler = Sampler(
         prior, likelihood, n_dim=2, n_networks=n_networks,
