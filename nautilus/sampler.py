@@ -415,7 +415,10 @@ class Sampler():
         t_start = time()
 
         if verbose:
-            print('Starting the nautilus sampler...')
+            if self.n_like == 0:
+                print('Starting the nautilus sampler...')
+            else:
+                print('Resuming nautilus run...')
             print('Please report issues at github.com/johannesulf/nautilus.')
             self.print_status(header=True)
 
