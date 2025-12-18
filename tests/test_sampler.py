@@ -1,4 +1,3 @@
-import multiprocessing
 import numpy as np
 import pytest
 import warnings
