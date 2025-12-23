@@ -977,7 +977,7 @@ class Sampler():
         output = ' | '.join(data)
         width = get_terminal_size((80, 24)).columns
         output = output.ljust(width)[:width]
-        print(output, end=end)
+        print(output, end=end, flush=True)
 
     def add_bound(self, verbose=False):
         """Try building a new bound from existing points.
