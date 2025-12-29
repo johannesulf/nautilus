@@ -5,7 +5,7 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.6] - 2025-12-29
 
 ### Added
 - One can now specify periodic parameters via the `periodic` keyword argument. This should increase sampling efficiency and reduce computational overhead in cases where certain parameters are periodic, such as angles.
