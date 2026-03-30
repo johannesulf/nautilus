@@ -38,7 +38,7 @@ def test_pool(pool):
             pool = Client()
             n_jobs = NautilusPool(pool).size
 
-    sampler = Sampler(prior, likelihood, n_dim=2, n_live=50, n_networks=1,
+    sampler = Sampler(prior, likelihood, n_dim=2, n_live=300, n_networks=1,
                       pool=pool)
     sampler.run(f_live=1.0, n_eff=0)
     points, log_w, log_l, blobs = sampler.posterior(return_blobs=True)
