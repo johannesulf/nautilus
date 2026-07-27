@@ -1,7 +1,7 @@
 """Neural Network-Boosted Importance Sampling for Bayesian Statistics."""
 
-from .sampler import Sampler
 from .prior import Prior
+from .sampler import Sampler
 
 __author__ = 'Johannes U. Lange'
 __email__ = 'jlange@american.edu'

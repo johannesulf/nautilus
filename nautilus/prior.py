@@ -1,11 +1,12 @@
 """Module implementing the prior bounds and convencience functions."""
 
 import numbers
+
 import numpy as np
 from scipy.stats import uniform
 
 
-class Prior():
+class Prior:
     """Helper class to construct prior bounds.
 
     Attributes
@@ -48,11 +49,11 @@ class Prior():
 
         """
         if key is None:
-            self.keys.append('x_{}'.format(len(self.keys)))
+            self.keys.append(f'x_{len(self.keys)}')
         elif not isinstance(key, str):
             raise TypeError("Keyword argument 'key' must be a string.")
         elif key in self.keys:
-            raise ValueError("Key '{}' already in key list.".format(key))
+            raise ValueError(f"Key '{key}' already in key list.")
         else:
             self.keys.append(key)
 
@@ -62,7 +63,7 @@ class Prior():
             self.dists.append(dist)
         elif isinstance(dist, str):
             if dist not in self.keys or dist == str(key):
-                raise ValueError('Key {} not defined previously.'.format(dist))
+                raise ValueError(f'Key {dist} not defined previously.')
             while isinstance(self.dists[self.keys.index(dist)], str):
                 dist = self.dists[self.keys.index(dist)]
             self.dists.append(dist)

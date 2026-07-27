@@ -3,11 +3,11 @@
 import numpy as np
 from scipy.stats import rankdata
 
-from .basic import Ellipsoid
 from ..neural import NeuralNetworkEmulator
+from .basic import Ellipsoid
 
 
-class NeuralBound():
+class NeuralBound:
     """Neural network-based bound.
 
     Attributes
@@ -27,7 +27,7 @@ class NeuralBound():
 
     @classmethod
     def compute(cls, points, log_l, log_l_min, enlarge_per_dim=1.1,
-                n_networks=4, neural_network_kwargs={}, pool=None,
+                n_networks=4, neural_network_kwargs=None, pool=None,
                 rng=None):
         """Compute a neural network-based bound.
 
@@ -44,9 +44,9 @@ class NeuralBound():
             by this factor. Default is 1.1.
         n_networks : int, optional
             Number of networks used in the emulator. Default is 4.
-        neural_network_kwargs : dict, optional
+        neural_network_kwargs : dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor.
+            MLPRegressor. Default is `None`.
         pool : nautilus.pool.NautilusPool or None, optional
             Pool used for parallel processing. Default is None.
         rng : None or numpy.random.Generator, optional
@@ -75,6 +75,9 @@ class NeuralBound():
             return bound
 
         # Train the network.
+        if neural_network_kwargs is None:
+            neural_network_kwargs = {}
+
         select = bound.outer_bound.contains(points)
         points = points[select]
         log_l = log_l[select]
