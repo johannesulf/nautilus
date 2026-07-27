@@ -234,6 +234,15 @@ class Sampler:
             2.
 
         """
+        if prior_args is None:
+            prior_args = []
+        if prior_kwargs is None:
+            prior_kwargs = {}
+        if likelihood_args is None:
+            likelihood_args = []
+        if likelihood_kwargs is None:
+            likelihood_kwargs = {}
+
         if callable(prior):
             self.prior = partial(prior, *prior_args, **prior_kwargs)
         else:
@@ -280,14 +289,6 @@ class Sampler:
 
         if neural_network_kwargs is None:
             neural_network_kwargs = {}
-        if prior_args is None:
-            prior_args = []
-        if prior_kwargs is None:
-            prior_kwargs = {}
-        if likelihood_args is None:
-            likelihood_args = []
-        if likelihood_kwargs is None:
-            likelihood_kwargs = {}
 
         self.neural_network_kwargs = neural_network_kwargs
         self.vectorized = vectorized
