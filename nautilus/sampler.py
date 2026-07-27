@@ -362,15 +362,12 @@ class Sampler:
                     setattr(self, key, group.attrs[key])
 
                 for shell in range(len(self.shell_n)):
-                    self.points.append(
-                        np.array(group[f'points_{shell}']))
-                    self.log_l.append(
-                        np.array(group[f'log_l_{shell}']))
+                    self.points.append(np.array(group[f'points_{shell}']))
+                    self.log_l.append(np.array(group[f'log_l_{shell}']))
                     if f'blobs_{shell}' in group:
                         if shell == 0:
                             self.blobs = []
-                        self.blobs.append(
-                            np.array(group[f'blobs_{shell}']))
+                        self.blobs.append(np.array(group[f'blobs_{shell}']))
                         if shell == 0:
                             self.blobs_dtype = self.blobs[-1].dtype
 
@@ -1317,8 +1314,7 @@ class Sampler:
                 f'points_{shell}', data=self.points[shell],
                 maxshape=(None, self.n_dim))
             group.create_dataset(
-                f'log_l_{shell}', data=self.log_l[shell],
-                maxshape=(None, ))
+                f'log_l_{shell}', data=self.log_l[shell], maxshape=(None, ))
             if self.blobs is not None:
                 maxshape = list(self.blobs[shell].shape)
                 maxshape[0] = None

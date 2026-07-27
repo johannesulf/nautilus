@@ -206,7 +206,7 @@ class Union:
                 rng=self.rng))
 
         if not allow_overlap and ellipsoids_overlap(
-                self.bounds[:index] + self.bounds[index+1:] + new_bounds):
+                self.bounds[:index] + self.bounds[index + 1:] + new_bounds):
             return False
 
         if (logsumexp([new_bounds[0].log_v, new_bounds[1].log_v]) >

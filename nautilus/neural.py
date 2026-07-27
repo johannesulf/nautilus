@@ -140,10 +140,9 @@ class NeuralNetworkEmulator:
                     pass
 
             for k in range(network.n_layers_ - 1):
-                group.create_dataset(f'coefs_{k}_{i}',
-                                     data=network.coefs_[k])
-                group.create_dataset(f'intercepts_{k}_{i}',
-                                     data=network.intercepts_[k])
+                group.create_dataset(f'coefs_{k}_{i}', data=network.coefs_[k])
+                group.create_dataset(
+                    f'intercepts_{k}_{i}', data=network.intercepts_[k])
 
         group.create_dataset('mean', data=self.mean)
         group.create_dataset('scale', data=self.scale)

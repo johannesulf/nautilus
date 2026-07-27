@@ -370,12 +370,10 @@ class NautilusBound:
         i = 0
         while f'neural_bound_{i}' in group:
             bound.neural_bounds.append(NeuralBound.read(
-                group[f'neural_bound_{i}'],
-                rng=bound.rng))
+                group[f'neural_bound_{i}'], rng=bound.rng))
             i += 1
 
-        bound.outer_bound = Union.read(
-            group['outer_bound'], rng=rng)
+        bound.outer_bound = Union.read(group['outer_bound'], rng=rng)
 
         bound.points = np.array(group['points'])
         bound.n_sample = group.attrs['n_sample']
