@@ -1,0 +1,15 @@
+name: Feature Request
+description: Request a new feature for nautilus.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this feature request!
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please let us know what feature you would like to see in ``nautilus`` and why.
+    validations:
+      required: true
