@@ -116,7 +116,7 @@ def test_sampler_switch_exploration(
     log_z_start = sampler.log_z
 
     if not isinstance(discard_exploration_end, bool):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             sampler.discard_exploration = discard_exploration_end
         return
 
