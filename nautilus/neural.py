@@ -1,8 +1,9 @@
 """Module implementing neural network emulators."""
 
-import numpy as np
 import warnings
 from functools import partial
+
+import numpy as np
 from sklearn.neural_network import MLPRegressor
 from threadpoolctl import threadpool_limits
 
@@ -32,7 +33,7 @@ def train_network(x, y, neural_network_kwargs, random_state):
         random_state=random_state, **neural_network_kwargs).fit(x, y)
 
 
-class NeuralNetworkEmulator():
+class NeuralNetworkEmulator:
     """Likelihood neural network emulator.
 
     Attributes
@@ -48,7 +49,7 @@ class NeuralNetworkEmulator():
     """
 
     @classmethod
-    def train(cls, x, y, n_networks=4, neural_network_kwargs={}, pool=None):
+    def train(cls, x, y, n_networks=4, neural_network_kwargs=None, pool=None):
         """Initialize and train the likelihood neural network emulator.
 
         Parameters
@@ -59,9 +60,9 @@ class NeuralNetworkEmulator():
             Target values.
         n_networks : int, optional
             Number of networks used in the emulator. Default is 4.
-        neural_network_kwargs : dict, optional
+        neural_network_kwargs : dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor.
+            MLPRegressor. Default is `None`.
         pool : multiprocessing.Pool, optional
             Pool used for parallel processing.
 
@@ -76,15 +77,17 @@ class NeuralNetworkEmulator():
         emulator.mean = np.mean(x, axis=0)
         emulator.scale = np.std(x, axis=0)
 
-        default_neural_network_kwargs = dict(
+        if neural_network_kwargs is None:
+            neural_network_kwargs = {}
+
+        neural_network_kwargs = dict(  # noqa: C408
             hidden_layer_sizes=(100, 50, 20), alpha=0, learning_rate_init=1e-2,
-            max_iter=10000, tol=0, n_iter_no_change=10)
-        default_neural_network_kwargs.update(neural_network_kwargs)
-        neural_network_kwargs = default_neural_network_kwargs
+            max_iter=10000, tol=0, n_iter_no_change=10) | neural_network_kwargs
 
         if 'random_state' in neural_network_kwargs:
             warnings.warn("The 'random_state' keyword argument passed to the" +
                           " neural network is ignored.", Warning, stacklevel=2)
+            neural_network_kwargs = neural_network_kwargs.copy()
             del neural_network_kwargs['random_state']
 
         f = partial(train_network, (x - emulator.mean) / emulator.scale, y,
@@ -132,14 +135,14 @@ class NeuralNetworkEmulator():
                 if key in ['coefs_', 'intercepts_']:
                     continue
                 try:
-                    group.attrs[key + '_{}'.format(i)] = getattr(network, key)
+                    group.attrs[key + f'_{i}'] = getattr(network, key)
                 except (TypeError, ValueError):
                     pass
 
             for k in range(network.n_layers_ - 1):
-                group.create_dataset('coefs_{}_{}'.format(k, i),
+                group.create_dataset(f'coefs_{k}_{i}',
                                      data=network.coefs_[k])
-                group.create_dataset('intercepts_{}_{}'.format(k, i),
+                group.create_dataset(f'intercepts_{k}_{i}',
                                      data=network.intercepts_[k])
 
         group.create_dataset('mean', data=self.mean)
@@ -172,14 +175,14 @@ class NeuralNetworkEmulator():
             network = MLPRegressor()
 
             for key in group.attrs:
-                if key.rsplit('_', 1)[1] == '{}'.format(i):
+                if key.rsplit('_', 1)[1] == f'{i}':
                     setattr(network, key.rsplit('_', 1)[0], group.attrs[key])
 
             network.coefs_ = [
-                np.array(group['coefs_{}_{}'.format(k, i)]) for k in
+                np.array(group[f'coefs_{k}_{i}']) for k in
                 range(network.n_layers_ - 1)]
             network.intercepts_ = [
-                np.array(group['intercepts_{}_{}'.format(k, i)]) for k in
+                np.array(group[f'intercepts_{k}_{i}']) for k in
                 range(network.n_layers_ - 1)]
 
             emulator.neural_networks.append(network)

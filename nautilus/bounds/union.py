@@ -1,14 +1,14 @@
 """Module implementing unions of basic bounds."""
 
 import itertools
-import numpy as np
 
-from sklearn.mixture import GaussianMixture
+import numpy as np
 from scipy.optimize import minimize
 from scipy.special import logsumexp
 from scipy.stats import multivariate_normal
+from sklearn.mixture import GaussianMixture
 
-from .basic import UnitCube, Ellipsoid, UnitCubeEllipsoidMixture
+from .basic import Ellipsoid, UnitCube, UnitCubeEllipsoidMixture
 
 
 def ellipsoids_overlap(ellipsoids):
@@ -32,15 +32,17 @@ def ellipsoids_overlap(ellipsoids):
 
     for i_1, i_2 in itertools.combinations(range(len(c)), 2):
         d = c[i_1] - c[i_2]
-        def k(s): return (1 - np.dot(np.dot(
-            d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d))
-        if minimize(k, 0.5, bounds=[(1e-9, 1-1e-9)]).fun > 0:
+
+        def k(s):
+            return (1 - np.dot(np.dot(
+                d, np.linalg.inv(A_inv[i_1] / (1 - s) + A_inv[i_2] / s)), d)) # noqa: B023
+        if minimize(k, 0.5, bounds=[(1e-9, 1 - 1e-9)]).fun > 0:
             return True
 
     return False
 
 
-class Union():
+class Union:
     r"""Union of multiple ellipsoids or unit cube-ellipsoid mixtures.
 
     Attributes
@@ -362,10 +364,10 @@ class Union():
 
         group.attrs['bound_class'] = self.bounds[0].__class__.__name__
         for i, bound in enumerate(self.bounds):
-            bound.write(group.create_group('bound_{}'.format(i)))
+            bound.write(group.create_group(f'bound_{i}'))
 
         for i, points in enumerate(self.points_bounds):
-            group.create_dataset('points_bound_{}'.format(i), data=points)
+            group.create_dataset(f'points_bound_{i}', data=points)
         group.create_dataset('points', data=self.points,
                              maxshape=(None, self.n_dim))
 
@@ -420,9 +422,9 @@ class Union():
             bound_class = UnitCubeEllipsoidMixture
 
         bound.bounds = [bound_class.read(
-            group['bound_{}'.format(i)], rng=bound.rng)
+            group[f'bound_{i}'], rng=bound.rng)
             for i in range(len(bound.log_v_all))]
-        bound.points_bounds = [np.array(group['points_bound_{}'.format(i)]) for
+        bound.points_bounds = [np.array(group[f'points_bound_{i}']) for
                                i in range(len(bound.log_v_all))]
         bound.points = np.array(group['points'])
 

@@ -3,7 +3,7 @@
 import numpy as np
 
 
-class PhaseShift():
+class PhaseShift:
     r"""A simple phase shift to center points inside the unit cube.
 
     This class analyses points in each periodic dimenions and shifts them

@@ -1,25 +1,25 @@
 """Module implementing the Nautilus sampler."""
 
+from functools import partial
+from pathlib import Path
+from shutil import get_terminal_size
+from time import time
+from warnings import warn
+
 try:
     import h5py
 except ImportError:
     pass
 import numpy as np
-
-from functools import partial
-from pathlib import Path
 from scipy.special import logsumexp
-from shutil import get_terminal_size
 from threadpoolctl import threadpool_limits
-from time import time
-from warnings import warn
 
-from .bounds import UnitCube, NautilusBound
-from .pool import likelihood_worker, NautilusPool
+from .bounds import NautilusBound, UnitCube
+from .pool import NautilusPool, likelihood_worker
 
 
-class Sampler():
-    """A dynamic sampler built upon the framework of importance nested sampling.
+class Sampler:
+    """A dynamic sampler using importance nested sampling.
 
     Attributes
     ----------
@@ -121,9 +121,9 @@ class Sampler():
     def __init__(self, prior, likelihood, n_dim=None, n_live=2000,
                  n_update=None, enlarge_per_dim=1.1, n_points_min=None,
                  split_threshold=100, periodic=None, n_networks=4,
-                 neural_network_kwargs=dict(), prior_args=[],
-                 prior_kwargs=dict(), likelihood_args=[],
-                 likelihood_kwargs=dict(), n_batch=None,
+                 neural_network_kwargs=None, prior_args=None,
+                 prior_kwargs=None, likelihood_args=None,
+                 likelihood_kwargs=None, n_batch=None,
                  n_like_new_bound=None, vectorized=False, pass_dict=None,
                  pool=None, seed=None, blobs_dtype=None, filepath=None,
                  resume=True):
@@ -139,13 +139,13 @@ class Sampler():
         n_dim : int, optional
             Number of dimensions of the likelihood function. If not specified,
             it will be inferred from the `prior` argument. But this requires
-            `prior` to be an instance of `nautilus.Prior`.
+            `prior` to be an instance of `nautilus.Prior`. Default is `None`.
         n_live : int, optional
             Number of so-called live points. New bounds are constructed so that
             they encompass the live points. Default is 3000.
         n_update : None or int, optional
             The maximum number of additions to the live set before a new bound
-            is created. If None, use `n_live`. Default is None.
+            is created. If None, use `n_live`. Default is `None`.
         enlarge_per_dim : float, optional
             Along each dimension, outer ellipsoidal bounds are enlarged by this
             factor. Default is 1.1.
@@ -153,29 +153,31 @@ class Sampler():
             The minimum number of points each ellipsoid should have.
             Effectively, ellipsoids with less than twice that number will not
             be split further. If None, uses `n_points_min = n_dim + 50`.
-            Default is None.
+            Default is `None`.
         split_threshold: float, optional
             Threshold used for splitting the multi-ellipsoidal bound used for
             sampling. If the volume of the bound prior enlarging is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
         periodic : numpy.ndarray or None, optional
-            Indices of the parameters that are periodic. Default is None.
+            Indices of the parameters that are periodic. Default is `None`.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
-        neural_network_kwargs : dict, optional
+        neural_network_kwargs : dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor.
-        prior_args : list, optional
+            MLPRegressor. Default is `None`.
+        prior_args : list or None, optional
             List of extra positional arguments for `prior`. Only used if
-            `prior` is a function.
-        prior_kwargs : dict, optional
+            `prior` is a function. Default is `None`.
+        prior_kwargs : dict or None, optional
             Dictionary of extra keyword arguments for `prior`. Only used if
-            `prior` is a function.
-        likelihood_args : list, optional
-            List of extra positional arguments for `likelihood`.
-        likelihood_kwargs : dict, optional
-            Dictionary of extra keyword arguments for `likelihood`.
+            `prior` is a function. Default is `None`.
+        likelihood_args : list or None, optional
+            List of extra positional arguments for `likelihood`. Default is
+            `None`.
+        likelihood_kwargs : dict or None, optional
+            Dictionary of extra keyword arguments for `likelihood`. Default is
+            `None`.
         n_batch : int or None, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple
@@ -276,6 +278,17 @@ class Sampler():
 
         self.n_networks = n_networks
 
+        if neural_network_kwargs is None:
+            neural_network_kwargs = {}
+        if prior_args is None:
+            prior_args = []
+        if prior_kwargs is None:
+            prior_kwargs = {}
+        if likelihood_args is None:
+            likelihood_args = []
+        if likelihood_kwargs is None:
+            likelihood_kwargs = {}
+
         self.neural_network_kwargs = neural_network_kwargs
         self.vectorized = vectorized
         self.pass_dict = pass_dict
@@ -332,9 +345,9 @@ class Sampler():
 
                 group = fstream['sampler']
 
-                self.rng.bit_generator.state = dict(
+                self.rng.bit_generator.state = dict(  # noqa: C408
                     bit_generator='PCG64',
-                    state=dict(
+                    state=dict(  # noqa: C408
                         state=int(group.attrs['rng_state']),
                         inc=int(group.attrs['rng_inc'])),
                     has_uint32=group.attrs['rng_has_uint32'],
@@ -349,14 +362,14 @@ class Sampler():
 
                 for shell in range(len(self.shell_n)):
                     self.points.append(
-                        np.array(group['points_{}'.format(shell)]))
+                        np.array(group[f'points_{shell}']))
                     self.log_l.append(
-                        np.array(group['log_l_{}'.format(shell)]))
-                    if 'blobs_{}'.format(shell) in group:
+                        np.array(group[f'log_l_{shell}']))
+                    if f'blobs_{shell}' in group:
                         if shell == 0:
                             self.blobs = []
                         self.blobs.append(
-                            np.array(group['blobs_{}'.format(shell)]))
+                            np.array(group[f'blobs_{shell}']))
                         if shell == 0:
                             self.blobs_dtype = self.blobs[-1].dtype
 
@@ -368,7 +381,7 @@ class Sampler():
                     UnitCube.read(fstream['bound_0'], rng=self.rng), ]
                 for i in range(1, len(self.shell_n)):
                     self.bounds.append(NautilusBound.read(
-                        fstream['bound_{}'.format(i)], rng=self.rng))
+                        fstream[f'bound_{i}'], rng=self.rng))
 
     def run(self, f_live=0.01, n_shell=1, n_eff=10000, n_like_max=np.inf,
             discard_exploration=False, timeout=np.inf, verbose=False):
@@ -527,12 +540,12 @@ class Sampler():
 
         Raises
         ------
-        ValueError
+        TypeError
             If `discard_exploration` is not a bool.
 
         """
         if not isinstance(discard_exploration, bool):
-            raise ValueError("'discard_exploration' must be a bool.")
+            raise TypeError("'discard_exploration' must be a bool.")
 
         self._discard_exploration = discard_exploration
         for index in range(len(self.log_l)):
@@ -896,7 +909,7 @@ class Sampler():
                     for col in range(len(blobs[0]))]
             if self.blobs_dtype is None:
                 if len(blobs) > 1:
-                    self.blobs_dtype = [('blob_{}'.format(i), b.dtype) for
+                    self.blobs_dtype = [(f'blob_{i}', b.dtype) for
                                         i, b in enumerate(blobs)]
                 else:
                     self.blobs_dtype = blobs[0].dtype
@@ -1276,7 +1289,7 @@ class Sampler():
         if filepath.exists():
             if not overwrite:
                 raise RuntimeError(
-                    "File {} already exists.".format(str(filepath)))
+                    f"File {filepath!s} already exists.")
             else:
                 filepath.unlink()
 
@@ -1294,22 +1307,22 @@ class Sampler():
                     'shell_end_exp', 'n_update_iter', 'n_like_iter']:
             group.attrs[key] = getattr(self, key)
 
-        for key in self.neural_network_kwargs.keys():
-            group.attrs['neural_network_{}'.format(key)] =\
+        for key in self.neural_network_kwargs:
+            group.attrs[f'neural_network_{key}'] =\
                 self.neural_network_kwargs[key]
 
         for shell in range(len(self.bounds)):
             group.create_dataset(
-                'points_{}'.format(shell), data=self.points[shell],
+                f'points_{shell}', data=self.points[shell],
                 maxshape=(None, self.n_dim))
             group.create_dataset(
-                'log_l_{}'.format(shell), data=self.log_l[shell],
+                f'log_l_{shell}', data=self.log_l[shell],
                 maxshape=(None, ))
             if self.blobs is not None:
                 maxshape = list(self.blobs[shell].shape)
                 maxshape[0] = None
                 group.create_dataset(
-                    'blobs_{}'.format(shell), data=self.blobs[shell],
+                    f'blobs_{shell}', data=self.blobs[shell],
                     maxshape=tuple(maxshape))
 
         group.create_dataset('points_t', data=self.points_t,
@@ -1321,7 +1334,7 @@ class Sampler():
                                  maxshape=tuple(maxshape))
 
         for i, bound in enumerate(self.bounds):
-            bound.write(fstream.create_group('bound_{}'.format(i)))
+            bound.write(fstream.create_group(f'bound_{i}'))
 
         rng_state = self.rng.bit_generator.state
         group.attrs['rng_state'] = str(rng_state['state']['state'])
@@ -1352,13 +1365,13 @@ class Sampler():
                     'n_update_iter', 'n_like_iter']:
             group.attrs[key] = getattr(self, key)
 
-        group['points_{}'.format(shell)].resize(self.points[shell].shape)
-        group['points_{}'.format(shell)][...] = self.points[shell]
-        group['log_l_{}'.format(shell)].resize(self.log_l[shell].shape)
-        group['log_l_{}'.format(shell)][...] = self.log_l[shell]
+        group[f'points_{shell}'].resize(self.points[shell].shape)
+        group[f'points_{shell}'][...] = self.points[shell]
+        group[f'log_l_{shell}'].resize(self.log_l[shell].shape)
+        group[f'log_l_{shell}'][...] = self.log_l[shell]
         if self.blobs is not None:
-            group['blobs_{}'.format(shell)].resize(self.blobs[shell].shape)
-            group['blobs_{}'.format(shell)][...] = self.blobs[shell]
+            group[f'blobs_{shell}'].resize(self.blobs[shell].shape)
+            group[f'blobs_{shell}'][...] = self.blobs[shell]
 
         for key in ['points_t', 'shell_t', 'log_l_t', 'blobs_t']:
             if getattr(self, key) is not None:
@@ -1366,7 +1379,7 @@ class Sampler():
                 group[key][...] = getattr(self, key)
 
         if isinstance(self.bounds[shell], NautilusBound):
-            self.bounds[shell].update(fstream['bound_{}'.format(shell)])
+            self.bounds[shell].update(fstream[f'bound_{shell}'])
 
         rng_state = self.rng.bit_generator.state
         group.attrs['rng_state'] = str(rng_state['state']['state'])
