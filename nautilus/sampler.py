@@ -14,8 +14,8 @@ from scipy.special import logsumexp
 from threadpoolctl import threadpool_limits
 
 from .bounds import NautilusBound, UnitCube
-from .pool import NautilusPool, likelihood_worker
 from .panel import LivePanel
+from .pool import NautilusPool, likelihood_worker
 
 
 class Sampler:
@@ -455,7 +455,6 @@ class Sampler:
                         self.add_bound(verbose=verbose)
                         self.n_update_iter = 0
                         self.n_like_iter = 0
-                        create_new_bound = False
                         if self.filepath is not None:
                             self.write(self.filepath, overwrite=True)
 

@@ -1,9 +1,9 @@
+import numpy as np
 from rich.console import Console, Group
 from rich.live import Live
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-import numpy as np
 
 console = Console(width=80)
 
