@@ -2,7 +2,6 @@
 
 from functools import partial
 from pathlib import Path
-from shutil import get_terminal_size
 from time import time
 from warnings import warn
 
@@ -16,6 +15,7 @@ from threadpoolctl import threadpool_limits
 
 from .bounds import NautilusBound, UnitCube
 from .pool import NautilusPool, likelihood_worker
+from .panel import LivePanel
 
 
 class Sampler:
@@ -431,7 +431,9 @@ class Sampler:
             else:
                 print('Resuming nautilus run...')
             print('Please report issues at github.com/johannesulf/nautilus.')
-            self.print_status(header=True)
+
+        self.f_live_target = f_live
+        self.n_eff_target = n_eff
 
         if len(self.bounds) == 0:
             self.add_bound()
@@ -440,78 +442,87 @@ class Sampler:
 
         success = (self.explored and np.all(self.shell_n >= n_shell) and
                    self.n_eff >= n_eff)
+        filled_bound = False
 
-        while ((self.n_like < n_like_max) and (time() - t_start < timeout) and
-               not success):
+        with LivePanel(verbose=verbose) as panel:
+            self.panel = panel
+            while ((self.n_like < n_like_max) and (time() - t_start < timeout) and
+                   not success):
 
-            if not self.explored:
+                if not self.explored:
 
-                if ((self.n_update_iter >= self.n_update or
-                     self.n_like_iter >= self.n_like_new_bound) and
-                        np.sum(self.shell_n) > self.n_live):
-                    self.add_bound(verbose=verbose)
-                    self.n_update_iter = 0
-                    self.n_like_iter = 0
+                    if filled_bound:
+                        self.add_bound(verbose=verbose)
+                        self.n_update_iter = 0
+                        self.n_like_iter = 0
+                        create_new_bound = False
+                        if self.filepath is not None:
+                            self.write(self.filepath, overwrite=True)
+
+                    self.n_update_iter += self.add_samples(-1, verbose=verbose)
+                    self.n_like_iter += self.n_batch
                     if self.filepath is not None:
-                        self.write(self.filepath, overwrite=True)
+                        # Write the complete file if this is the first batch.
+                        if self.n_like == self.n_batch:
+                            self.write(self.filepath, overwrite=True)
+                        self.write_shell_update(self.filepath, -1)
 
-                self.n_update_iter += self.add_samples(-1, verbose=verbose)
-                self.n_like_iter += self.n_batch
-                if self.filepath is not None:
-                    # Write the complete file if this is the first batch.
-                    if self.n_like == self.n_batch:
-                        self.write(self.filepath, overwrite=True)
-                    self.write_shell_update(self.filepath, -1)
+                    if self.f_live <= f_live:
 
-                if self.f_live <= f_live:
+                        # If some shells are unoccupied in the end, remove them.
+                        # They will contain close to 0 volume and may never yield a
+                        # point when trying to sample from them.
+                        if np.any(self.shell_n == 0):
+                            for shell in np.flatnonzero(self.shell_n == 0)[::-1]:
+                                self.bounds.pop(shell)
+                                self.points.pop(shell)
+                                self.log_l.pop(shell)
+                                if self.blobs is not None:
+                                    self.blobs.pop(shell)
+                                for key in ['shell_n', 'shell_n_sample',
+                                            'shell_n_eff', 'shell_log_l_min',
+                                            'shell_log_l', 'shell_log_v']:
+                                    setattr(self, key, np.delete(
+                                        getattr(self, key), shell))
 
-                    # If some shells are unoccupied in the end, remove them.
-                    # They will contain close to 0 volume and may never yield a
-                    # point when trying to sample from them.
-                    if np.any(self.shell_n == 0):
-                        for shell in np.flatnonzero(self.shell_n == 0)[::-1]:
-                            self.bounds.pop(shell)
-                            self.points.pop(shell)
-                            self.log_l.pop(shell)
-                            if self.blobs is not None:
-                                self.blobs.pop(shell)
-                            for key in ['shell_n', 'shell_n_sample',
-                                        'shell_n_eff', 'shell_log_l_min',
-                                        'shell_log_l', 'shell_log_v']:
-                                setattr(self, key, np.delete(
-                                    getattr(self, key), shell))
+                        self.shell_n_sample_exp = np.copy(self.shell_n_sample)
+                        self.shell_end_exp = np.array(
+                            [len(p) for p in self.points])
 
-                    self.shell_n_sample_exp = np.copy(self.shell_n_sample)
-                    self.shell_end_exp = np.array(
-                        [len(p) for p in self.points])
+                        self.panel.update(self, "Finished Exploration",
+                                          final=True)
+                        self.explored = True
+                        self.discard_exploration = discard_exploration
+                        if self.filepath is not None:
+                            self.write(self.filepath, overwrite=True)
 
-                    self.explored = True
-                    self.discard_exploration = discard_exploration
+                    filled_bound = (
+                        (self.n_update_iter >= self.n_update or
+                         self.n_like_iter >= self.n_like_new_bound) and
+                        np.sum(self.shell_n) > self.n_live)
+                    if filled_bound:
+                        self.panel.update(self, "Filled Bound", final=True)
+
+                elif np.any(self.shell_n < n_shell):
+                    shell = np.flatnonzero(self.shell_n < n_shell)[0]
+                    self.add_samples(shell, verbose=verbose)
                     if self.filepath is not None:
-                        self.write(self.filepath, overwrite=True)
+                        self.write_shell_update(self.filepath, shell)
 
-            elif np.any(self.shell_n < n_shell):
-                shell = np.flatnonzero(self.shell_n < n_shell)[0]
-                self.add_samples(shell, verbose=verbose)
-                if self.filepath is not None:
-                    self.write_shell_update(self.filepath, shell)
+                elif self.n_eff < n_eff:
+                    shell = np.argmax(self.shell_log_l + self.shell_log_v -
+                                      0.5 * np.log(self.shell_n) -
+                                      0.5 * np.log(self.shell_n_eff))
+                    self.add_samples(shell, verbose=verbose)
+                    if self.filepath is not None:
+                        self.write_shell_update(self.filepath, shell)
 
-            elif self.n_eff < n_eff:
-                shell = np.argmax(self.shell_log_l + self.shell_log_v -
-                                  0.5 * np.log(self.shell_n) -
-                                  0.5 * np.log(self.shell_n_eff))
-                self.add_samples(shell, verbose=verbose)
-                if self.filepath is not None:
-                    self.write_shell_update(self.filepath, shell)
+                success = (self.explored and np.all(self.shell_n >= n_shell) and
+                           self.n_eff >= n_eff)
 
-            success = (self.explored and np.all(self.shell_n >= n_shell) and
-                       self.n_eff >= n_eff)
-
-        if verbose:
-            if success:
-                self.print_status('Finished')
-            else:
-                self.print_status('Stopped')
+            self.panel.update(
+                self, "Finished Succesfully" if success else
+                "Aborted", final=True)
 
         return success
 
@@ -700,7 +711,7 @@ class Sampler:
 
         """
         if np.sum(self.shell_n) == 0:
-            return None
+            return np.nan
         select = ~np.isnan(self.shell_log_l)
         return logsumexp(self.shell_log_l[select] + self.shell_log_v[select])
 
@@ -953,42 +964,6 @@ class Sampler:
             self.shell_log_l[index] = np.nan
             self.shell_n_eff[index] = 0
 
-    def print_status(self, status='', header=False, end='\n'):
-        """Print current summary statistics.
-
-        Parameters
-        ----------
-        status: string, optional
-            Status of the sampler to be printed. Default is ''.
-        header : bool, optional
-            If True, print a static header. Default is False.
-        end : str, optional
-            String printed at the end. Default is newline.
-
-        """
-        if header:
-            data = ['Status', 'Bounds', 'Ellipses', 'Networks', 'Calls',
-                    'f_live', 'N_eff', 'log Z']
-        else:
-            data = [status, len(self.bounds)]
-            if len(self.bounds) > 1:
-                data.extend([self.bounds[-1].n_ell, self.bounds[-1].n_net])
-            else:
-                data.extend([0, 0])
-            data.extend([self.n_like, self.f_live, self.n_eff, self.log_z])
-
-            fmt = ['{}', '{:d}', '{:d}', '{:d}', '{:d}', '{:.4f}', '{:.0f}',
-                   '{:+.2f}']
-            for i in range(len(data)):
-                data[i] = 'N/A' if data[i] is None else fmt[i].format(data[i])
-
-        for i, length in enumerate([9, 6, 8, 8, 8, 6, 5, 7]):
-            data[i] = '{:<{}}'.format(data[i], length)
-
-        output = ' | '.join(data)
-        width = get_terminal_size((80, 24)).columns
-        output = output.ljust(width)[:width]
-        print(output, end=end, flush=True)
 
     def add_bound(self, verbose=False):
         """Try building a new bound from existing points.
@@ -1013,8 +988,7 @@ class Sampler:
             self.bounds.append(UnitCube.compute(self.n_dim, rng=self.rng))
             success = True
         else:
-            if verbose:
-                self.print_status('Bounding', end='\r')
+            self.panel.update(self, "Adding Bound")
             log_l = np.concatenate(self.log_l)
             points = np.concatenate(self.points)[np.argsort(log_l)]
             log_l = np.sort(log_l)
@@ -1120,14 +1094,12 @@ class Sampler:
             likelihood threshold of the bound.
 
         """
-        if verbose:
-            self.print_status('Sampling', end='\r')
+        self.panel.update(self, "Sampling New Points")
 
         if shell == -1 and len(self.shell_t) > 0:
             points, n_bound, idx_t = self.sample_shell(-1, self.shell_t)
             assert len(points) + len(idx_t) == n_bound
-            if verbose:
-                self.print_status('Computing', end='\r')
+            self.panel.update(self, "Computing Likelihood")
             if len(idx_t) > 0:
                 self.points[-1] = np.concatenate((
                     self.points[-1], self.points_t[idx_t]))
@@ -1138,8 +1110,7 @@ class Sampler:
                         self.blobs[-1], self.blobs_t[idx_t]))
         else:
             points, n_bound = self.sample_shell(shell)
-            if verbose:
-                self.print_status('Computing', end='\r')
+            self.panel.update(self, "Computing Likelihood")
 
         self.shell_n_sample[shell] += n_bound
         log_l, blobs = self.evaluate_likelihood(points)
