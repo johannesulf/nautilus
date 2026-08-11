@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from rich.console import Console, Group
 from rich.live import Live
@@ -16,8 +18,8 @@ def _key_value_table(rows):
     return table
 
 
-def _status_text(value, target, larger=True, fmt='.3f'):
-    if (value > target and larger) or (value < target and not larger):
+def _status_text(value, target, minimum=True, fmt=".3f"):
+    if (value >= target and minimum) or (value < target and not minimum):
         style = "blue"
     else:
         style = "yellow"
@@ -42,13 +44,42 @@ def _global_properties(sampler):
     if not sampler.explored:
         f_live = sampler.f_live
         rows.append(("Live Fraction", _status_text(
-            f_live, f_live_target, larger=False)))
+            f_live, f_live_target, minimum=False)))
     return Group(
         Rule("Global Properties", align="left", style="dim"),
         _key_value_table(rows))
 
+def _current_bound(sampler, empty=False):
+
+    rows = []
+    rows.append(("Volume log V", f"{sampler.bounds[-1].log_v:.3f}" if not
+                 empty else "TBD"))
+    rows.append(("Threshold log L_min", f"{sampler.shell_log_l_min[-1]:.3f}" if
+                 not empty else "TBD"))
+    if len(sampler.bounds) > 1 or empty:
+        rows.append(("Ellipsoids", f"{sampler.bounds[-1].n_ell}" if not
+                     empty else "TBD"))
+        rows.append(("Neural Networks", f"{sampler.bounds[-1].n_net}" if not
+                     empty else "TBD"))
+    rows.append(("Updates", _status_text(
+        sampler.n_update_iter if not empty else 0, sampler.n_update,
+        fmt="d")))
+    if empty or sampler.n_like_iter == 0:
+        rows.append(("Efficiency", "TBD"))
+    elif len(sampler.bounds) == 1:
+        rows.append(("Efficiency", "100%"))
+    else:
+        rows.append(("Efficiency",
+                     f"{sampler.n_update_iter / sampler.n_like_iter:.0%}"))
+
+    return Group(
+        Rule("Current Bound", align="left", style="dim"),
+        _key_value_table(rows))
+
+
 
 def _create_panel(sampler, status):
+    t_start = time.time()  # TODO: remove once finalized
     content = []
     content.append(Text())
 
@@ -64,6 +95,16 @@ def _create_panel(sampler, status):
     content.append(Text(f"Status: {status}"))
     content.append(Text())
     content.append(_global_properties(sampler))
+
+    if not sampler.explored:
+        content.append(Text())
+        content.append(_current_bound(
+            sampler, empty=(status == "Adding Bound")))
+
+    t_end = time.time()
+    content.append(Text())
+    content.append(Text(f"Time for Panel: {(t_end - t_start) * 1000:.2f} ms"))
+
     return Group(*content)
 
 

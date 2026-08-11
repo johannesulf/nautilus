@@ -499,7 +499,7 @@ class Sampler:
                         (self.n_update_iter >= self.n_update or
                          self.n_like_iter >= self.n_like_new_bound) and
                         np.sum(self.shell_n) > self.n_live)
-                    if filled_bound:
+                    if filled_bound and not self.explored:
                         self.panel.update(self, "Filled Bound", final=True)
 
                 elif np.any(self.shell_n < n_shell):
