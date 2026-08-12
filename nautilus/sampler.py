@@ -82,7 +82,7 @@ class Sampler:
     log_l : list
         Log likelihood values of each point. Same ordering as `points`.
     blobs : list or None
-        Blobs associated with each point, if avaiable. Same ordering as
+        Blobs associated with each point, if available. Same ordering as
         `points`.
     blobs_dtype : numpy.dtype or None
         Data type of the blobs.
@@ -773,7 +773,7 @@ class Sampler:
         """Sample a batch of points uniformly from a shell.
 
         The shell at index :math:`i` is defined as the volume enclosed by the
-        bound of index :math:`i` and enclosed by not other bound of index
+        bound of index :math:`i` and enclosed by no other bound of index
         :math:`k` with :math:`k > i`.
 
         Parameters
@@ -963,7 +963,6 @@ class Sampler:
             self.shell_log_l[index] = np.nan
             self.shell_n_eff[index] = 0
 
-
     def add_bound(self, verbose=False):
         """Try building a new bound from existing points.
 
@@ -1137,8 +1136,8 @@ class Sampler:
 
         """
         if self.explored:
-            return None
-        elif np.sum(self.shell_n) == 0:
+            return np.nan
+        elif np.sum(self.shell_n) <= self.n_live:
             return 1.0
         else:
             log_v = np.repeat(
@@ -1146,7 +1145,8 @@ class Sampler:
                 self.shell_n)
             log_l = np.concatenate(self.log_l)
             log_w = log_v + log_l
-            log_w_live = log_w[np.argsort(log_l)][-self.n_live:]
+            log_w_live = log_w[
+                np.argpartition(log_l, -self.n_live)[-self.n_live:]]
             return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
 
     @property

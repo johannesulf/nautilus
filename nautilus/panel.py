@@ -49,6 +49,7 @@ def _global_properties(sampler):
         Rule("Global Properties", align="left", style="dim"),
         _key_value_table(rows))
 
+
 def _current_bound(sampler, empty=False):
 
     rows = []
