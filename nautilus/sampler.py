@@ -1159,16 +1159,39 @@ class Sampler:
             Estimate of the volume in the live set.
 
         """
-        if len(self.bounds) == 0:
-            return 1.0
+        if self.explored:
+            return np.nan
+        elif np.sum(self.shell_n) <= self.n_live:
+            return 0.0
         else:
             log_l = np.concatenate(self.log_l)
             log_v = np.repeat(
                 self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
                 self.shell_n)
-            log_v_live = log_v[np.argsort(log_l)][-self.n_live:]
+            log_v_live = log_v[
+                np.argpartition(log_l, -self.n_live)[-self.n_live:]]
 
             return logsumexp(log_v_live)
+
+    @property
+    def live_set(self):
+        """Get values of the live set.
+
+        Returns
+        -------
+        theta : numpy.ndarray
+            Live set coordinates.
+
+        """
+        if len(self.bounds) == 0:
+            return 1.0
+        else:
+            log_l = np.concatenate(self.log_l)
+            if len(log_l) > self.n_live:
+                idx = np.argpartition(log_l, -self.n_live)[-self.n_live:]
+            else:
+                idx = np.arange(len(log_l))
+            return np.vstack(self.points)[idx]
 
     def shell_association(self, points, n_max=None):
         """Determine the shells each point belongs to.

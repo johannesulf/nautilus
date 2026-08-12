@@ -9,6 +9,7 @@ from rich.text import Text
 
 console = Console(width=80)
 
+
 def _key_value_table(rows):
     table = Table.grid()
     table.add_column(width=20)
@@ -55,13 +56,8 @@ def _current_bound(sampler, empty=False):
     rows = []
     rows.append(("Volume log V", f"{sampler.bounds[-1].log_v:.3f}" if not
                  empty else "TBD"))
-    rows.append(("Threshold log L_min", f"{sampler.shell_log_l_min[-1]:.3f}" if
-                 not empty else "TBD"))
-    if len(sampler.bounds) > 1 or empty:
-        rows.append(("Ellipsoids", f"{sampler.bounds[-1].n_ell}" if not
-                     empty else "TBD"))
-        rows.append(("Neural Networks", f"{sampler.bounds[-1].n_net}" if not
-                     empty else "TBD"))
+    rows.append(("Threshold log L", f"{sampler.shell_log_l_min[-1]:.3f}" if not
+                 empty else "TBD"))
     rows.append(("Updates", _status_text(
         sampler.n_update_iter if not empty else 0, sampler.n_update,
         fmt="d")))
@@ -77,6 +73,21 @@ def _current_bound(sampler, empty=False):
         Rule("Current Bound", align="left", style="dim"),
         _key_value_table(rows))
 
+
+def _histogram(x, bins=60):
+    hist = np.histogram(x, bins=np.linspace(0, 1, bins + 1))[0]
+    return Text(''.join(np.where(hist > 0, "\u2588", "\u2591")))
+
+
+def _live_set(sampler):
+    live_set = sampler.live_set
+    rows = []
+    rows.append(("Parameter", "Range"))
+    for i, x in enumerate(live_set.T):
+        rows.append((f"theta_{i + 1}", _histogram(x)))
+    return Group(
+        Rule("Live Set", align="left", style="dim"),
+        _key_value_table(rows))
 
 
 def _create_panel(sampler, status):
@@ -101,6 +112,10 @@ def _create_panel(sampler, status):
         content.append(Text())
         content.append(_current_bound(
             sampler, empty=(status == "Adding Bound")))
+
+    if not sampler.explored:
+        content.append(Text())
+        content.append(_live_set(sampler))
 
     t_end = time.time()
     content.append(Text())
