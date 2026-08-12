@@ -82,11 +82,11 @@ def _histogram(x, bins=60):
 def _live_set(sampler):
     live_set = sampler.live_set
     rows = []
-    rows.append(("Parameter", "Range"))
+    #rows.append(("Parameter", "Range"))
     for i, x in enumerate(live_set.T):
         rows.append((f"theta_{i + 1}", _histogram(x)))
     return Group(
-        Rule("Live Set", align="left", style="dim"),
+        Rule("Live Set Range", align="left", style="dim"),
         _key_value_table(rows))
 
 
@@ -139,7 +139,7 @@ class LivePanel:
         else:
             self.live.update(panel)
 
-        if final:
+        if False:
             self.live.stop()
             self.live = None
 
