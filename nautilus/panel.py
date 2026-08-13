@@ -7,7 +7,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-console = Console(width=80)
+console = Console(width=60)
 
 
 def _key_value_table(rows):
@@ -46,6 +46,8 @@ def _run_properties(sampler):
         f_live = sampler.f_live
         rows.append(("Live Fraction", _status_text(
             f_live, f_live_target, minimum=False)))
+        rows.append(("Exploration", _progress_bar(
+            sampler.exploration_progress)))
     return Group(
         Rule("Run Properties", align="left", style="dim"),
         _key_value_table(rows))
@@ -74,9 +76,9 @@ def _current_bound(sampler, empty=False):
         _key_value_table(rows))
 
 
-def _histogram(x, bins=60):
+def _histogram(x, bins=40):
     hist = np.histogram(x, bins=np.linspace(0, 1, bins - 1))[0]
-    return Text('|' + (''.join(np.where(hist > 0, "\u2588", " ")) + '|'))
+    return Text("|" + ("".join(np.where(hist > 0, "\u2588", " ")) + "|"))
 
 
 def _live_set(sampler):
@@ -87,6 +89,14 @@ def _live_set(sampler):
     return Group(
         Rule("Live Set Range", align="left", style="dim"),
         _key_value_table(rows))
+
+
+def _progress_bar(f, width=40):
+
+    a = round(f * (width - 2))
+    b = width - 2 - a
+
+    return Text("|" + "\u2588" * a + " " * b + '|')
 
 
 def _create_panel(sampler, status):
@@ -131,7 +141,7 @@ class LivePanel:
             msg = f"Unkown `verbose` value '{verbose}'."
             raise ValueError(msg)
 
-        if verbose:
+        if verbose is True:
             verbose = "default"
 
         self.verbose = verbose

@@ -10,7 +10,9 @@ try:
 except ImportError:
     pass
 import numpy as np
+from scipy.optimize import root_scalar
 from scipy.special import logsumexp
+from scipy.stats import chi2, skew
 from threadpoolctl import threadpool_limits
 
 from .bounds import NautilusBound, UnitCube
@@ -1139,15 +1141,15 @@ class Sampler:
             return np.nan
         elif np.sum(self.shell_n) <= self.n_live:
             return 1.0
-        else:
-            log_v = np.repeat(
-                self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
-                self.shell_n)
-            log_l = np.concatenate(self.log_l)
-            log_w = log_v + log_l
-            log_w_live = log_w[
-                np.argpartition(log_l, -self.n_live)[-self.n_live:]]
-            return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
+
+        log_v = np.repeat(
+            self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
+            self.shell_n)
+        log_l = np.concatenate(self.log_l)
+        log_w = log_v + log_l
+        log_w_live = log_w[
+            np.argpartition(log_l, -self.n_live)[-self.n_live:]]
+        return np.exp(logsumexp(log_w_live) - logsumexp(log_w))
 
     @property
     def log_v_live(self):
@@ -1163,15 +1165,14 @@ class Sampler:
             return np.nan
         elif np.sum(self.shell_n) <= self.n_live:
             return 0.0
-        else:
-            log_l = np.concatenate(self.log_l)
-            log_v = np.repeat(
-                self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
-                self.shell_n)
-            log_v_live = log_v[
-                np.argpartition(log_l, -self.n_live)[-self.n_live:]]
 
-            return logsumexp(log_v_live)
+        log_l = np.concatenate(self.log_l)
+        log_v = np.repeat(
+            self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
+            self.shell_n)
+        log_v_live = log_v[np.argpartition(log_l, -self.n_live)[-self.n_live:]]
+
+        return logsumexp(log_v_live)
 
     @property
     def live_set(self):
@@ -1185,13 +1186,49 @@ class Sampler:
         """
         if len(self.bounds) == 0:
             return 1.0
+
+        log_l = np.concatenate(self.log_l)
+        if len(log_l) > self.n_live:
+            idx = np.argpartition(log_l, -self.n_live)[-self.n_live:]
         else:
-            log_l = np.concatenate(self.log_l)
-            if len(log_l) > self.n_live:
-                idx = np.argpartition(log_l, -self.n_live)[-self.n_live:]
-            else:
-                idx = np.arange(len(log_l))
-            return np.vstack(self.points)[idx]
+            idx = np.arange(len(log_l))
+        return np.vstack(self.points)[idx]
+
+    @property
+    def exploration_progress(self):
+
+        if self.explored:
+            return 1.0
+        elif np.sum(self.shell_n) <= self.n_live:
+            return 0.0
+
+        # Estimate the remaining shrinkage from the variance and skew of the
+        # likelihood values assuming an n-dimensional Gaussian.
+        log_l = np.concatenate(self.log_l)
+        idx = np.argpartition(log_l, -self.n_live)[-self.n_live:]
+        log_l = log_l[idx]
+
+        skew_obs = skew(log_l)
+
+        def f(n):
+            skew_exp = - 2 * n**-0.5 * (2 - n) * (n + 4)**0.5 * (n + 6)**-1
+            return skew_obs - skew_exp
+
+        n_min, n_max = 1, self.n_dim
+
+        if f(n_min) < 0:
+            n = n_min
+        elif f(n_max) > 0:
+            n = n_max
+        else:
+            n = root_scalar(f, x0=n_max, bracket=[n_min, n_max]).root
+
+        d_m = (np.var(log_l) * ((n + 4) * (n + 2)**2) / n)**0.25
+        d_m_live = np.sqrt(chi2(n).ppf(self.f_live_target))
+
+        log_v_live = self.log_v_live
+        log_v_live_target = log_v_live - n * np.log(d_m / d_m_live)
+        return log_v_live / log_v_live_target
 
     def shell_association(self, points, n_max=None):
         """Determine the shells each point belongs to.
