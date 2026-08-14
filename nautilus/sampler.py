@@ -10,6 +10,7 @@ try:
 except ImportError:
     pass
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.optimize import root_scalar
 from scipy.special import logsumexp
 from scipy.stats import chi2, skew
@@ -1202,12 +1203,37 @@ class Sampler:
         elif np.sum(self.shell_n) <= self.n_live:
             return 0.0
 
-        # Estimate the remaining shrinkage from the variance and skew of the
-        # likelihood values assuming an n-dimensional Gaussian.
         log_l = np.concatenate(self.log_l)
+        log_v = np.repeat(
+            self.shell_log_v - np.log(np.maximum(self.shell_n, 1)),
+            self.shell_n)
         idx = np.argpartition(log_l, -self.n_live)[-self.n_live:]
         log_l = log_l[idx]
+        log_v = log_v[idx]
 
+        # Estimate the remaning shrinkage directly from the posterior in the
+        # live set.
+        log_w = log_l + log_v
+        f_live = self.f_live
+        if f_live < self.f_live_target:
+            return 1.0
+        w = np.exp(log_w - np.amax(log_w))
+        w = w / np.sum(w)
+        v = np.exp(log_v - np.amax(log_v))
+        v = v / np.sum(v)
+        w_cum = (np.sum(w) - np.cumsum(w))
+        v_cum = (np.sum(v) - np.cumsum(v))
+        d_log_v_dir = np.log(interp1d(w_cum, v_cum)(
+            self.f_live_target / f_live))
+        n = np.sum(w_cum < self.f_live_target / f_live)
+        f = n / self.n_live
+        if n <= 1:
+            d_log_v_dir_err = np.inf
+        else:
+            d_log_v_dir_err = np.sqrt((1 - f) / n)
+
+        # Estimate the remaining shrinkage from the variance and skew of the
+        # likelihood values assuming an n-dimensional Gaussian.
         skew_obs = skew(log_l)
 
         def f(n):
@@ -1225,10 +1251,15 @@ class Sampler:
 
         d_m = (np.var(log_l) * ((n + 4) * (n + 2)**2) / n)**0.25
         d_m_live = np.sqrt(chi2(n).ppf(self.f_live_target))
+        d_log_v_var = n * np.log(d_m_live / d_m)
+        d_log_v_var_err = 1.0
 
+        d_log_v = np.array([d_log_v_dir, d_log_v_var])
+        d_log_v_err = np.array([d_log_v_dir_err, d_log_v_var_err])
+
+        d_log_v = np.average(d_log_v, weights=d_log_v_err**-2)
         log_v_live = self.log_v_live
-        log_v_live_target = log_v_live - n * np.log(d_m / d_m_live)
-        return log_v_live / log_v_live_target
+        return log_v_live / (log_v_live + d_log_v)
 
     def shell_association(self, points, n_max=None):
         """Determine the shells each point belongs to.
