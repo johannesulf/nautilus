@@ -49,7 +49,7 @@ def _run_properties(sampler):
         rows.append(("Exploration", _progress_bar(
             sampler.exploration_progress)))
     return Group(
-        Rule("Run Properties", align="left", style="dim"),
+        Rule("[bold]Run Properties[/bold]", align="left", style="dim"),
         _key_value_table(rows))
 
 
@@ -60,9 +60,8 @@ def _current_bound(sampler, empty=False):
                  empty else "TBD"))
     rows.append(("Threshold (log L)", f"{sampler.shell_log_l_min[-1]:.3f}" if
                  not empty else "TBD"))
-    rows.append(("Replacements", _status_text(
-        sampler.n_update_iter if not empty else 0, sampler.n_update,
-        fmt="d")))
+    rows.append(
+        ("Replacements", f"{sampler.n_update_iter}/{sampler.n_update}"))
     if empty or sampler.n_like_iter == 0:
         rows.append(("Efficiency", "TBD"))
     elif len(sampler.bounds) == 1:
@@ -72,7 +71,7 @@ def _current_bound(sampler, empty=False):
                      f"{sampler.n_update_iter / sampler.n_like_iter:.0%}"))
 
     return Group(
-        Rule("Current Bound", align="left", style="dim"),
+        Rule("[bold]Current Bound[/bold]", align="left", style="dim"),
         _key_value_table(rows))
 
 
@@ -85,9 +84,9 @@ def _live_set(sampler):
     live_set = sampler.live_set
     rows = []
     for i, x in enumerate(live_set.T):
-        rows.append((f"θ_{i + 1}", _histogram(x)))
+        rows.append((f"Parameter {i + 1}", _histogram(x)))
     return Group(
-        Rule("Live Set Range", align="left", style="dim"),
+        Rule("[bold]Live Set Range[/bold]", align="left", style="dim"),
         _key_value_table(rows))
 
 
@@ -108,10 +107,11 @@ def _create_panel(sampler, status):
         i = len(sampler.bounds)
         if status == "Adding Bound":
             i = i + 1
-        content.append(Rule(f"Exploration Phase: Bound {i}", characters="═",
-                            style="dim"))
+        content.append(Rule(f"[bold]Exploration Phase: Bound {i}[/bold]",
+                            characters="═", style="magenta"))
     else:
-        content.append(Rule("Sampling Phase", characters="═", style="dim"))
+        content.append(Rule("[bold]Sampling Phase[/bold]", characters="═",
+                            style="magenta"))
 
     content.append(Text())
     content.append(Text(f"Status: {status}"))
