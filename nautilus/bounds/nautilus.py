@@ -72,9 +72,10 @@ class NautilusBound:
             Indices of the parameters that are periodic.
         n_networks : int, optional
             Number of networks used in the emulator. Default is 4.
-        neural_network_kwargs : dict or None, optional
+        neural_network_kwargs : dict, list of dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor. Default is `None`.
+            MLPRegressor. A list gives one dictionary per network. An
+            activation of 'silu' selects SiLUMLPRegressor. Default is `None`.
         pool : nautilus.pool.NautilusPool or None, optional
             Pool used for parallel processing. Default is None.
         rng : None or numpy.random.Generator, optional

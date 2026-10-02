@@ -81,6 +81,10 @@ def test_sampler_errors_and_warnings():
     with pytest.raises(ValueError):
         Sampler(prior, likelihood, 1)
 
+    with pytest.raises(ValueError):
+        Sampler(prior, likelihood, 2, n_networks=4,
+                neural_network_kwargs=[{}, {}])
+
     sampler = Sampler(prior, likelihood, 2, n_live=300)
     sampler.run(n_like_max=1000, verbose=True)
 

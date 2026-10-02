@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import pytest
+from sklearn.neural_network import MLPRegressor
 
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from nautilus import Sampler
 from nautilus.bounds import (
     Ellipsoid, NautilusBound, NeuralBound, PhaseShift, Union, UnitCube,
     UnitCubeEllipsoidMixture)
-from nautilus.neural import NeuralNetworkEmulator
+from nautilus.neural import NeuralNetworkEmulator, SiLUMLPRegressor
 
 
 @pytest.fixture
@@ -23,12 +24,15 @@ def test_neural_io(h5py_group):
 
     points = np.random.random((100, 2))
     log_l = -np.linalg.norm(points - 0.5, axis=1)
-    emulator_write = NeuralNetworkEmulator.train(points, log_l, n_networks=1,
-                                                 pool=None)
+    emulator_write = NeuralNetworkEmulator.train(
+        points, log_l, n_networks=2,
+        neural_network_kwargs=[dict(), dict(activation='silu')], pool=None)
     emulator_write.write(h5py_group)
     emulator_read = NeuralNetworkEmulator.read(h5py_group)
     assert np.all(emulator_write.predict(points) ==
                   emulator_read.predict(points))
+    assert ([type(network) for network in emulator_read.neural_networks] ==
+            [MLPRegressor, SiLUMLPRegressor])
 
 
 @pytest.mark.parametrize("bound_class", [Ellipsoid, NautilusBound, NeuralBound,
@@ -151,6 +155,29 @@ def test_sampler_io(blobs, n_like_max, discard_exploration, n_networks,
     for arr_write, arr_read in zip(posterior_write, posterior_read):
         assert np.all(arr_write == arr_read)
 
+    assert sampler_write.log_z == sampler_read.log_z
+
+    Path('test.hdf5').unlink()
+
+
+def test_sampler_io_per_network_kwargs():
+    # Test that a sampler with different settings per network can be written
+    # and read.
+
+    def prior(x):
+        return x
+
+    def likelihood(x):
+        return -np.linalg.norm(x - 0.5) * 0.001
+
+    kwargs = [dict(), dict(activation='silu')]
+    sampler_write = Sampler(prior, likelihood, n_dim=2, n_live=100,
+                            n_networks=2, neural_network_kwargs=kwargs,
+                            filepath='test.hdf5', resume=False, seed=0)
+    sampler_write.run(f_live=0.45, n_eff=1000)
+    sampler_read = Sampler(prior, likelihood, n_dim=2, n_live=100,
+                           n_networks=2, neural_network_kwargs=kwargs,
+                           filepath='test.hdf5', resume=True)
     assert sampler_write.log_z == sampler_read.log_z
 
     Path('test.hdf5').unlink()

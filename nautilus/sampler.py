@@ -52,9 +52,10 @@ class Sampler:
         Indices of the parameters that are periodic.
     n_networks : int
         Number of networks used in the estimator.
-    neural_network_kwargs : dict
+    neural_network_kwargs : dict or list of dict
         Keyword arguments passed to the constructor of
-        `sklearn.neural_network.MLPRegressor`.
+        `sklearn.neural_network.MLPRegressor`, one dictionary per network if
+        a list.
     n_batch : int
         Number of likelihood evaluations that are performed at each step.
     vectorized : bool
@@ -163,9 +164,10 @@ class Sampler:
             Indices of the parameters that are periodic. Default is `None`.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
-        neural_network_kwargs : dict or None, optional
+        neural_network_kwargs : dict, list of dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor. Default is `None`.
+            MLPRegressor. A list gives one dictionary per network. An
+            activation of 'silu' selects SiLUMLPRegressor. Default is `None`.
         prior_args : list or None, optional
             List of extra positional arguments for `prior`. Only used if
             `prior` is a function. Default is `None`.
@@ -289,6 +291,10 @@ class Sampler:
 
         if neural_network_kwargs is None:
             neural_network_kwargs = {}
+        elif (not isinstance(neural_network_kwargs, dict) and
+              len(neural_network_kwargs) != n_networks):
+            raise ValueError("If 'neural_network_kwargs' is a list, it must " +
+                             "have one dictionary per network.")
 
         self.neural_network_kwargs = neural_network_kwargs
         self.vectorized = vectorized
@@ -1305,9 +1311,14 @@ class Sampler:
                     'shell_end_exp', 'n_update_iter', 'n_like_iter']:
             group.attrs[key] = getattr(self, key)
 
-        for key in self.neural_network_kwargs:
-            group.attrs[f'neural_network_{key}'] =\
-                self.neural_network_kwargs[key]
+        if isinstance(self.neural_network_kwargs, dict):
+            for key in self.neural_network_kwargs:
+                group.attrs[f'neural_network_{key}'] =\
+                    self.neural_network_kwargs[key]
+        else:
+            for i, kwargs in enumerate(self.neural_network_kwargs):
+                for key in kwargs:
+                    group.attrs[f'neural_network_{i}_{key}'] = kwargs[key]
 
         for shell in range(len(self.bounds)):
             group.create_dataset(

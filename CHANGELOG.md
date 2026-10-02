@@ -5,6 +5,12 @@ All notable changes to nautilus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- The `neural_network_kwargs` keyword argument now also accepts a list with one dictionary per network, so that the networks of the ensemble can have different settings.
+- Networks can now use the SiLU activation function, x * sigmoid(x), via `activation='silu'`. scikit-learn's `MLPRegressor` does not offer SiLU, so such networks use the new `SiLUMLPRegressor` subclass.
+
 ## [1.0.6] - 2025-12-29
 
 ### Added
