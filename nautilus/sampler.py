@@ -911,10 +911,10 @@ class Sampler:
                                         i, b in enumerate(blobs)]
                 else:
                     self.blobs_dtype = blobs[0].dtype
-            blobs = np.squeeze(
-                np.array(list(zip(*blobs)), dtype=self.blobs_dtype))
-            if np.ndim(blobs) == 0:
-                blobs = np.asarray(blobs).reshape(1)
+            if len(blobs) == 1:
+                blobs = blobs[0].astype(self.blobs_dtype)
+            else:
+                blobs = np.array(list(zip(*blobs)), dtype=self.blobs_dtype)
 
         self.n_like += len(log_l)
 
