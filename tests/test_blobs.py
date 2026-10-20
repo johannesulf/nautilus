@@ -152,3 +152,32 @@ def test_scalar_blob_checkpoint_n_batch_one(tmp_path):
     assert resumed.n_like == sampler.n_like
     resumed.run(f_live=0.2, n_like_max=120)
     assert len(resumed.posterior(return_blobs=True)[0]) > 0
+
+
+@pytest.mark.parametrize("vectorized", [True, False])
+def test_scalar_blob_checkpoint_roundtrip_vectorized_modes(tmp_path, vectorized):
+    """Scalar blobs stay aligned across checkpoint append in both modes."""
+
+    def likelihood(x):
+        if vectorized:
+            x = np.asarray(x)
+            return -np.sum(x ** 2, axis=-1), x[:, 0]
+        x = np.asarray(x)
+        return -np.sum(x ** 2), float(x[0])
+
+    filepath = tmp_path / f"scalar_{vectorized}.hdf5"
+    sampler = Sampler(lambda x: x, likelihood, n_dim=2, n_live=20,
+                      n_batch=1, n_networks=0, seed=20261020,
+                      vectorized=vectorized, filepath=str(filepath))
+    sampler.run(f_live=0.2, n_like_max=100)
+    points, _, _, blobs = sampler.posterior(return_blobs=True)
+    assert len(points) == len(blobs)
+
+    resumed = Sampler(lambda x: x, likelihood, n_dim=2, n_live=20,
+                      n_batch=1, n_networks=0, vectorized=vectorized,
+                      filepath=str(filepath), resume=True)
+    assert resumed.n_like == sampler.n_like
+    resumed.run(f_live=0.2, n_like_max=120)
+    points, _, _, blobs = resumed.posterior(return_blobs=True)
+    assert len(points) == len(blobs)
+    assert np.allclose(points[:, 0], blobs)
