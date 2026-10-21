@@ -1318,14 +1318,10 @@ class Sampler:
             group.create_dataset(
                 f'log_l_{shell}', data=self.log_l[shell], maxshape=(None, ))
             if self.blobs is not None:
-                blob = self.blobs[shell]
-                if np.ndim(blob) == 0:
-                    blob = np.asarray(blob).reshape(1)
-                    self.blobs[shell] = blob
-                maxshape = list(blob.shape)
+                maxshape = list(self.blobs[shell].shape)
                 maxshape[0] = None
                 group.create_dataset(
-                    f'blobs_{shell}', data=blob,
+                    f'blobs_{shell}', data=self.blobs[shell],
                     maxshape=tuple(maxshape))
 
         group.create_dataset('points_t', data=self.points_t,
