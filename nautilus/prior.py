@@ -112,21 +112,9 @@ class Prior:
         except AssertionError:
             raise ValueError('Dimensionality of points does not match prior.')
 
-        close_to_zero = np.finfo(np.float64).smallest_normal
-        close_to_one = 1.-np.finfo(np.float64).epsneg
         i = 0
         for dist in self.dists:
             if hasattr(dist, 'isf'):
-                # Here we assume that if the dist has an isf
-                # that it is a scipy.stats distribution...
-                if not isinstance(dist.dist, type(uniform)):
-                    try:
-                        # Before we reach close_to_zero it seems that
-                        # some A_inv is getting singular and raises
-                        # a numpy error
-                        assert(np.all(1.-points[..., i] > close_to_zero) & np.all(1.-points[..., i] < close_to_one))
-                    except AssertionError:
-                        raise Warning("Unit hypercube is being sampled very close to its borders such that floating point roundoff errors can occur. Please double check your priors.")
                 phys_points[..., i] = dist.isf(1 - points[..., i])
                 i = i + 1
 

@@ -763,7 +763,7 @@ class Sampler:
         """Sample a batch of points uniformly from a shell.
 
         The shell at index :math:`i` is defined as the volume enclosed by the
-        bound of index :math:`i` and enclosed by not other bound of index
+        bound of index :math:`i` and enclosed by no other bound of index
         :math:`k` with :math:`k > i`.
 
         Parameters
@@ -1032,6 +1032,19 @@ class Sampler:
             if np.all(log_l >= log_l_min):
                 success = False
             else:
+                # Check for skewed distribution of points in unit hypercube,
+                # indicating strongly misaligned priors
+                how_many_skewed = 0.1
+                how_close = 1e-5
+                for j in range(points.shape[-1]):
+                    mask_skewed = (points[:,j] <= how_close) | (points[:,j] >= (1.0-how_close))
+                    num_skewed = len(points[:,j][mask_skewed])
+                    try:
+                        assert(num_skewed/points.shape[0] < how_many_skewed)
+                    except AssertionError:
+                        print(f"WARNING: Strongly skewed distribution of points in unit hypercube for parameter {j}, double check your prior for this parameter")
+
+
                 with threadpool_limits(limits=1):
                     bound = NautilusBound.compute(
                         points, log_l, log_l_min, self.log_v_live,
