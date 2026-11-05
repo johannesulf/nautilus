@@ -684,9 +684,9 @@ class Sampler:
             Estimate of the total effective sample size :math:`N_{\rm eff}`.
 
         """
-        warn("The function 'effective_sample_size' is deprecated. " +
-             "Please use the property 'n_eff', instead.",
-             DeprecationWarning, stacklevel=2)
+        msg = ("The function 'effective_sample_size' is deprecated. Please "
+               "use the property 'n_eff', instead.")
+        warn(msg, DeprecationWarning, stacklevel=2)
         return self.n_eff
 
     @property
@@ -713,8 +713,9 @@ class Sampler:
             Estimate of the global evidence :math:`\log \mathcal{Z}`.
 
         """
-        warn("The function 'evidence' is deprecated. Please use the " +
-             "property 'log_z', instead.", DeprecationWarning, stacklevel=2)
+        msg = ("The function 'evidence' is deprecated. Please use the "
+               "property 'log_z', instead.")
+        warn(msg, DeprecationWarning, stacklevel=2)
         return self.log_z
 
     @property
@@ -754,9 +755,9 @@ class Sampler:
             Estimate of the asymptotic sampling efficiency.
 
         """
-        warn("The function 'asymptotic_sampling_efficiency' is deprecated. " +
-             "Please use the property 'log_z', instead.", DeprecationWarning,
-             stacklevel=2)
+        msg = ("The function 'asymptotic_sampling_efficiency' is deprecated. "
+               "Please use the property 'log_z', instead.")
+        warn(msg, DeprecationWarning, stacklevel=2)
         return self.eta
 
     def sample_shell(self, index, shell_t=None):
@@ -1033,17 +1034,19 @@ class Sampler:
                 success = False
             else:
                 # Check for skewed distribution of points in unit hypercube,
-                # indicating strongly misaligned priors
-                how_many_skewed = 0.1
-                how_close = 1e-5
+                # indicating strongly misaligned priors.
+                fraction_skewed = 0.1
+                distance = 1e-5
                 for j in range(points.shape[-1]):
-                    mask_skewed = (points[:,j] <= how_close) | (points[:,j] >= (1.0-how_close))
-                    num_skewed = len(points[:,j][mask_skewed])
-                    try:
-                        assert(num_skewed/points.shape[0] < how_many_skewed)
-                    except AssertionError:
-                        print(f"WARNING: Strongly skewed distribution of points in unit hypercube for parameter {j}, double check your prior for this parameter")
-
+                    skewed = ((points[:, j] <= distance) | (
+                        points[:, j] >= 1.0 - distance))
+                    if np.mean(skewed) > fraction_skewed:
+                        msg = (
+                            f"For parameter {j + 1}, the live points are "
+                            "converging towards the prior boundary. This may "
+                            "lead to numerical issues. Consider adjusting "
+                            "your prior.")
+                        warn(msg, RuntimeWarning, stacklevel=2)
 
                 with threadpool_limits(limits=1):
                     bound = NautilusBound.compute(
