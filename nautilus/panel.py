@@ -7,6 +7,7 @@ from rich.live import Live
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
+
 console = Console(width=60)
 
 
