@@ -142,13 +142,13 @@ class Sampler:
         n_dim : int, optional
             Number of dimensions of the likelihood function. If not specified,
             it will be inferred from the `prior` argument. But this requires
-            `prior` to be an instance of `nautilus.Prior`. Default is `None`.
+            `prior` to be an instance of `nautilus.Prior`. Default is ``None``.
         n_live : int, optional
             Number of so-called live points. New bounds are constructed so that
             they encompass the live points. Default is 3000.
         n_update : None or int, optional
             The maximum number of additions to the live set before a new bound
-            is created. If None, use `n_live`. Default is `None`.
+            is created. If None, use `n_live`. Default is ``None``.
         enlarge_per_dim : float, optional
             Along each dimension, outer ellipsoidal bounds are enlarged by this
             factor. Default is 1.1.
@@ -156,31 +156,31 @@ class Sampler:
             The minimum number of points each ellipsoid should have.
             Effectively, ellipsoids with less than twice that number will not
             be split further. If None, uses `n_points_min = n_dim + 50`.
-            Default is `None`.
+            Default is ``None``.
         split_threshold: float, optional
             Threshold used for splitting the multi-ellipsoidal bound used for
             sampling. If the volume of the bound prior enlarging is larger than
             `split_threshold` times the target volume, the multi-ellipsiodal
             bound is split further, if possible. Default is 100.
         periodic : numpy.ndarray or None, optional
-            Indices of the parameters that are periodic. Default is `None`.
+            Indices of the parameters that are periodic. Default is ``None``.
         n_networks : int, optional
             Number of networks used in the estimator. Default is 4.
         neural_network_kwargs : dict or None, optional
             Non-default keyword arguments passed to the constructor of
-            MLPRegressor. Default is `None`.
+            MLPRegressor. Default is ``None``.
         prior_args : list or None, optional
             List of extra positional arguments for `prior`. Only used if
-            `prior` is a function. Default is `None`.
+            `prior` is a function. Default is ``None``.
         prior_kwargs : dict or None, optional
             Dictionary of extra keyword arguments for `prior`. Only used if
-            `prior` is a function. Default is `None`.
+            `prior` is a function. Default is ``None``.
         likelihood_args : list or None, optional
             List of extra positional arguments for `likelihood`. Default is
-            `None`.
+            ``None``.
         likelihood_kwargs : dict or None, optional
             Dictionary of extra keyword arguments for `likelihood`. Default is
-            `None`.
+            ``None``.
         n_batch : int or None, optional
             Number of likelihood evaluations that are performed at each step.
             If likelihood evaluations are parallelized, should be multiple

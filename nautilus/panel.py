@@ -1,4 +1,5 @@
 import time
+from shutil import get_terminal_size
 
 import numpy as np
 from rich.console import Console, Group
@@ -6,7 +7,6 @@ from rich.live import Live
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-
 console = Console(width=60)
 
 
@@ -134,9 +134,76 @@ def _create_panel(sampler, status):
     return Group(*content)
 
 
+def _print_status_classic(sampler, status='', header=False):
+    """Print current summary statistics.
+
+    Parameters
+    ----------
+    sampler : nautilus.sampler.Sampler
+        Sampler object.
+    status: string, optional
+        Status of the sampler to be printed. Default is ``''``.
+    header : bool, optional
+        If ``True``, print a static header. Default is ``False``.
+
+    """
+    if status == "Finished Exploration":
+        return
+
+    if status == "Adding Bound":
+        status = "Bounding"
+    else:
+        status = status.split(" ")[0]
+
+    if status in ["Aborted", "Finished"]:
+        end = '\n'
+    else:
+        end = '\r'
+
+    if header:
+        data = ['Status', 'Bounds', 'Ellipses', 'Networks', 'Calls',
+                'f_live', 'N_eff', 'log Z']
+    else:
+        data = [status, len(sampler.bounds)]
+        if len(sampler.bounds) > 1:
+            data.extend([sampler.bounds[-1].n_ell, sampler.bounds[-1].n_net])
+        else:
+            data.extend([0, 0])
+        data.extend([sampler.n_like, sampler.f_live, sampler.n_eff,
+                     sampler.log_z])
+
+        fmt = ['{}', '{:d}', '{:d}', '{:d}', '{:d}', '{:.4f}', '{:.0f}',
+               '{:+.2f}']
+        for i in range(len(data)):
+            data[i] = 'N/A' if data[i] is None else fmt[i].format(data[i])
+
+    for i, length in enumerate([9, 6, 8, 8, 8, 6, 5, 7]):
+        data[i] = '{:<{}}'.format(data[i], length)
+
+    output = ' | '.join(data)
+    width = get_terminal_size((80, 24)).columns
+    output = output.ljust(width)[:width]
+    print(output, end=end, flush=True)
+
+
 class LivePanel:
     def __init__(self, verbose):
+        """Initialize the live panel.
 
+        Parameters
+        ----------
+        verbose : bool or {'default', 'log', 'full', 'classic'}, optional
+            How status updates are written. If ``"default"``, the panel will
+            contiously be overwritten, i.e., only the latest status panel will
+            be shown. If ``"log"``, some intermediate results will be kept such
+            as when a shell during the exploration phase is filled up.
+            Furthermore, if ``"full"``, all panels will be shown without
+            overwriting them. Finally, ``"classic"`` corresponds to the panel
+            used in older versions of `nautilus`. If ``True``, will default to
+            ``"default"``. If ``False``, no output will appear. Default is
+            ``True``.
+
+        """
         if verbose not in [True, False, "classic", "default", "log", "full"]:
             msg = f"Unkown `verbose` value '{verbose}'."
             raise ValueError(msg)
@@ -147,13 +214,28 @@ class LivePanel:
         self.verbose = verbose
         self.live = None
 
-    def update(self, sampler, status, final=False):
+        if self.verbose == "classic":
+            _print_status_classic(None, header=True)
 
+    def update(self, sampler, status, final=False):
+        """Update the status of he panel.
+
+        Parameters
+        ----------
+        sampler : nautilus.sampler.Sampler
+            Sampler object.
+        status : string
+            Status description.
+        final : bool, optional
+            Whether the panel should be kept. Only used if `verbose` is
+            ``"log"``. Default is ``False``.
+
+        """
         if not self.verbose:
             return
 
         if self.verbose == "classic":
-            print("...")
+            _print_status_classic(sampler, status)
             return
 
         panel = _create_panel(sampler, status)
